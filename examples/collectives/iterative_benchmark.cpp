@@ -14,7 +14,7 @@
  * 
  * The application structure is as follows:
  * 
- *    ______________________P2P handle__________-______________
+ *    ______________________P2P handle_________________________
  *   |                                                         |
  *   v            | --> Worker1 (App2) --> |                   |
  * Emitter -----> |        ...             | ----> Collector --
@@ -165,7 +165,6 @@ void generate_configuration(int num_workers) {
     doc.Accept(writer);
 }
 
-#if 1
 void Emitter(const std::string& bcast, const std::string& broot, const int iterations, size_t size) {
 
 	// Waiting for Collector
@@ -209,53 +208,6 @@ void Emitter(const std::string& bcast, const std::string& broot, const int itera
 	h.close();
 	hg.close();
 }
-#else
-// QUESTA FUNZIONA, COSI' COME FUNZIONE SE FACCIO LA PROBE ALL'ULTIMA ITERAZIONE (nel for).
-void Emitter(const std::string& bcast, const std::string& broot, const int iterations, size_t size) {
-
-	// Waiting for Collector
-	auto fbk = Manager::getNext();
-	if (!fbk.isValid()) {
-		MTCL_ERROR("[Emitter]:\t", "Manager::getNext, invalid feedback handle\n");
-		return;
-	}
-	auto hg = Manager::createTeam(bcast, broot, BROADCAST);
-	if (hg.isValid()) {
-		MTCL_PRINT(0,"[Emitter]:\t", "Emitter starting\n");
-	} else {
-		MTCL_ERROR("[Emitter]:\t", "Manager::createTeam for BROADCAST, ERROR\n");
-		return;
-	}
-
-	for(int i=0; i< iterations; ++i) {
-		MTCL_PRINT(0, "[Emitter]:\t", "starting iteration %d, size=%ld\n", i, size);
-		char *data = new char[size]();
-		hg.sendrecv(data, size, nullptr, 0);		   			
-		// Receive result from feedback channel
-		int res;
-		if (fbk.receive(&res, sizeof(int)) <= 0) {
-			MTCL_ERROR("[Emitter]:\t", "receive from feedback ERROR\n");
-			return;
-		}
-		if (res != COLLECTOR_RANK) {
-			MTCL_ERROR("[Emitter]:\t", "receive from feedback, WRONG DATA\n");
-			return;
-		}
-		
-		delete [] data;
-		size = size << 1;
-		MTCL_PRINT(0, "[Emitter]:\t", "done iteration %d\n", i);
-	}
-	hg.close();
-	size_t sz;
-	fbk.probe(sz);
-	if (sz != 0) {
-		assert(1==0);
-	}
-	fbk.close();
-}
-#endif
-
 
 void Worker(const std::string& bcast, const std::string& gather,
 			const std::string& broot, const std::string& groot,
@@ -388,6 +340,6 @@ int main(int argc, char** argv){
 		}
 	}
 	
-    Manager::finalize(false); //true);
+    Manager::finalize(true); 
     return 0;
 }
