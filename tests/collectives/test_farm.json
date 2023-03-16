@@ -1,0 +1,26 @@
+{
+    "components" : [
+        {
+            "name" : "App1",
+            "host" : "localhost",
+            "protocols" :  ["TCP"],
+            "listen-endpoints" : ["TCP:0.0.0.0:42000"]
+        },
+        {
+            "name" : "App2",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "App3",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "App4",
+            "host" : "localhost",
+            "protocols" : ["TCP"],
+            "listen-endpoints" : ["TCP:0.0.0.0:42001"]
+        }
+    ]
+}

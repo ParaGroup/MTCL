@@ -1,0 +1,23 @@
+{
+    "pools" : [
+        {
+            "name": "openhpc2",
+            "proxyIp" : ["131.114.142.232", "172.16.2.254"],
+            "nodes" : ["compute1", "compute2"]
+	}
+    ],
+
+    "components" : [
+        {
+            "name" : "Server",
+            "host" : "openhpc2:compute1",
+            "protocols" :  ["TCP"],
+            "listen-endpoints" : ["TCP:compute1:42000"]
+        },
+        {
+            "name" : "Client",
+            "host" : "repara",
+            "protocols" : ["TCP"]
+        }
+    ]
+}

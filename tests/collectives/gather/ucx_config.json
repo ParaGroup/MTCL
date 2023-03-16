@@ -1,0 +1,25 @@
+{
+    "components" : [
+        {
+            "name" : "App1",
+            "host" : "localhost",
+            "protocols" :  ["UCX"],
+            "listen-endpoints" : ["UCX:0.0.0.0:10000"]
+        },
+        {
+            "name" : "App2",
+            "host" : "localhost",
+            "protocols" : ["UCX"]
+        },
+        {
+            "name" : "App3",
+            "host" : "localhost",
+            "protocols" : ["UCX"]
+        },
+        {
+            "name" : "App4",
+            "host" : "localhost",
+            "protocols" : ["UCX"]
+        }
+    ]
+}

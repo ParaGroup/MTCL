@@ -1,0 +1,33 @@
+{
+    "pools" : [
+        {
+            "name": "openhpc2",
+            "proxyIp" : ["131.x.x.x", "114.0.x.x"],
+            "nodes" : ["compute1", "compute2"]
+        },{
+            "name" : "hpc8000",
+            "proxyIp" : ["x.x.x.x"],
+            "nodes" : ["node1", "node2"]
+        }
+    ],
+
+    "components" : [
+        {
+            "name" : "App0",
+            "host" : "openhpc2:compute4",
+            "protocols" : ["MPIP2P", "TCP", "MQTT"],
+            "listen-endpoints" : ["MQTT:app0_mqtt", "TCP:0.0.0.0:8000", "MPIP2P:stringaacaso"]
+        },
+        {
+            "name" : "AppX",
+            "host" : "hpc8000:node3",
+            "protocols" : ["TCP"]
+        }
+    ]
+
+
+
+}
+
+// AppX
+Manager::connect("App0:TCP:0.0.0.0:8000")

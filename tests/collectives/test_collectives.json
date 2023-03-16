@@ -1,0 +1,32 @@
+{
+    "components" : [
+        {
+            "name" : "App1",
+            "host" : "localhost",
+            "protocols" :  ["TCP", "UCX", "MPI"],
+            "listen-endpoints" : ["TCP:0.0.0.0:13000", "MPI:0:10", "UCX:0.0.0.0:42000"]
+        },
+        {
+            "name" : "App2",
+            "host" : "localhost",
+            "protocols" : ["TCP", "UCX"]
+        },
+        {
+            "name" : "App3",
+            "host" : "localhost",
+            "protocols" : ["UCX", "TCP", "MPI"],
+            "listen-endpoints" : ["TCP:0.0.0.0:42001"]
+        },
+        {
+            "name" : "App4",
+            "host" : "localhost",
+            "protocols" : ["UCX", "TCP", "MPI"]
+        }
+    ],
+    "groups": [
+        {
+            "name": "groupID",
+            "participants": "App1:App2:App3"
+        }
+    ]
+}

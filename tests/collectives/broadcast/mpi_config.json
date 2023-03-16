@@ -1,0 +1,25 @@
+{
+    "components" : [
+        {
+            "name" : "App1",
+            "host" : "localhost",
+            "protocols" :  ["MPI"],
+            "listen-endpoints" : ["MPI:0:10"]
+        },
+        {
+            "name" : "App2",
+            "host" : "localhost",
+            "protocols" : ["MPI"]
+        },
+        {
+            "name" : "App3",
+            "host" : "localhost",
+            "protocols" : ["MPI"]
+        },
+        {
+            "name" : "App4",
+            "host" : "localhost",
+            "protocols" : ["MPI"]
+        }
+    ]
+}
