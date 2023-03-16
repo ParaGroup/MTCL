@@ -13,6 +13,7 @@ enum HandleType {
     FANOUT,
     GATHER,
     P2P,
+    PROXY,
     INVALID_TYPE
 };
 

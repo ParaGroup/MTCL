@@ -4,7 +4,7 @@ endif
 
 # all local example files do not use collectives
 CXXFLAGS  += -std=c++17
-INCS       = -I ../include
+INCS       = -I ../include -I ${RAPIDJSON_HOME}/include
 
 ifdef DEBUG
 	OPTIMIZE_FLAGS  += -g -fno-inline-functions

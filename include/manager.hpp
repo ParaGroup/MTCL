@@ -528,14 +528,18 @@ public:
 					handle = protocolsMap[protocol]->connect(ip + ":" + (protocol == "UCX" ? "13001" : "13000"), retry, timeout);
                                 //handle->send(s.c_str(), s.length());
                                 if (handle){
-					handle->send(s.c_str(), s.length());
-				       	return handle;
-				}
+                                    handle->type = HandleType::PROXY;
+                                    //handle->send(s.c_str(), s.length());
+                                        return handle;
+                                }
                                }
                             } else {
                                 auto* handle = protocolsMap[protocol]->connect("PROXY-" + pool, retry, timeout);
-                                handle->send(s.c_str(), s.length());
-                                if (handle) return handle;
+                                //handle->send(s.c_str(), s.length());
+                                if (handle) {
+                                    handle->type = HandleType::PROXY;
+                                    return handle;
+                                }
                             }
                         }
                     
@@ -543,13 +547,19 @@ public:
                             if (protocol == "UCX" || protocol == "TCP"){
                                for (auto& ip: pools[poolName].first){
 								   auto* handle = protocolsMap[protocol]->connect(ip + ":" + (protocol == "UCX" ? "13001" : "13000"), retry, timeout);
-                                handle->send(s.c_str(), s.length());
-                                if (handle) return handle;
+                                //handle->send(s.c_str(), s.length());
+                                if (handle) {
+                                    handle->type = HandleType::PROXY;
+                                    return handle;
+                                }
                                }
                             } else {
                                 auto* handle = protocolsMap[protocol]->connect("PROXY-" + poolName, retry, timeout);
-                                handle->send(s.c_str(), s.length());
-                                if (handle) return handle;
+                                //handle->send(s.c_str(), s.length());
+                                if (handle) {
+                                    handle->type = HandleType::PROXY;
+                                    return handle;
+                                }
                             }
                         }
                         return nullptr;
@@ -790,6 +800,15 @@ public:
 						   errno, strerror(errno));
                 return HandleUser();				
 			}
+
+            if (handle->type == HandleType::PROXY){
+                if (handle->send(s.c_str(), s.length())==-1){
+                    MTCL_ERROR("[Manager]:\t", "PROXY handshake error, errno=%d (%s)\n",
+						   errno, strerror(errno));
+                    return HandleUser();				
+                }
+                handle->type = HandleType::P2P;
+            }
         }
 		
         return HandleUser(handle, true, true);

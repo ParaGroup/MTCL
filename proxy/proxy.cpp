@@ -9,7 +9,7 @@
 #include <rapidjson/document.h>
 #include "bimap.hpp"
 
-#include "../mtcl.hpp"
+#include "mtcl.hpp"
 #define PROXY_CLIENT_PORT 13000
 #define PROXY_CLIENT_PORT_UCX 13001
 #define PROXY_PORT 8002 // solo tra proxy
