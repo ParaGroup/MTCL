@@ -249,6 +249,8 @@ int main(int argc, char** argv){
                             loc2connID.insert(newHandle.getID(), identifier);
                             newHandle.yield();
                             id2handle.emplace(newHandle.getID(), std::move(newHandle));
+                            h.yield();
+                            connid2proxy.emplace(identifier, toHeap(std::move(h)));
                             found = true;
                             break;
                         }
