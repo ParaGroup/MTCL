@@ -171,7 +171,9 @@ int main(int argc, char** argv){
                 MTCL_PRINT(0, "[PROXY]", "Received a new connection from proxy (before reading)\n");
 
                 size_t sz;
-                h.probe(sz, true);
+                if (h.probe(sz, true) <= 0){
+                    MTCL_PRINT(0, "[PROXY][ERROR]", "Probe error on new connection from proxy\n");
+                }
                 char* buff = new char[sz+1];
                 h.receive(buff, sz);
                 buff[sz] = '\0';
@@ -188,7 +190,9 @@ int main(int argc, char** argv){
             }
 
             size_t sz;
-            h.probe(sz);
+            if (h.probe(sz) < 0){
+                MTCL_PRINT(0, "[PROXY][ERROR]", "Probe error on receive form proxy\n");
+            };
             char* buff = new char[sz];
             h.receive(buff, sz);
 
@@ -264,7 +268,10 @@ int main(int argc, char** argv){
                 // read destination PORTOCOL:ComponentName
 
                 size_t sz;
-                h.probe(sz);
+                if (h.probe(sz) <= 0){
+                    MTCL_PRINT(0, "[PROXY][ERROR]", "Probe return 0 or -1 for a new connection not from a proxy\n");
+                    continue;
+                }
                 char* destComponentName = new char[sz];
                 h.receive(destComponentName, sz);
 
@@ -337,7 +344,9 @@ int main(int argc, char** argv){
 
             handleID_t connId = h.getID();
             size_t sz;
-            h.probe(sz);
+            if (h.probe(sz) < 0){
+                MTCL_PRINT(0, "[PROXY][ERROR]", "Probe error on receive form direct client\n");
+            };
             if (sz == 0){
                 std::cout << "Received EOS from a direct client\n";
                 if (loc2connID.has_key(connId)){ // if the connection is a multi hop send EOS cmd to the next proxy and cleanup 
