@@ -143,7 +143,7 @@ int main(int argc, char** argv){
                 // check if there is a ":", it means there is a port_; in this case do not add the default PROXY_PORT
                 auto h = Manager::connect("P:" + addr + (addr.find(":") == std::string::npos ? ":" + std::to_string(PROXY_PORT) : ""));
                 if (h.isValid()) {
-                    MTCL_PRINT(0, "[PROXY] Connected to PROXY of %s (connection string: %s)", name.c_str(), addr.c_str());
+                    MTCL_PRINT(0, "[PROXY]"," Connected to PROXY of %s (connection string: %s)\n", name.c_str(), addr.c_str());
                     
                     // send cmd: PRX - ID: 0 - Payload: {pool name} to the just connected proxy
                     char* buff = new char[sizeof(cmd_t) + sizeof(size_t) + pool.length()];
@@ -156,7 +156,7 @@ int main(int argc, char** argv){
                     // save the proxy handle to perform future writes
                     proxies[name] = toHeap(std::move(h));
                 } else {
-                    MTCL_PRINT(0, "[PROXY][ERROR] Cannot connect to PROXY of %s (connection string: %s)", name.c_str(), addr.c_str());
+                    MTCL_PRINT(0, "[PROXY]","[ERROR] Cannot connect to PROXY of %s (connection string: %s)\n", name.c_str(), addr.c_str());
                 }
             }
         }
@@ -168,7 +168,8 @@ int main(int argc, char** argv){
         // the handle represent a PROXY-2-PROXY connection
         if (Manager::getTypeOfHandle(h) == "P"){
             if (h.isNewConnection()){ // new incoming PROXY connection
-    
+                MTCL_PRINT(0, "[PROXY]", "Received a new connection from proxy (before reading)\n");
+
                 size_t sz;
                 h.probe(sz, true);
                 char* buff = new char[sz+1];
@@ -182,7 +183,7 @@ int main(int argc, char** argv){
                 h.yield();
                 proxies[poolName] = toHeap(std::move(h));
                 delete [] buff;
-                MTCL_PRINT(0, "[PROXY] Received a new connection from proxy of pool: %s", poolName.c_str());
+                MTCL_PRINT(0, "[PROXY]", "Received a new connection from proxy of pool: %s\n", poolName.c_str());
                 continue;
             }
 
@@ -198,6 +199,8 @@ int main(int argc, char** argv){
             size_t size = sz - sizeof(char) - sizeof(size_t); // actual payload size
 
             if (cmd == cmd_t::EOS){
+                MTCL_PRINT(0, "[PROXY]", "Received a EOS from a remote peer\n");
+
                 if (loc2connID.has_value(identifier)){
                     handleID_t hID_ = loc2connID.get_key(identifier);
                     auto& h_ = id2handle.at(hID_);
@@ -223,6 +226,7 @@ int main(int argc, char** argv){
                 std::string componentName = connectionString.substr(connectionString.find(':')+1); // just component name without protocol
                 std::string protocol = connectionString.substr(0, connectionString.find(':')); // just protocol without component name
 
+                MTCL_PRINT(0, "[PROXY]", "Received a connection directed to %s with protocol %s\n", componentName.c_str(), protocol.c_str());
                 // check that the component name actually exists in the configuration file
                 if (!components.count(componentName)){
                     std::cerr << "Component name ["<< componentName << "] not found in configuration file\n";
@@ -267,7 +271,7 @@ int main(int argc, char** argv){
                 std::string connectString(destComponentName, sz);
                 std::string componentName = connectString.substr(connectString.find(':')+1);
 
-                MTCL_PRINT(0, "[PROXY]", "Recieved a connection directed to %s", connectString.c_str());
+                MTCL_PRINT(0, "[PROXY]", "Recieved a connection directed to %s\n", connectString.c_str());
 
                 if (!components.count(componentName)){
                     std::cerr << "Component name ["<< componentName << "] not found in configuration file\n";
@@ -316,7 +320,7 @@ int main(int argc, char** argv){
                     memcpy(buff+sizeof(cmd_t), &identifier, sizeof(connID_t));
                     memcpy(buff+sizeof(cmd_t)+sizeof(connID_t), connectString.c_str(), connectString.length());
                     if (!proxies.count(poolOfDestination)){
-                        MTCL_PRINT(0, "[PROXY]", "Pool of destination [%s] not found in the list of available pools", poolOfDestination.c_str());
+                        MTCL_PRINT(0, "[PROXY]", "Pool of destination [%s] not found in the list of available pools\n", poolOfDestination.c_str());
                         continue; // check if its enough to continue
                     }
                     proxies[poolOfDestination]->send(buff, sizeof(cmd_t)+sizeof(handleID_t)+connectString.length());
