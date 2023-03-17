@@ -65,12 +65,12 @@ std::vector<std::string> JSONArray2VectorString(const rapidjson::GenericArray<B,
     return output;
 }
 
-void parseConfig(const std::string& f){
+int parseConfig(const std::string& f){
     std::ifstream ifs(f);
     if ( !ifs.is_open() ) {
         MTCL_ERROR("[Manager]:\t", "parseConfig: cannot open file %s for reading, skip it\n",
                     f.c_str());
-        return;
+        return -1;
     }
     rapidjson::IStreamWrapper isw { ifs };
     rapidjson::Document doc;
@@ -104,32 +104,33 @@ void parseConfig(const std::string& f){
             } else
                     MTCL_ERROR("[Manager]:\t", "parseConfig: an object in components is not well defined. Skipping it.\n");
     }
+    return 0;
 }
-/*
-    Connect verso proxy ---> pool e ip
-    Accept da proxy ---> ricevo pool -> 
-
-*/
 
 int main(int argc, char** argv){
+    if (argc < 3){
+        std::cerr << "Usage: " << argv[0] << " poolName  configFile" << std::endl;
+        return -1;
+    }
+
     std::string pool(argv[1]);
     Manager::registerType<ConnTcp>("P");
     Manager::init("PROXY");
 
-    // parse file config che prendo da argv[2]
-    parseConfig(std::string(argv[2]));
+    // parse file config
+    if (parseConfig(std::string(argv[2])) < 0)
+        return -1;
+
     Manager::listen("TCP:0.0.0.0:" + std::to_string(PROXY_CLIENT_PORT));
     Manager::listen("MQTT:PROXY-" + pool);
     Manager::listen("MPIP2P:PROXY-" + pool);
     Manager::listen("UCX:0.0.0.0:" + std::to_string(PROXY_CLIENT_PORT_UCX));
     Manager::listen("P:0.0.0.0:" + std::to_string(PROXY_PORT));
 
-    
-
-    // check esistenza pool
+    // check if the passed pool as argument actually exists in the configuration file
     if (!pools.count(pool)){
-        std::cerr << "Errore, pool non trovato!\n";
-        abort();
+        std::cerr << "Pool not found in configuration File!\n";
+        return -1;
     }
 
     // connect to other proxies
@@ -142,8 +143,9 @@ int main(int argc, char** argv){
                 // check if there is a ":", it means there is a port_; in this case do not add the default PROXY_PORT
                 auto h = Manager::connect("P:" + addr + (addr.find(":") == std::string::npos ? ":" + std::to_string(PROXY_PORT) : ""));
                 if (h.isValid()) {
-
-                    // send cmd: PRX - ID: 0 - Payload: {pool name}
+                    MTCL_PRINT(0, "[PROXY] Connected to PROXY of %s (connection string: %s)", name.c_str(), addr.c_str());
+                    
+                    // send cmd: PRX - ID: 0 - Payload: {pool name} to the just connected proxy
                     char* buff = new char[sizeof(cmd_t) + sizeof(size_t) + pool.length()];
                     buff[0] = cmd_t::PRX;
                     memset(buff+1, 0, sizeof(size_t));
@@ -151,42 +153,49 @@ int main(int argc, char** argv){
                     h.send(buff, sizeof(cmd_t) + sizeof(size_t) + pool.length());
 
                     h.yield();
+                    // save the proxy handle to perform future writes
                     proxies[name] = toHeap(std::move(h));
+                } else {
+                    MTCL_PRINT(0, "[PROXY][ERROR] Cannot connect to PROXY of %s (connection string: %s)", name.c_str(), addr.c_str());
                 }
             }
         }
 
+    // this is kind of an event loop
     while(true){
         auto h = Manager::getNext();
         
+        // the handle represent a PROXY-2-PROXY connection
         if (Manager::getTypeOfHandle(h) == "P"){
-            if (h.isNewConnection()){
-                // nuovo proxy
+            if (h.isNewConnection()){ // new incoming PROXY connection
+    
                 size_t sz;
                 h.probe(sz, true);
                 char* buff = new char[sz+1];
                 h.receive(buff, sz);
                 buff[sz] = '\0';
                 std::string poolName;
-                if (buff[0] == cmd_t::PRX)
+                if (buff[0] == cmd_t::PRX) //if cmd is PRX, read the poolName from the payload
                     poolName = std::string(buff+sizeof(size_t)+sizeof(char));
                 
+                // yield the connection and save the handle to perform future writes
+                h.yield();
                 proxies[poolName] = toHeap(std::move(h));
                 delete [] buff;
+                MTCL_PRINT(0, "[PROXY] Received a new connection from proxy of pool: %s", poolName.c_str());
                 continue;
             }
+
             size_t sz;
             h.probe(sz);
             char* buff = new char[sz];
             h.receive(buff, sz);
 
-
+            // parse the PROXY-2-PROXY header fields
             cmd_t cmd = (cmd_t)buff[0];
             connID_t identifier = *reinterpret_cast<connID_t*>(buff+sizeof(char));
-
-            
             char* payload = buff + sizeof(char) + sizeof(size_t);
-            size_t size = sz - sizeof(char) - sizeof(size_t);
+            size_t size = sz - sizeof(char) - sizeof(size_t); // actual payload size
 
             if (cmd == cmd_t::EOS){
                 if (loc2connID.has_value(identifier)){
@@ -210,22 +219,24 @@ int main(int argc, char** argv){
            }
 
            if (cmd == cmd_t::CONN){
-                std::string connectionString(payload, size); // TCP:Appname
-                std::string componentName = connectionString.substr(connectionString.find(':')+1);
+                std::string connectionString(payload, size); // something like: TCP:Appname, UCX:AppName
+                std::string componentName = connectionString.substr(connectionString.find(':')+1); // just component name without protocol
+                std::string protocol = connectionString.substr(0, connectionString.find(':')); // just protocol without component name
 
+                // check that the component name actually exists in the configuration file
                 if (!components.count(componentName)){
                     std::cerr << "Component name ["<< componentName << "] not found in configuration file\n";
                     continue;
                 }
 
+                // retrieve the list of endpoints in which the destination is listening on
                 auto& componentInfo = components[componentName];
-                std::string protocol = connectionString.substr(0, connectionString.find(':'));
                 std::vector<std::string>& listen_endpoints = std::get<2>(componentInfo);
 
                 bool found = false;
                 for (auto& le : listen_endpoints)
                     if (le.find(protocol) != std::string::npos){
-                        auto newHandle = Manager::connect(le);
+                        auto newHandle = Manager::connect(le); // connect to the final destination directly following the protocol specified
                         if (newHandle.isValid()){
                             loc2connID.insert(newHandle.getID(), identifier);
                             newHandle.yield();
@@ -237,14 +248,14 @@ int main(int argc, char** argv){
                 
                 if (!found){
                     std::cerr << "Protocol specified ["<<protocol<<"] not supported by the remote peer ["<< componentName <<"]\n";
-                    // TODO: manda indietro errore al proxy di orgine 
+                    // TODO: manda indietro errore al proxy di orgine...
                 }
            }
             
             delete [] buff;
         
             continue;
-        } else {
+        } else { // receive something from a component (NOT A PROXY!)
             if (h.isNewConnection()){
                 // read destination PORTOCOL:ComponentName
 
@@ -255,6 +266,8 @@ int main(int argc, char** argv){
 
                 std::string connectString(destComponentName, sz);
                 std::string componentName = connectString.substr(connectString.find(':')+1);
+
+                MTCL_PRINT(0, "[PROXY]", "Recieved a connection directed to %s", connectString.c_str());
 
                 if (!components.count(componentName)){
                     std::cerr << "Component name ["<< componentName << "] not found in configuration file\n";
@@ -296,11 +309,16 @@ int main(int argc, char** argv){
                         }
                     }
                 } else { // pool of destination non-empty
+                    std::cout << "The connection is actually a multi-hop proxy communication\n";
                     char* buff = new char[sizeof(cmd_t)+sizeof(handleID_t)+connectString.length()];
                     buff[0] = cmd_t::CONN;
                     connID_t identifier = std::hash<std::string>{}(connectString + pool + std::to_string(h.getID()));
                     memcpy(buff+sizeof(cmd_t), &identifier, sizeof(connID_t));
                     memcpy(buff+sizeof(cmd_t)+sizeof(connID_t), connectString.c_str(), connectString.length());
+                    if (!proxies.count(poolOfDestination)){
+                        MTCL_PRINT(0, "[PROXY]", "Pool of destination [%s] not found in the list of available pools", poolOfDestination.c_str());
+                        continue; // check if its enough to continue
+                    }
                     proxies[poolOfDestination]->send(buff, sizeof(cmd_t)+sizeof(handleID_t)+connectString.length());
                     loc2connID.insert(h.getID(), identifier);
                     connid2proxy.emplace(identifier, proxies[poolOfDestination]);
@@ -311,39 +329,43 @@ int main(int argc, char** argv){
 		        continue;
             }
 
+            // receive something from a component but its not a new connection
+
             handleID_t connId = h.getID();
             size_t sz;
             h.probe(sz);
             if (sz == 0){
-
-                if (loc2connID.has_key(connId)){
+                std::cout << "Received EOS from a direct client\n";
+                if (loc2connID.has_key(connId)){ // if the connection is a multi hop send EOS cmd to the next proxy and cleanup 
                     char buffer[sizeof(cmd_t)+sizeof(connID_t)];
                     buffer[0] = cmd_t::EOS;
                     connID_t connectionID = loc2connID.get_value(connId);
                     memcpy(buffer+sizeof(cmd_t), &connectionID, sizeof(connID_t));
                     connid2proxy[connectionID]->send(buffer, sizeof(buffer));
 
+                    // if the connection is closed both side we can cleanup everything related to the connection
                     if (h.isClosed() == std::make_pair(true, true)){
                         loc2connID.erase_key(connId);
                         connid2proxy.erase(connectionID);
                         id2handle.erase(connId);
                     }
-                }
-                
-                const auto& dest = proc2proc.find(connId);
-                if (dest != proc2proc.end()){
-                    id2handle[dest->second].close();
+                } else { // the connection is a single hop 
+                    const auto& dest = proc2proc.find(connId);
+                    if (dest != proc2proc.end()){
+                        id2handle[dest->second].close();
 
-                    if (id2handle[dest->second].isClosed() == std::make_pair(true, true)){
-                        proc2proc.erase(dest->second);
-                        id2handle.erase(dest->second);
+                        if (id2handle[dest->second].isClosed() == std::make_pair(true, true)){
+                            proc2proc.erase(dest->second);
+                            id2handle.erase(dest->second);
+                        }
                     }
                 }
 
                 continue;
             }
+
             char* buffer = new char[sizeof(cmd_t)+sizeof(connID_t)+sz];
-            h.receive(buffer+sizeof(cmd_t)+sizeof(connID_t), sz);
+            h.receive(buffer+sizeof(cmd_t)+sizeof(connID_t), sz); // write on the right side of the buffer
 
             if (loc2connID.has_key(connId)){
                 buffer[0] = cmd_t::FWD;
@@ -361,9 +383,10 @@ int main(int argc, char** argv){
             }
 
             std::cerr << "Received something from a old connection that i cannot handle! :(\n";
+            delete [] buffer;
         }
     }
 
-    Manager::finalize();
+    Manager::finalize(true);
     return 0;
 }
