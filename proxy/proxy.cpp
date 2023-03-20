@@ -10,6 +10,9 @@
 #include "bimap.hpp"
 
 #include "mtcl.hpp"
+
+#define PROXYPROXYMQTT
+
 #define PROXY_CLIENT_PORT 13000
 #define PROXY_CLIENT_PORT_UCX 13001
 #define PROXY_PORT 8002 // solo tra proxy
@@ -114,7 +117,12 @@ int main(int argc, char** argv){
     }
 
     std::string pool(argv[1]);
+#ifdef PROXYPROXYMQTT
+    Manager::registerType<ConnMQTT>("P");
+#else
     Manager::registerType<ConnTcp>("P");
+#endif
+
     Manager::init("PROXY");
 
     // parse file config
@@ -125,8 +133,12 @@ int main(int argc, char** argv){
     Manager::listen("MQTT:PROXY-" + pool);
     Manager::listen("MPIP2P:PROXY-" + pool);
     Manager::listen("UCX:0.0.0.0:" + std::to_string(PROXY_CLIENT_PORT_UCX));
-    Manager::listen("P:0.0.0.0:" + std::to_string(PROXY_PORT));
 
+#ifdef PROXYPROXYMQTT
+    Manager::listen("P:PROXYPROXY-" + pool);
+#else
+    Manager::listen("P:0.0.0.0:" + std::to_string(PROXY_PORT));
+#endif
     // check if the passed pool as argument actually exists in the configuration file
     if (!pools.count(pool)){
         std::cerr << "Pool not found in configuration File!\n";
