@@ -249,7 +249,7 @@ public:
             if(msg->get_topic() == new_connection_topic) {
                 
                 mqtt::client* aux_cli =
-                    new mqtt::client(this.server_address,
+                    new mqtt::client(server_address,
                         msg->to_string().append(MQTT_IN_SUFFIX));
                 createClient(msg->to_string().append(MQTT_IN_SUFFIX), aux_cli);
 
