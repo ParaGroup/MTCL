@@ -147,8 +147,8 @@ private:
 
     void createClient(mqtt::string topic, mqtt::client *aux_cli) {
         auto aux_connOpts = mqtt::connect_options_builder()
-            .user_name(topic)
-            .password("passwd")
+            .user_name(MQTT_USERNAME)
+            .password(MQTT_PASSWORD)
             .keep_alive_interval(std::chrono::seconds(30))
             .automatic_reconnect(std::chrono::seconds(2), std::chrono::seconds(30))
             .clean_session(false)
@@ -166,7 +166,7 @@ private:
     }
 
 protected:
-    
+    std::string server_address{MQTT_SERVER_ADDRESS};
     mqtt::client *newConnClient;
 
     std::atomic<bool> finalized = false;
@@ -182,13 +182,15 @@ public:
 
     int init(std::string s) {
         appName = s + ":";
-		std::string server_address{MQTT_SERVER_ADDRESS};
+		
 		char *addr;
 		if ((addr=getenv("MQTT_SERVER_ADDRESS")) != NULL) {
 			server_address = std::string(addr);
 		}
         newConnClient = new mqtt::client(server_address, appName);
         auto connOpts = mqtt::connect_options_builder()
+            .user_name(MQTT_USERNAME)
+            .password(MQTT_PASSWORD)
             .keep_alive_interval(std::chrono::seconds(30))
             .automatic_reconnect(std::chrono::seconds(2), std::chrono::seconds(30))
             .clean_session(true)
@@ -247,7 +249,7 @@ public:
             if(msg->get_topic() == new_connection_topic) {
                 
                 mqtt::client* aux_cli =
-                    new mqtt::client(MQTT_SERVER_ADDRESS,
+                    new mqtt::client(this.server_address,
                         msg->to_string().append(MQTT_IN_SUFFIX));
                 createClient(msg->to_string().append(MQTT_IN_SUFFIX), aux_cli);
 
@@ -316,10 +318,12 @@ public:
         mqtt::string topic_out = topic+MQTT_OUT_SUFFIX;
         mqtt::string topic_in = topic+MQTT_IN_SUFFIX;
 
-        mqtt::client *client = new mqtt::client(MQTT_SERVER_ADDRESS, topic);
+        mqtt::client *client = new mqtt::client(server_address, topic);
         mqtt::connect_options connOpts;
 	    connOpts.set_keep_alive_interval(20);
         connOpts.set_clean_session(true);
+        connOpts.set_user_name(MQTT_USERNAME);
+        connOpts.set_password(MQTT_PASSWORD);
 
         client->connect(connOpts);
         client->subscribe({topic_out/*, topic_out+MQTT_EXIT_TOPIC*/}, {0/*,0*/});

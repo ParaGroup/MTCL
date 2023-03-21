@@ -11,7 +11,11 @@
 
 #include "mtcl.hpp"
 
-#define PROXYPROXYMQTT
+//#define PROXYPROXYMQTT
+
+#ifdef PROXYPROXYMQTT
+#include "protocols/mqtt.hpp"
+#endif
 
 #define PROXY_CLIENT_PORT 13000
 #define PROXY_CLIENT_PORT_UCX 13001
@@ -117,13 +121,14 @@ int main(int argc, char** argv){
     }
 
     std::string pool(argv[1]);
+
 #ifdef PROXYPROXYMQTT
     Manager::registerType<ConnMQTT>("P");
 #else
     Manager::registerType<ConnTcp>("P");
 #endif
 
-    Manager::init("PROXY");
+    Manager::init("PROXY-"+pool);
 
     // parse file config
     if (parseConfig(std::string(argv[2])) < 0)
@@ -152,8 +157,12 @@ int main(int argc, char** argv){
             for(auto& addr : val.first){
                 ///if (add == mioaddr) continue; ## TODO!!
                 
+#ifdef PROXYPROXYMQTT
+                auto h = Manager::connect("P:PROXYPROXY-"+name);
+#else
                 // check if there is a ":", it means there is a port_; in this case do not add the default PROXY_PORT
                 auto h = Manager::connect("P:" + addr + (addr.find(":") == std::string::npos ? ":" + std::to_string(PROXY_PORT) : ""));
+#endif
                 if (h.isValid()) {
                     MTCL_PRINT(0, "[PROXY]"," Connected to PROXY of %s (connection string: %s)\n", name.c_str(), addr.c_str());
                     
@@ -167,6 +176,7 @@ int main(int argc, char** argv){
                     h.yield();
                     // save the proxy handle to perform future writes
                     proxies[name] = toHeap(std::move(h));
+                    break;
                 } else {
                     MTCL_PRINT(0, "[PROXY]","[ERROR] Cannot connect to PROXY of %s (connection string: %s)\n", name.c_str(), addr.c_str());
                 }
