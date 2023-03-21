@@ -104,19 +104,21 @@ $(function() {
 <div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;<span class="keyword">const</span> std::string MQTT_MANAGER_PSWD{<span class="stringliteral">&quot;manager_passwd&quot;</span>};</div>
 <div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;<span class="keyword">const</span> std::string MQTT_CONNECTION_TOPIC{<span class="stringliteral">&quot;-new_connection&quot;</span>};</div>
 <div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;<span class="keyword">const</span> std::string MQTT_EXIT_TOPIC {<span class="stringliteral">&quot;-exit&quot;</span>};</div>
-<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;<span class="comment">// default broker address if not otherwise provided</span></div>
-<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;<span class="keyword">const</span> std::string MQTT_SERVER_ADDRESS{ <span class="stringliteral">&quot;tcp://localhost:1883&quot;</span> };</div>
-<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160; </div>
-<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;<span class="comment">// ------- UCX ------</span></div>
-<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;<span class="keyword">const</span> <span class="keywordtype">unsigned</span> UCX_BACKLOG             = 128;</div>
-<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;<span class="keyword">const</span> <span class="keywordtype">unsigned</span> UCX_POLL_TIMEOUT        = 10; </div>
-<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160; </div>
-<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;<span class="comment">// -------- COLLECTIVES ------</span></div>
-<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;<span class="keyword">const</span> <span class="keywordtype">int</span> CCONNECTION_RETRY            = 10;</div>
-<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;<span class="keyword">const</span> <span class="keywordtype">unsigned</span> CCONNECTION_TIMEOUT     = 100;  <span class="comment">// milliseconds</span></div>
-<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160; </div>
-<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160; </div>
-<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;<span class="preprocessor">#endif </span></div>
+<div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;<span class="keyword">const</span> std::string MQTT_USERNAME {<span class="stringliteral">&quot;test&quot;</span>};</div>
+<div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;<span class="keyword">const</span> std::string MQTT_PASSWORD {<span class="stringliteral">&quot;test&quot;</span>};</div>
+<div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;<span class="comment">// default broker address if not otherwise provided</span></div>
+<div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;<span class="keyword">const</span> std::string MQTT_SERVER_ADDRESS{ <span class="stringliteral">&quot;tcp://localhost:1883&quot;</span> };</div>
+<div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160; </div>
+<div class="line"><a name="l00041"></a><span class="lineno">   41</span>&#160;<span class="comment">// ------- UCX ------</span></div>
+<div class="line"><a name="l00042"></a><span class="lineno">   42</span>&#160;<span class="keyword">const</span> <span class="keywordtype">unsigned</span> UCX_BACKLOG             = 128;</div>
+<div class="line"><a name="l00043"></a><span class="lineno">   43</span>&#160;<span class="keyword">const</span> <span class="keywordtype">unsigned</span> UCX_POLL_TIMEOUT        = 10; </div>
+<div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160; </div>
+<div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;<span class="comment">// -------- COLLECTIVES ------</span></div>
+<div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;<span class="keyword">const</span> <span class="keywordtype">int</span> CCONNECTION_RETRY            = 10;</div>
+<div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160;<span class="keyword">const</span> <span class="keywordtype">unsigned</span> CCONNECTION_TIMEOUT     = 100;  <span class="comment">// milliseconds</span></div>
+<div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160; </div>
+<div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160; </div>
+<div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;<span class="preprocessor">#endif </span></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
