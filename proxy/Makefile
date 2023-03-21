@@ -26,12 +26,13 @@ endif
 endif
 
 ifeq ($(findstring MQTT, $(TPROTOCOL)),MQTT)
-	CXXFLAGS += -DENABLE_MQTT
 ifndef PAHO_HOME
 $(error PAHO_HOME env variable not defined!);
 endif
 ifeq ($(findstring MQTT, $(PPPROTOCOL)),MQTT)
 	CXXFLAGS += -DPROXYPROXYMQTT
+else
+	CXXFLAGS += -DENABLE_MQTT
 endif
 	INCS += -I${PAHO_HOME}/include
 	LIBS += -L${PAHO_HOME}/lib -Wl,-rpath,${PAHO_HOME}/lib -lpaho-mqttpp3 -lpaho-mqtt3as -lpaho-mqtt3a
