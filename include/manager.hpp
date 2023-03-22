@@ -81,9 +81,11 @@ private:
 
 	// initial handshake for a connection, it could be a p2p connection or a connection
 	// part of a collective handle
+#ifdef ISPROXY
+    static inline int connectionHandshake(char *& teamID, Handle *h) { return 0; }
+#else
 	static inline int connectionHandshake(char *& teamID, Handle *h) {
 		// new connection, read handle type (p2p=0, collective=1)
-#ifndef DISABLE_COLLECTIVE_4_PROXY
 		size_t size;
 		if (h->probe(size, true) <=0) {
 			MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, errno=%d\n", errno);
@@ -125,9 +127,9 @@ private:
 			teamID[size] = '\0';			
 			MTCL_PRINT(100, "[Manager]: \t", "Manager::addinQ received connection for team: %s\n", teamID);
 		}	
-#endif	
 		return 0;
 	}
+#endif
 	
 #if defined(SINGLE_IO_THREAD)
 	static inline void addinQ(bool b, Handle* h) {
@@ -615,7 +617,9 @@ public:
             App3 --> |App1 and App2
     */
     static HandleUser createTeam(const std::string participants, const std::string root, HandleType type) {
-
+#ifdef ISPROXY
+    return HandleUser();
+#endif
 
 #ifndef ENABLE_CONFIGFILE
         MTCL_ERROR("[Manager]:\t", "Manager::createTeam team creation is only available with a configuration file\n");
@@ -814,6 +818,7 @@ public:
         Handle* handle = connectHandle(s, nretry, timeout);
 
         // if handle is connected, we perform the handshake
+#ifndef ISPROXY        
         if(handle) {
             int collective = 0; // no nbh conversion
             if (handle->send(&collective, sizeof(int))==-1) {
@@ -831,6 +836,7 @@ public:
                 handle->type = HandleType::P2P;
             }
         }
+#endif        
 		
         return HandleUser(handle, true, true);
     };

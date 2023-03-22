@@ -23,7 +23,7 @@
 #define MAX_DEST_STRING 60
 #define CHUNK_SIZE 1200
 
-enum cmd_t : char {FWD = 0, CONN = 1, PRX = 2, ERR_CONN = 3, EOS = 4};
+enum cmd_t : char {FWD = 0, CONN = 1, PRX = 2, ERR_CONN = 3, EOS = 4, CONN_COLL = 2};
 
 /**
  * PROXY <--> PROXY PROTOCOL
@@ -247,7 +247,7 @@ int main(int argc, char** argv){
                     std::cerr << "Received a forward message from a proxy but the identifier is unknown!\n";
            }
 
-           if (cmd == cmd_t::CONN){
+           if (cmd == cmd_t::CONN || cmd == cmd_t::CONN_COLL){
                 std::string connectionString(payload, size); // something like: TCP:Appname, UCX:AppName
                 std::string componentName = connectionString.substr(connectionString.find(':')+1); // just component name without protocol
                 std::string protocol = connectionString.substr(0, connectionString.find(':')); // just protocol without component name
@@ -269,6 +269,10 @@ int main(int argc, char** argv){
                         auto newHandle = Manager::connect(le); // connect to the final destination directly following the protocol specified
                         if (newHandle.isValid()){
                             loc2connID.insert(newHandle.getID(), identifier);
+                            /// ########
+                            int collective = cmd == cmd_t::CONN_COLL;
+                            newHandle.send(&collective, sizeof(int)); // <== send the int for a collective
+                            /// ########
                             newHandle.yield();
                             id2handle.emplace(newHandle.getID(), std::move(newHandle));
                             h.yield();
@@ -296,8 +300,42 @@ int main(int argc, char** argv){
                     MTCL_PRINT(0, "[PROXY][ERROR]", "Probe return 0 or -1 for a new connection not from a proxy\n");
                     continue;
                 }
+
                 char* destComponentName = new char[sz];
                 h.receive(destComponentName, sz);
+
+                int collective = 0;		
+                if (h.receive(&collective, sizeof(int)) <= 0){
+                    MTCL_PRINT(0, "[PROXY][ERROR]", "Probe return 0 or -1 for a new connection not from a proxy\n");
+                    continue;
+                }
+                char* teamID = nullptr;
+                size_t teamIDSize = 0;
+                if(collective) {
+                
+                    if (h.probe(teamIDSize, true) <= 0) {
+                        MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, teamID size, errno=%d\n", errno);
+                        teamID=nullptr;
+                        return -1;
+                    }
+                    // sanity check
+                    if (teamIDSize>1048576) {
+                        MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, teamID size TOO LARGE (size=%ld)\n", size);
+                        teamID=nullptr;
+                        return -1;
+                    }
+                    
+                    teamID = new char[teamIDSize+1];
+                    assert(teamID);
+                    if (h.receive(teamID, teamIDSize) <=0) {
+                        MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, receiving teamID, errno=%d\n", errno);
+                        delete [] teamID;
+                        teamID=nullptr;
+                        return -1;
+                    }
+                    teamID[teamIDSize] = '\0';			
+                    MTCL_PRINT(100, "[Manager]: \t", "Manager::addinQ received connection for team: %s\n", teamID);
+                }	
 
                 std::string connectString(destComponentName, sz);
                 std::string componentName = connectString.substr(connectString.find(':')+1);
@@ -328,6 +366,10 @@ int main(int argc, char** argv){
                             if (le.find(protocol) != std::string::npos){
                                 auto newHandle = Manager::connect(le);
                                 if (newHandle.isValid()){
+                                    // ###########
+                                    newHandle.send(&collective, sizeof(int));
+                                    if (collective) newHandle.send(teamID, teamIDSize); // send teamID if it is a collective
+                                    // ############
                                     proc2proc.emplace(h.getID(), newHandle.getID());
                                     proc2proc.emplace(newHandle.getID(), h.getID());
                                     newHandle.yield();
@@ -346,7 +388,7 @@ int main(int argc, char** argv){
                 } else { // pool of destination non-empty
                     std::cout << "The connection is actually a multi-hop proxy communication\n";
                     char* buff = new char[sizeof(cmd_t)+sizeof(handleID_t)+connectString.length()];
-                    buff[0] = cmd_t::CONN;
+                    buff[0] = collective ? cmd_t::CONN_COLL : cmd_t::CONN;
                     connID_t identifier = std::hash<std::string>{}(connectString + pool + std::to_string(h.getID()));
                     memcpy(buff+sizeof(cmd_t), &identifier, sizeof(connID_t));
                     memcpy(buff+sizeof(cmd_t)+sizeof(connID_t), connectString.c_str(), connectString.length());
@@ -355,6 +397,17 @@ int main(int argc, char** argv){
                         continue; // check if its enough to continue
                     }
                     proxies[poolOfDestination]->send(buff, sizeof(cmd_t)+sizeof(handleID_t)+connectString.length());
+
+                    // send the teamID if it is a collective
+                    if (collective){
+                        char* buff_ = new char[sizeof(cmd_t)+sizeof(handleID_t)+teamIDSize];
+                        buff_[0] = cmd_t::FWD;
+                        memcpy(buff+sizeof(cmd_t), &identifier, sizeof(connID_t));
+                        memcpy(buff+sizeof(cmd_t)+sizeof(connID_t), teamID, teamIDSize);
+                        proxies[poolOfDestination]->send(buff_, sizeof(cmd_t)+sizeof(handleID_t)+teamIDSize);
+                    }
+
+
                     loc2connID.insert(h.getID(), identifier);
                     connid2proxy.emplace(identifier, proxies[poolOfDestination]);
                 }
