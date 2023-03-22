@@ -244,7 +244,7 @@ int main(int argc, char** argv){
                 if (loc2connID.has_value(identifier))
                     id2handle[loc2connID.get_key(identifier)].send(payload, size);
                 else
-                    std::cerr << "Received a forward message from a proxy but the identifier is unknown!\n";
+                    std::cerr << "Received a forward message from a proxy but the identifier is unknown! Identifier: " << identifier << " - Payload: " << payload << std::endl;
            }
 
            if (cmd == cmd_t::CONN || cmd == cmd_t::CONN_COLL){
@@ -321,7 +321,7 @@ int main(int argc, char** argv){
                 if(collective) {
                 
                     if (h.probe(teamIDSize, true) <= 0) {
-                        MTCL_PRINT(0, "[Manager]:\t", "addinQ handshake error in probe, teamID size, errno=%d\n", errno);
+                        MTCL_PRINT(0, "[Manager]:\t", "addinQ handshProtocol specifiedake error in probe, teamID size, errno=%d\n", errno);
                         teamID=nullptr;
                         return -1;
                     }
@@ -404,7 +404,10 @@ int main(int argc, char** argv){
                         continue; // check if its enough to continue
                     }
                     proxies[poolOfDestination]->send(buff, sizeof(cmd_t)+sizeof(handleID_t)+connectString.length());
-
+                    delete [] buff;
+                    loc2connID.insert(h.getID(), identifier);
+                    connid2proxy.emplace(identifier, proxies[poolOfDestination]);
+                    sleep(100);
                     // send the teamID if it is a collective
                     if (collective){
                         char* buff_ = new char[sizeof(cmd_t)+sizeof(handleID_t)+teamIDSize];
@@ -412,11 +415,8 @@ int main(int argc, char** argv){
                         memcpy(buff_+sizeof(cmd_t), &identifier, sizeof(connID_t));
                         memcpy(buff_+sizeof(cmd_t)+sizeof(connID_t), teamID, teamIDSize);
                         proxies[poolOfDestination]->send(buff_, sizeof(cmd_t)+sizeof(handleID_t)+teamIDSize);
+                        delete [] buff_;
                     }
-
-
-                    loc2connID.insert(h.getID(), identifier);
-                    connid2proxy.emplace(identifier, proxies[poolOfDestination]);
                 }
 
                 h.yield();
