@@ -510,7 +510,7 @@ public:
         }*/
 
         // POSSIBILE LABEL
-        std::string appLabel = protocol.emtpy() ? s : s.substr(s.find(":") + 1, s.length());
+        std::string appLabel = protocol.empty() ? s : s.substr(s.find(":") + 1, s.length());
 
         #ifdef ENABLE_CONFIGFILE
             if (components.count(appLabel)){ // there is a label
