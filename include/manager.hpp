@@ -83,6 +83,7 @@ private:
 	// part of a collective handle
 	static inline int connectionHandshake(char *& teamID, Handle *h) {
 		// new connection, read handle type (p2p=0, collective=1)
+#ifndef DISABLE_COLLECTIVE_4_PROXY
 		size_t size;
 		if (h->probe(size, true) <=0) {
 			MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, errno=%d\n", errno);
@@ -123,7 +124,8 @@ private:
 			}
 			teamID[size] = '\0';			
 			MTCL_PRINT(100, "[Manager]: \t", "Manager::addinQ received connection for team: %s\n", teamID);
-		}		
+		}	
+#endif	
 		return 0;
 	}
 	
@@ -488,7 +490,7 @@ public:
         size_t pos;
         std::string protocol = s.substr(0, (pos = s.find(":")) == std::string::npos ? 0 : pos);
        
-        if(protocol.empty()){
+       /* if(protocol.empty()){
             // checking if there is a config file to cycle on all addresses
 #ifdef ENABLE_CONFIGFILE
             if (components.count(s))
@@ -503,14 +505,20 @@ public:
 #endif
             MTCL_ERROR("[internal]:\t", "Manager::connectHandle specified appName (%s) not found in configuration file.\n", s.c_str());
             return nullptr;
-        }
+        }*/
 
         // POSSIBILE LABEL
-        std::string appLabel = s.substr(s.find(":") + 1, s.length());
+        std::string appLabel = protocol.emtpy() ? s : s.substr(s.find(":") + 1, s.length());
 
         #ifdef ENABLE_CONFIGFILE
             if (components.count(appLabel)){ // there is a label
                 auto& component = components.at(appLabel);
+                
+                // fix protocol empty 
+                if (protocol.empty())
+                    protocol = "TCP";
+
+
                 std::string& host = std::get<0>(component); // host= [pool:]hostname
                 std::string pool = getPoolFromHost(host);
 
@@ -736,6 +744,7 @@ public:
                 return HandleUser();
             }
 
+            /*
             // Retrieve root listening addresses and connect to one of them
             auto root_addrs = std::get<2>(components.at(root));
 
@@ -750,10 +759,22 @@ public:
                 }
                 MTCL_PRINT(100, "[Manager]:\t", "Connection failed to %s\n", addr.c_str());
             }
+            */
 
+            handle = connectHandle(root, CCONNECTION_RETRY, CCONNECTION_TIMEOUT);
+    
             if(handle == nullptr) {
                 MTCL_ERROR("[Manager]:\t", "Could not establish a connection with root node \"%s\"\n", root.c_str());
                 return HandleUser();
+            }
+
+            if (handle->type == HandleType::PROXY){
+                if (handle->send(root.c_str(), root.length())==-1){
+                    MTCL_ERROR("[Manager]:\t", "PROXY handshake error, errno=%d (%s)\n",
+						   errno, strerror(errno));
+                    return HandleUser();				
+                }
+                handle->type = HandleType::P2P;
             }
 			
             int collective = 1;
