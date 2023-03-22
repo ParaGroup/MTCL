@@ -320,7 +320,7 @@ int main(int argc, char** argv){
                     }
                     // sanity check
                     if (teamIDSize>1048576) {
-                        MTCL_PRINT(0, "[Manager]:\t", "addinQ handshake error in probe, teamID size TOO LARGE (size=%ld)\n", size);
+                        MTCL_PRINT(0, "[Manager]:\t", "addinQ handshake error in probe, teamID size TOO LARGE (size=%ld)\n", teamIDSize);
                         teamID=nullptr;
                         return -1;
                     }
