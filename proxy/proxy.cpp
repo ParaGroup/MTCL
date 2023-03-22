@@ -408,7 +408,7 @@ int main(int argc, char** argv){
                     delete [] buff;
                     loc2connID.insert(h.getID(), identifier);
                     connid2proxy.emplace(identifier, proxies[poolOfDestination]);
-                    sleep(100);
+                    sleep(1);
                     // send the teamID if it is a collective
                     if (collective){
                         char* buff_ = new char[sizeof(cmd_t)+sizeof(handleID_t)+teamIDSize];
