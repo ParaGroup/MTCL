@@ -75,7 +75,7 @@ std::vector<std::string> JSONArray2VectorString(const rapidjson::GenericArray<B,
 int parseConfig(const std::string& f){
     std::ifstream ifs(f);
     if ( !ifs.is_open() ) {
-        MTCL_ERROR("[Manager]:\t", "parseConfig: cannot open file %s for reading, skip it\n",
+        MTCL_PRINT(0, "[Manager]:\t", "parseConfig: cannot open file %s for reading, skip it\n",
                     f.c_str());
         return -1;
     }
@@ -314,13 +314,13 @@ int main(int argc, char** argv){
                 if(collective) {
                 
                     if (h.probe(teamIDSize, true) <= 0) {
-                        MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, teamID size, errno=%d\n", errno);
+                        MTCL_PRINT(0, "[Manager]:\t", "addinQ handshake error in probe, teamID size, errno=%d\n", errno);
                         teamID=nullptr;
                         return -1;
                     }
                     // sanity check
                     if (teamIDSize>1048576) {
-                        MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, teamID size TOO LARGE (size=%ld)\n", size);
+                        MTCL_PRINT(0, "[Manager]:\t", "addinQ handshake error in probe, teamID size TOO LARGE (size=%ld)\n", size);
                         teamID=nullptr;
                         return -1;
                     }
@@ -328,7 +328,7 @@ int main(int argc, char** argv){
                     teamID = new char[teamIDSize+1];
                     assert(teamID);
                     if (h.receive(teamID, teamIDSize) <=0) {
-                        MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, receiving teamID, errno=%d\n", errno);
+                        MTCL_PRINT(0, "[Manager]:\t", "addinQ handshake error in probe, receiving teamID, errno=%d\n", errno);
                         delete [] teamID;
                         teamID=nullptr;
                         return -1;
