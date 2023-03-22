@@ -293,6 +293,7 @@ int main(int argc, char** argv){
                     std::cerr << "Protocol specified ["<<protocol<<"] not supported by the remote peer ["<< componentName <<"]\n";
                     // TODO: manda indietro errore al proxy di orgine...
                 }
+                std::cout << "[PROXY] connection forwarded to the process!\n";
            }
             
             delete [] buff;
@@ -341,7 +342,7 @@ int main(int argc, char** argv){
                         return -1;
                     }
                     teamID[teamIDSize] = '\0';			
-                    MTCL_PRINT(100, "[Manager]: \t", "Manager::addinQ received connection for team: %s\n", teamID);
+                    MTCL_PRINT(100, "[PROXY]: \t", "received connection for team: %s\n", teamID);
                 }	
 
                 std::string connectString(destComponentName, sz);
