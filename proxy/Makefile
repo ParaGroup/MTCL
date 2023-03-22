@@ -3,7 +3,7 @@ CXX 	   = g++
 endif
 
 # all local example files do not use collectives
-CXXFLAGS  += -std=c++17
+CXXFLAGS  += -std=c++17 -DISPROXY
 INCS       = -I ../include -I ${RAPIDJSON_HOME}/include
 
 ifdef DEBUG
