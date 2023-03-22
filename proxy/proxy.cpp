@@ -249,8 +249,15 @@ int main(int argc, char** argv){
 
            if (cmd == cmd_t::CONN || cmd == cmd_t::CONN_COLL){
                 std::string connectionString(payload, size); // something like: TCP:Appname, UCX:AppName
-                std::string componentName = connectionString.substr(connectionString.find(':')+1); // just component name without protocol
-                std::string protocol = connectionString.substr(0, connectionString.find(':')); // just protocol without component name
+                std::string protocol;
+                std::string componentName;
+                if (connectionString.find(":") == string::npos){
+                    // there is no protocol
+                     protocol = connectionString.substr(0, connectionString.find(':')); // just protocol without component name
+                     componentName = connectionString.substr(connectionString.find(':')+1); // just component name without protocol
+                } else {
+                    componentName = connectionString;
+                }
 
                 MTCL_PRINT(0, "[PROXY]", "Received a connection directed to %s with protocol %s\n", componentName.c_str(), protocol.c_str());
                 // check that the component name actually exists in the configuration file
@@ -265,7 +272,7 @@ int main(int argc, char** argv){
 
                 bool found = false;
                 for (auto& le : listen_endpoints)
-                    if (le.find(protocol) != std::string::npos){
+                    if (protocol.empty() || le.find(protocol) != std::string::npos){
                         auto newHandle = Manager::connect(le); // connect to the final destination directly following the protocol specified
                         if (newHandle.isValid()){
                             loc2connID.insert(newHandle.getID(), identifier);
