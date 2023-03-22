@@ -245,6 +245,7 @@ int main(int argc, char** argv){
                     id2handle[loc2connID.get_key(identifier)].send(payload, size);
                 else
                     std::cerr << "Received a forward message from a proxy but the identifier is unknown! Identifier: " << identifier << " - Payload: " << payload << std::endl;
+                std::cerr << "FWD performed!\n";
            }
 
            if (cmd == cmd_t::CONN || cmd == cmd_t::CONN_COLL){
