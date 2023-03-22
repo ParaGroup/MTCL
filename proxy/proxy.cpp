@@ -259,7 +259,7 @@ int main(int argc, char** argv){
                     componentName = connectionString;
                 }
 
-                MTCL_PRINT(0, "[PROXY]", "Received a connection directed to %s with protocol %s\n", componentName.c_str(), protocol.c_str());
+                MTCL_PRINT(0, "[PROXY]", "Received a %s connection directed to %s with protocol %s\n", (cmd == cmd_t::CONN_COLL ? "collective" : "p2p"), componentName.c_str(), protocol.c_str());
                 // check that the component name actually exists in the configuration file
                 if (!components.count(componentName)){
                     std::cerr << "Component name ["<< componentName << "] not found in configuration file\n";
@@ -409,8 +409,8 @@ int main(int argc, char** argv){
                     if (collective){
                         char* buff_ = new char[sizeof(cmd_t)+sizeof(handleID_t)+teamIDSize];
                         buff_[0] = cmd_t::FWD;
-                        memcpy(buff+sizeof(cmd_t), &identifier, sizeof(connID_t));
-                        memcpy(buff+sizeof(cmd_t)+sizeof(connID_t), teamID, teamIDSize);
+                        memcpy(buff_+sizeof(cmd_t), &identifier, sizeof(connID_t));
+                        memcpy(buff_+sizeof(cmd_t)+sizeof(connID_t), teamID, teamIDSize);
                         proxies[poolOfDestination]->send(buff_, sizeof(cmd_t)+sizeof(handleID_t)+teamIDSize);
                     }
 
