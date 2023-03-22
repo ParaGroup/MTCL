@@ -251,7 +251,7 @@ int main(int argc, char** argv){
                 std::string connectionString(payload, size); // something like: TCP:Appname, UCX:AppName
                 std::string protocol;
                 std::string componentName;
-                if (connectionString.find(":") == string::npos){
+                if (connectionString.find(":") != string::npos){
                     // there is no protocol
                      protocol = connectionString.substr(0, connectionString.find(':')); // just protocol without component name
                      componentName = connectionString.substr(connectionString.find(':')+1); // just component name without protocol
