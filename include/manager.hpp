@@ -747,12 +747,12 @@ public:
                 MTCL_ERROR("[Manager]:\t", "Requested root node is not in configuration file\n");
                 return HandleUser();
             }
-
+            Handle* handle = nullptr;
             /*
             // Retrieve root listening addresses and connect to one of them
             auto root_addrs = std::get<2>(components.at(root));
 
-            Handle* handle = nullptr;
+            
             for(auto& addr : root_addrs) {
                 //TODO: need to detect the protocol for the connect
                 //      if mpi_impl/ucc_impl, then we must use the proper protocol
