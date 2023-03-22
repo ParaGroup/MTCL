@@ -779,12 +779,12 @@ $(function() {
 <div class="line"><a name="l00747"></a><span class="lineno">  747</span>&#160;                MTCL_ERROR(<span class="stringliteral">&quot;[Manager]:\t&quot;</span>, <span class="stringliteral">&quot;Requested root node is not in configuration file\n&quot;</span>);</div>
 <div class="line"><a name="l00748"></a><span class="lineno">  748</span>&#160;                <span class="keywordflow">return</span> <a class="code" href="classHandleUser.html">HandleUser</a>();</div>
 <div class="line"><a name="l00749"></a><span class="lineno">  749</span>&#160;            }</div>
-<div class="line"><a name="l00750"></a><span class="lineno">  750</span>&#160; </div>
+<div class="line"><a name="l00750"></a><span class="lineno">  750</span>&#160;            <a class="code" href="classHandle.html">Handle</a>* handle = <span class="keyword">nullptr</span>;</div>
 <div class="line"><a name="l00751"></a><span class="lineno">  751</span>&#160;            <span class="comment">/*</span></div>
 <div class="line"><a name="l00752"></a><span class="lineno">  752</span>&#160;<span class="comment">            // Retrieve root listening addresses and connect to one of them</span></div>
 <div class="line"><a name="l00753"></a><span class="lineno">  753</span>&#160;<span class="comment">            auto root_addrs = std::get&lt;2&gt;(components.at(root));</span></div>
 <div class="line"><a name="l00754"></a><span class="lineno">  754</span>&#160;<span class="comment"></span> </div>
-<div class="line"><a name="l00755"></a><span class="lineno">  755</span>&#160;<span class="comment">            Handle* handle = nullptr;</span></div>
+<div class="line"><a name="l00755"></a><span class="lineno">  755</span>&#160;<span class="comment">            </span></div>
 <div class="line"><a name="l00756"></a><span class="lineno">  756</span>&#160;<span class="comment">            for(auto&amp; addr : root_addrs) {</span></div>
 <div class="line"><a name="l00757"></a><span class="lineno">  757</span>&#160;<span class="comment">                //TODO: need to detect the protocol for the connect</span></div>
 <div class="line"><a name="l00758"></a><span class="lineno">  758</span>&#160;<span class="comment">                //      if mpi_impl/ucc_impl, then we must use the proper protocol</span></div>
