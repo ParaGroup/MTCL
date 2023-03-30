@@ -7,7 +7,6 @@
 #include "rapidjson/rapidjson.h"
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/document.h>
-#include "bimap.hpp"
 
 #include "mtcl.hpp"
 
@@ -45,8 +44,8 @@ std::map<std::string, std::tuple<std::string, std::vector<std::string>, std::vec
 std::map<handleID_t, HandleUser> id2handle; // dato un handleID ritorna l'handle
 
 std::map<connID_t, HandleUser*> connid2proxy; // dato una connID (meaningful tra proxy) ritorna l'handle del proxy su cui scrivere
-bimap<handleID_t, connID_t> loc2connID;  // associazione bidirezionale handleID <-> conneID
-
+std::map<handleID_t, connID_t> loc2connID;  // associazione bidirezionale handleID <-> conneID
+std::map<connID_t, handleID_t> connID2loc;
 // singolo hop PROC <--> Proxy <--> Proc
 std::map<handleID_t, handleID_t> proc2proc; // associazioni handleID <-> handleID per connessioni tra processi mediante singolo proxy
 
@@ -227,13 +226,15 @@ int main(int argc, char** argv){
             if (cmd == cmd_t::EOS){
                 MTCL_PRINT(0, "[PROXY]", "Received a EOS from a remote peer\n");
 
-                if (loc2connID.has_value(identifier)){
-                    handleID_t hID_ = loc2connID.get_key(identifier);
+                if (connID2loc.count(identifier)){
+                    handleID_t hID_ = connID2loc.at(identifier);
                     auto& h_ = id2handle.at(hID_);
                     h_.close();
                     if (h_.isClosed() == std::make_pair<bool, bool>(true, true)){
                         id2handle.erase(hID_);
-                        loc2connID.erase_key(hID_);
+
+                        connID2loc.erase(loc2connID[hID_]);
+                        loc2connID.erase(hID_);
                     }
                 }
                 else
@@ -241,8 +242,8 @@ int main(int argc, char** argv){
             }
            
            if (cmd == cmd_t::FWD){
-                if (loc2connID.has_value(identifier))
-                    id2handle[loc2connID.get_key(identifier)].send(payload, size);
+                if (connID2loc.count(identifier) && id2handle.count(connID2loc.at(identifier)))
+                    id2handle[connID2loc.at(identifier)].send(payload, size);
                 else
                     std::cerr << "Received a forward message from a proxy but the identifier is unknown! Identifier: " << identifier << " - Payload: " << payload << std::endl;
                 std::cerr << "FWD performed!\n";
@@ -277,6 +278,7 @@ int main(int argc, char** argv){
                         auto newHandle = Manager::connect(le); // connect to the final destination directly following the protocol specified
                         if (newHandle.isValid()){
                             loc2connID.insert(newHandle.getID(), identifier);
+                            connID2loc.insert(identifier, newHandle.getID());
                             /// ########
                             int collective = cmd == cmd_t::CONN_COLL;
                             newHandle.send(&collective, sizeof(int)); // <== send the int for a collective
@@ -408,6 +410,7 @@ int main(int argc, char** argv){
                     proxies[poolOfDestination]->send(buff, sizeof(cmd_t)+sizeof(handleID_t)+connectString.length());
                     delete [] buff;
                     loc2connID.insert(h.getID(), identifier);
+                    connID2loc.insert(identifier, h.getID());
                     connid2proxy.emplace(identifier, proxies[poolOfDestination]);
                     sleep(1);
                     // send the teamID if it is a collective
@@ -435,16 +438,17 @@ int main(int argc, char** argv){
             };
             if (sz == 0){
                 std::cout << "Received EOS from a direct client\n";
-                if (loc2connID.has_key(connId)){ // if the connection is a multi hop send EOS cmd to the next proxy and cleanup 
+                if (loc2connID.count(connId)){ // if the connection is a multi hop send EOS cmd to the next proxy and cleanup 
                     char buffer[sizeof(cmd_t)+sizeof(connID_t)];
                     buffer[0] = cmd_t::EOS;
-                    connID_t connectionID = loc2connID.get_value(connId);
+                    connID_t connectionID = loc2connID.at(connId);
                     memcpy(buffer+sizeof(cmd_t), &connectionID, sizeof(connID_t));
                     connid2proxy[connectionID]->send(buffer, sizeof(buffer));
 
                     // if the connection is closed both side we can cleanup everything related to the connection
                     if (h.isClosed() == std::make_pair(true, true)){
-                        loc2connID.erase_key(connId);
+                        connID2loc.erase(loc2connID[connId]);
+                        loc2connID.erase(connId);
                         connid2proxy.erase(connectionID);
                         id2handle.erase(connId);
                     }
@@ -466,9 +470,9 @@ int main(int argc, char** argv){
             char* buffer = new char[sizeof(cmd_t)+sizeof(connID_t)+sz];
             h.receive(buffer+sizeof(cmd_t)+sizeof(connID_t), sz); // write on the right side of the buffer
 
-            if (loc2connID.has_key(connId)){
+            if (loc2connID.count(connId)){
                 buffer[0] = cmd_t::FWD;
-                connID_t connectionID = loc2connID.get_value(connId);
+                connID_t connectionID = loc2connID.at(connId);
                 memcpy(buffer+sizeof(cmd_t), &connectionID, sizeof(connID_t));
                 connid2proxy[connectionID]->send(buffer, sizeof(cmd_t)+sizeof(connID_t)+sz);
                 delete [] buffer;
