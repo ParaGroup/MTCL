@@ -246,14 +246,13 @@ int main(int argc, char** argv){
                     id2handle[connID2loc.at(identifier)].send(payload, size);
                 else
                     std::cerr << "Received a forward message from a proxy but the identifier is unknown! Identifier: " << identifier << " - Payload: " << payload << std::endl;
-                std::cerr << "FWD performed!\n";
            }
 
            if (cmd == cmd_t::CONN || cmd == cmd_t::CONN_COLL){
                 std::string connectionString(payload, size); // something like: TCP:Appname, UCX:AppName
                 std::string protocol;
                 std::string componentName;
-                if (connectionString.find(":") != string::npos){
+                if (connectionString.find(":") != std::string::npos){
                     // there is no protocol
                      protocol = connectionString.substr(0, connectionString.find(':')); // just protocol without component name
                      componentName = connectionString.substr(connectionString.find(':')+1); // just component name without protocol
@@ -296,7 +295,6 @@ int main(int argc, char** argv){
                     std::cerr << "Protocol specified ["<<protocol<<"] not supported by the remote peer ["<< componentName <<"]\n";
                     // TODO: manda indietro errore al proxy di orgine...
                 }
-                std::cout << "[PROXY] connection forwarded to the process!\n";
            }
             
             delete [] buff;
@@ -397,7 +395,6 @@ int main(int argc, char** argv){
                         }
                     }
                 } else { // pool of destination non-empty
-                    std::cout << "The connection is actually a multi-hop proxy communication\n";
                     char* buff = new char[sizeof(cmd_t)+sizeof(handleID_t)+connectString.length()];
                     buff[0] = collective ? cmd_t::CONN_COLL : cmd_t::CONN;
                     connID_t identifier = std::hash<std::string>{}(connectString + pool + std::to_string(h.getID()));
@@ -437,7 +434,6 @@ int main(int argc, char** argv){
                 MTCL_PRINT(0, "[PROXY][ERROR]", "Probe error on receive form direct client\n");
             };
             if (sz == 0){
-                std::cout << "Received EOS from a direct client\n";
                 if (loc2connID.count(connId)){ // if the connection is a multi hop send EOS cmd to the next proxy and cleanup 
                     char buffer[sizeof(cmd_t)+sizeof(connID_t)];
                     buffer[0] = cmd_t::EOS;
