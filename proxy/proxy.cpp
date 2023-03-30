@@ -277,8 +277,8 @@ int main(int argc, char** argv){
                     if (protocol.empty() || le.find(protocol) != std::string::npos){
                         auto newHandle = Manager::connect(le); // connect to the final destination directly following the protocol specified
                         if (newHandle.isValid()){
-                            loc2connID.insert(newHandle.getID(), identifier);
-                            connID2loc.insert(identifier, newHandle.getID());
+                            loc2connID.insert(std::make_pair(newHandle.getID(), identifier));
+                            connID2loc.insert(std::make_pair(identifier, newHandle.getID()));
                             /// ########
                             int collective = cmd == cmd_t::CONN_COLL;
                             newHandle.send(&collective, sizeof(int)); // <== send the int for a collective
@@ -409,8 +409,8 @@ int main(int argc, char** argv){
                     }
                     proxies[poolOfDestination]->send(buff, sizeof(cmd_t)+sizeof(handleID_t)+connectString.length());
                     delete [] buff;
-                    loc2connID.insert(h.getID(), identifier);
-                    connID2loc.insert(identifier, h.getID());
+                    loc2connID.insert(std::make_pair(h.getID(), identifier));
+                    connID2loc.insert(std::make_pair(identifier, h.getID()));
                     connid2proxy.emplace(identifier, proxies[poolOfDestination]);
                     sleep(1);
                     // send the teamID if it is a collective
