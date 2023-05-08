@@ -120,7 +120,7 @@ $(function() {
 <div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160; </div>
 <div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;    <span class="keywordtype">bool</span> setImplementation(ImplementationType impl, std::vector&lt;Handle*&gt; participants, <span class="keywordtype">int</span> uniqtag) {</div>
 <div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;        <span class="keyword">const</span> std::map&lt;HandleType, std::function&lt;<a class="code" href="classCollectiveImpl.html">CollectiveImpl</a>*()&gt;&gt; contexts = {</div>
-<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;            {BROADCAST,  [&amp;]{</div>
+<div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;            {HandleType::BROADCAST,  [&amp;]{</div>
 <div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;                    <a class="code" href="classCollectiveImpl.html">CollectiveImpl</a>* coll = <span class="keyword">nullptr</span>;</div>
 <div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;                    <span class="keywordflow">switch</span> (impl) {</div>
 <div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;                        <span class="keywordflow">case</span> GENERIC:</div>
@@ -143,9 +143,9 @@ $(function() {
 <div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;                    <span class="keywordflow">return</span> coll;</div>
 <div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;                }</div>
 <div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160;            },</div>
-<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;            {FANIN,  [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classFanInGeneric.html">FanInGeneric</a>(participants, root, uniqtag);}},</div>
-<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;            {FANOUT, [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classFanOutGeneric.html">FanOutGeneric</a>(participants, root, uniqtag);}},</div>
-<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160;            {GATHER,  [&amp;]{</div>
+<div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;            {HandleType::FANIN,  [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classFanInGeneric.html">FanInGeneric</a>(participants, root, uniqtag);}},</div>
+<div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;            {HandleType::FANOUT, [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classFanOutGeneric.html">FanOutGeneric</a>(participants, root, uniqtag);}},</div>
+<div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160;            {HandleType::MTCL_GATHER,  [&amp;]{</div>
 <div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160;                    <a class="code" href="classCollectiveImpl.html">CollectiveImpl</a>* coll = <span class="keyword">nullptr</span>;</div>
 <div class="line"><a name="l00079"></a><span class="lineno">   79</span>&#160;                    <span class="keywordflow">switch</span> (impl) {</div>
 <div class="line"><a name="l00080"></a><span class="lineno">   80</span>&#160;                        <span class="keywordflow">case</span> GENERIC:</div>
@@ -252,10 +252,10 @@ $(function() {
 <div class="line"><a name="l00216"></a><span class="lineno">  216</span>&#160;<a class="code" href="classCollectiveContext.html">CollectiveContext</a> *createContext(HandleType type, <span class="keywordtype">int</span> size, <span class="keywordtype">bool</span> root, <span class="keywordtype">int</span> rank)</div>
 <div class="line"><a name="l00217"></a><span class="lineno">  217</span>&#160;{</div>
 <div class="line"><a name="l00218"></a><span class="lineno">  218</span>&#160;    <span class="keyword">const</span> std::map&lt;HandleType, std::function&lt;<a class="code" href="classCollectiveContext.html">CollectiveContext</a>*()&gt;&gt; contexts = {</div>
-<div class="line"><a name="l00219"></a><span class="lineno">  219</span>&#160;        {BROADCAST,  [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classCollectiveContext.html">CollectiveContext</a>(size, root, rank, type, <span class="keyword">false</span>, <span class="keyword">false</span>);}},</div>
-<div class="line"><a name="l00220"></a><span class="lineno">  220</span>&#160;        {FANIN,  [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classCollectiveContext.html">CollectiveContext</a>(size, root, rank, type, !root, root);}},</div>
-<div class="line"><a name="l00221"></a><span class="lineno">  221</span>&#160;        {FANOUT,  [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classCollectiveContext.html">CollectiveContext</a>(size, root, rank, type, root, !root);}},</div>
-<div class="line"><a name="l00222"></a><span class="lineno">  222</span>&#160;        {GATHER,  [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classCollectiveContext.html">CollectiveContext</a>(size, root, rank, type, <span class="keyword">false</span>, <span class="keyword">false</span>);}}</div>
+<div class="line"><a name="l00219"></a><span class="lineno">  219</span>&#160;        {HandleType::BROADCAST,  [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classCollectiveContext.html">CollectiveContext</a>(size, root, rank, type, <span class="keyword">false</span>, <span class="keyword">false</span>);}},</div>
+<div class="line"><a name="l00220"></a><span class="lineno">  220</span>&#160;        {HandleType::FANIN,  [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classCollectiveContext.html">CollectiveContext</a>(size, root, rank, type, !root, root);}},</div>
+<div class="line"><a name="l00221"></a><span class="lineno">  221</span>&#160;        {HandleType::FANOUT,  [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classCollectiveContext.html">CollectiveContext</a>(size, root, rank, type, root, !root);}},</div>
+<div class="line"><a name="l00222"></a><span class="lineno">  222</span>&#160;        {HandleType::MTCL_GATHER,  [&amp;]{<span class="keywordflow">return</span> <span class="keyword">new</span> <a class="code" href="classCollectiveContext.html">CollectiveContext</a>(size, root, rank, type, <span class="keyword">false</span>, <span class="keyword">false</span>);}}</div>
 <div class="line"><a name="l00223"></a><span class="lineno">  223</span>&#160; </div>
 <div class="line"><a name="l00224"></a><span class="lineno">  224</span>&#160;    };</div>
 <div class="line"><a name="l00225"></a><span class="lineno">  225</span>&#160; </div>
