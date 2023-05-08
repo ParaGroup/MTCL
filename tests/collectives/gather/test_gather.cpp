@@ -49,7 +49,7 @@ int main(int argc, char** argv){
     printf("Running with config file: %s\n", config.c_str());
 	Manager::init(argv[2], config);
 
-    auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", GATHER);
+    auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", MTCL_GATHER);
     if(hg.isValid()) printf("Created team with size: %d\n", hg.size());
     
     std::string data{argv[2]};

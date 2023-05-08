@@ -217,7 +217,7 @@ void Worker(const std::string& bcast, const std::string& gather,
 			   bcast.c_str(), gather.c_str(), broot.c_str(),groot.c_str(), rank);
 		
 	auto hg_bcast = Manager::createTeam(bcast, broot, BROADCAST);	
-	auto hg_gather= Manager::createTeam(gather, groot,GATHER);
+	auto hg_gather= Manager::createTeam(gather, groot, MTCL_GATHER);
 		
 	if (hg_bcast.isValid() && hg_gather.isValid()) {
 		MTCL_PRINT(0, "[Worker]:\t", "%s%d, starting\n", "Worker", rank);
@@ -250,7 +250,7 @@ void Collector(const std::string& gather, const std::string& groot,
 		return;
 	}
 
-	auto hg = Manager::createTeam(gather, groot, GATHER);
+	auto hg = Manager::createTeam(gather, groot, MTCL_GATHER);
 	if (hg.isValid()) {
 		MTCL_PRINT(0,"[Collector]:\t", "Collector starting\n");
 	} else {

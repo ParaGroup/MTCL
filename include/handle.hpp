@@ -11,7 +11,7 @@ enum HandleType {
     BROADCAST,
     FANIN,
     FANOUT,
-    GATHER,
+    MTCL_GATHER,
     P2P,
     PROXY,
     INVALID_TYPE
