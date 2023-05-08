@@ -49,7 +49,7 @@ public:
 
     bool setImplementation(ImplementationType impl, std::vector<Handle*> participants, int uniqtag) {
         const std::map<HandleType, std::function<CollectiveImpl*()>> contexts = {
-            {BROADCAST,  [&]{
+            {HandleType::BROADCAST,  [&]{
                     CollectiveImpl* coll = nullptr;
                     switch (impl) {
                         case GENERIC:
@@ -72,9 +72,9 @@ public:
                     return coll;
                 }
             },
-            {FANIN,  [&]{return new FanInGeneric(participants, root, uniqtag);}},
-            {FANOUT, [&]{return new FanOutGeneric(participants, root, uniqtag);}},
-            {GATHER,  [&]{
+            {HandleType::FANIN,  [&]{return new FanInGeneric(participants, root, uniqtag);}},
+            {HandleType::FANOUT, [&]{return new FanOutGeneric(participants, root, uniqtag);}},
+            {HandleType::MTCL_GATHER,  [&]{
                     CollectiveImpl* coll = nullptr;
                     switch (impl) {
                         case GENERIC:
@@ -216,10 +216,10 @@ public:
 CollectiveContext *createContext(HandleType type, int size, bool root, int rank)
 {
     const std::map<HandleType, std::function<CollectiveContext*()>> contexts = {
-        {BROADCAST,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
-        {FANIN,  [&]{return new CollectiveContext(size, root, rank, type, !root, root);}},
-        {FANOUT,  [&]{return new CollectiveContext(size, root, rank, type, root, !root);}},
-        {GATHER,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}}
+        {HandleType::BROADCAST,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
+        {HandleType::FANIN,  [&]{return new CollectiveContext(size, root, rank, type, !root, root);}},
+        {HandleType::FANOUT,  [&]{return new CollectiveContext(size, root, rank, type, root, !root);}},
+        {HandleType::MTCL_GATHER,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}}
 
     };
 
