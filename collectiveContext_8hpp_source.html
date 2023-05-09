@@ -128,7 +128,7 @@ $(function() {
 <div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;                            <span class="keywordflow">break</span>;</div>
 <div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;                        <span class="keywordflow">case</span> MPI:</div>
 <div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;<span class="preprocessor">                            #ifdef ENABLE_MPI</span></div>
-<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;                            coll = <span class="keyword">new</span> <a class="code" href="classBroadcastMPI.html">BroadcastMPI</a>(participants, root, uniqtag);</div>
+<div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;                            coll = <span class="keyword">new</span> <a class="code" href="classBroadcastMPI.html">BroadcastMPI</a>(participants, root, uniqtag % MPI_TAG_UB);</div>
 <div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;<span class="preprocessor">                            #endif</span></div>
 <div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;                            <span class="keywordflow">break</span>;</div>
 <div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;                        <span class="keywordflow">case</span> UCC:</div>
