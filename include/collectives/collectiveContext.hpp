@@ -57,7 +57,10 @@ public:
                             break;
                         case MPI:
                             #ifdef ENABLE_MPI
-                            coll = new BroadcastMPI(participants, root, uniqtag % MPI_TAG_UB);
+                            void *max_tag;
+                            int flag;
+                            MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
+                            coll = new BroadcastMPI(participants, root, uniqtag % (*(int*)max_tag));
                             #endif
                             break;
                         case UCC:
@@ -82,7 +85,10 @@ public:
                             break;
                         case MPI:
                             #ifdef ENABLE_MPI
-                            coll = new GatherMPI(participants, root, uniqtag);
+                            void *max_tag;
+                            int flag;
+                            MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
+                            coll = new GatherMPI(participants, root, uniqtag % (*(int*)max_tag));
                             #endif
                             break;
                         case UCC:
