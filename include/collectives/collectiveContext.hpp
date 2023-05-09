@@ -57,7 +57,7 @@ public:
                             break;
                         case MPI:
                             #ifdef ENABLE_MPI
-                            coll = new BroadcastMPI(participants, root, uniqtag);
+                            coll = new BroadcastMPI(participants, root, uniqtag % MPI_TAG_UB);
                             #endif
                             break;
                         case UCC:
