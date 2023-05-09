@@ -532,10 +532,10 @@ public:
                                for (auto& ip: pools[pool].first){
                                 // if the ip contains a port is better to skip it, probably is a tunnel used betweens proxies
                                 Handle* handle;
-				if (ip.find(":") != std::string::npos) 
-					handle = protocolsMap["TCP"]->connect(ip, retry,timeout);
-				else
-					handle = protocolsMap[protocol]->connect(ip + ":" + (protocol == "UCX" ? "13001" : "13000"), retry, timeout);
+                                if (ip.find(":") != std::string::npos) 
+                                    handle = protocolsMap["TCP"]->connect(ip, retry,timeout);
+                                else
+                                    handle = protocolsMap[protocol]->connect(ip + ":" + (protocol == "UCX" ? "13001" : "13000"), retry, timeout);
                                 //handle->send(s.c_str(), s.length());
                                 if (handle){
                                     handle->type = HandleType::PROXY;
@@ -764,8 +764,16 @@ public:
                 MTCL_PRINT(100, "[Manager]:\t", "Connection failed to %s\n", addr.c_str());
             }
             */
+            
+            // here we pass directly the label to connectHandle
+            std::string protocol = "";
+            switch(impl){
+                case MPI: protocol = "MPI:"; break;
+                case UCC: protocol = "UCX:";
+                // case GNERIC: we simply let the runtime to select the available protocol
+            }
 
-            handle = connectHandle(root, CCONNECTION_RETRY, CCONNECTION_TIMEOUT);
+            handle = connectHandle(protocol+root, CCONNECTION_RETRY, CCONNECTION_TIMEOUT);
     
             if(handle == nullptr) {
                 MTCL_ERROR("[Manager]:\t", "Could not establish a connection with root node \"%s\"\n", root.c_str());
@@ -791,6 +799,7 @@ public:
         }
 		std::hash<std::string> hashf;
 		int uniqtag = static_cast<int>(hashf(teamID) % std::numeric_limits<int>::max());
+        if (uniqtag < 0) uniqtag = -uniqtag; // FIX WITH BETTER LOGIC: the uniqtag must be positive
         if(!ctx->setImplementation(impl, coll_handles, uniqtag)) {
             return HandleUser();
         }
