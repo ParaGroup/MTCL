@@ -517,14 +517,14 @@ public:
                 auto& component = components.at(appLabel);
                 
                 // fix protocol empty 
-                if (protocol.empty())
-                    protocol = "TCP";
+                //if (protocol.empty())
+                //    protocol = "TCP";
 
 
                 std::string& host = std::get<0>(component); // host= [pool:]hostname
                 std::string pool = getPoolFromHost(host);
 
-                    if (pool != poolName){ 
+                    if (pool != poolName && (pool.empty() || poolName.empty())){ 
                         std::string connectionString2Proxy;
                         if (poolName.empty() && !pool.empty()){ // go through the proxy of the destination pool
                             // connect verso il proxy di pool
@@ -575,11 +575,21 @@ public:
                         return nullptr;
                     } else {
                         // connessione diretta
-                        for (auto& le : std::get<2>(component))
-                            if (le.find(protocol) != std::string::npos){
+                        for (auto& le : std::get<2>(component)){
+                            if (protocol.empty()){
+                                std::string sWoProtocol = le.substr(le.find(":") + 1, le.length());
+                                std::string remote_protocol = le.substr(0, le.find(":"));
+                                if (protocolsMap.count(remote_protocol)){
+                                    auto* h = protocolsMap[remote_protocol]->connect(sWoProtocol, retry, timeout);
+                                    if (h) return h;
+                                }
+                            }
+                            else if (le.find(protocol) != std::string::npos){
                                 auto* handle = protocolsMap[protocol]->connect(le.substr(le.find(":") + 1, le.length()), retry, timeout);
                                 if (handle) return handle;
                             }
+                        }
+                        
                         
                         return nullptr;
                     } 
