@@ -54,7 +54,9 @@ class Manager {
     inline static std::map<std::string, std::shared_ptr<ConnType>> protocolsMap;    
 	inline static std::queue<HandleUser> handleReady;
     inline static std::map<std::string, std::vector<Handle*>> groupsReady;
+#ifndef MTCL_DISABLE_COLLECTIVES
     inline static std::map<CollectiveContext*, bool> contexts;
+#endif
     inline static std::set<std::string> listening_endps;
 	inline static std::set<std::string> createdTeams;
 	
@@ -191,6 +193,7 @@ private:
 			if constexpr (IO_THREAD_POLL_TIMEOUT)
 				std::this_thread::sleep_for(std::chrono::microseconds(IO_THREAD_POLL_TIMEOUT));
 
+#ifndef MTCL_DISABLE_COLLECTIVES
             {
                 std::unique_lock lk(ctx_mutex);
                 for(auto& [ctx, toManage] : contexts) {
@@ -205,6 +208,7 @@ private:
                     }
                 }
             }
+#endif
         }
     }
 #ifdef ENABLE_CONFIGFILE
@@ -263,10 +267,12 @@ private:
 
 
     static void releaseTeam(CollectiveContext* ctx) {
+#ifndef MTCL_DISABLE_COLLECTIVES
         std::unique_lock lk(ctx_mutex);
         auto it = contexts.find(ctx);
         if (it != contexts.end())
             it->second = true;
+#endif
     }
 
 
@@ -372,14 +378,14 @@ public:
         REMOVE_CODE_IF(t1.join());
 
         //while(!handleReady.empty()) handleReady.pop();
-
+#ifndef MTCL_DISABLE_COLLECTIVES
         for(auto& [ctx, _] : contexts) {
             ctx->finalize(blockflag, ctx->getName());
             if(ctx->counter == 1)
                 delete ctx;
             else ctx->counter--;
         }
-
+#endif
         for (auto [_,v]: protocolsMap) {
             v->end(blockflag);
         }
@@ -409,7 +415,7 @@ public:
 			for(auto& [prot, conn] : protocolsMap) {
 				conn->update();
 			}
-
+#ifndef MTCL_DISABLE_COLLECTIVES
             for(auto& [ctx, toManage] : contexts) {
                 if(toManage) {
                     bool res = poll(ctx);
@@ -419,6 +425,7 @@ public:
                     }
                 }
             }
+#endif
 
 			if (!handleReady.empty()) {
 				auto el = std::move(handleReady.front());
@@ -631,6 +638,8 @@ public:
     return HandleUser();
 #endif
 
+
+#ifndef MTCL_DISABLE_COLLECTIVES
 #ifndef ENABLE_CONFIGFILE
         MTCL_ERROR("[Manager]:\t", "Manager::createTeam team creation is only available with a configuration file\n");
         return HandleUser();
@@ -819,7 +828,9 @@ public:
 			contexts.emplace(ctx, false);
 		}
         return HandleUser(ctx, true, true);
-
+#else
+        MTCL_ERROR("[Manager]:\t", "Manager::createTeam team creation is only available when collectives are enabled\n");
+        return HandleUser();
 #endif
 
     }
