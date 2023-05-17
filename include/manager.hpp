@@ -267,16 +267,14 @@ private:
     }
 #endif
 
-
-    static void releaseTeam(CollectiveContext* ctx) {
 #ifndef MTCL_DISABLE_COLLECTIVES
+    static void releaseTeam(CollectiveContext* ctx) {
         std::unique_lock lk(ctx_mutex);
         auto it = contexts.find(ctx);
         if (it != contexts.end())
             it->second = true;
-#endif
     }
-
+#endif
 
 public:
 
