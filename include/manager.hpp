@@ -23,7 +23,9 @@
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/document.h>
+#ifndef MTCL_DISABLE_COLLECTIVES
 #include "collectives/collectiveContext.hpp"
+#endif
 #endif
 
 #ifdef ENABLE_MPI
@@ -175,7 +177,7 @@ private:
 		condv.notify_one();
     }
 #endif
-	
+#ifndef MTCL_DISABLE_COLLECTIVES	
     static bool poll(CollectiveContext* realHandle) {
 		if (realHandle->probed.first) { // previously probed
             return true;
@@ -183,7 +185,7 @@ private:
 
         return realHandle->peek();
     }
-
+#endif
 	// IO thread function
     static void getReadyBackend() {
         while(!end){
@@ -828,6 +830,7 @@ public:
 			contexts.emplace(ctx, false);
 		}
         return HandleUser(ctx, true, true);
+#endif
 #else
         MTCL_ERROR("[Manager]:\t", "Manager::createTeam team creation is only available when collectives are enabled\n");
         return HandleUser();
@@ -883,6 +886,7 @@ public:
 
 };
 
+#ifndef MTCL_DISABLE_COLLECTIVES
 void CollectiveContext::yield() {
     if (!closed_rd && canReceive) {
         Manager::releaseTeam(this);
@@ -893,5 +897,6 @@ void CollectiveContext::yield() {
         //      the collective if its type is BROADCAST or GATHER
     }
 }
+#endif
 
 #endif
