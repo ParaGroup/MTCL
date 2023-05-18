@@ -8,6 +8,7 @@
 
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <fcntl.h>
@@ -283,7 +284,14 @@ public:
 						MTCL_TCP_ERROR("ConnTcp::update accept ERROR: errno=%d -- %s\n", errno, strerror(errno));
                         return;
                     }
-
+					
+#ifdef MTCL_DISABLE_NAGLE
+					int flag = 1;
+        			if (setsockopt(connfd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int)) < 0){
+						MTCL_TCP_ERROR("ConnTcp::update setsockopt ERROR: errno=%d -- %s\n", errno, strerror(errno));
+                        return;
+					}
+#endif
                     REMOVE_CODE_IF(ulock.lock());
                     // FD_SET(connfd, &set);
                     // if(connfd > fdmax) {
@@ -328,7 +336,15 @@ public:
 		if (fd == -1) {
 			return nullptr;
 		}
-		
+
+#ifdef MTCL_DISABLE_NAGLE
+		int flag = 1;
+		if (setsockopt(connfd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int)) < 0){
+			MTCL_TCP_ERROR("ConnTcp::connect setsockopt ERROR: errno=%d -- %s\n", errno, strerror(errno));
+            return;
+		}
+#endif		
+
         HandleTCP *handle = new HandleTCP(this, fd);
 		{
 			REMOVE_CODE_IF(std::unique_lock lock(shm));
