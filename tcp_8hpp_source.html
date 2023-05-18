@@ -405,7 +405,7 @@ $(function() {
 <div class="line"><a name="l00339"></a><span class="lineno">  339</span>&#160; </div>
 <div class="line"><a name="l00340"></a><span class="lineno">  340</span>&#160;<span class="preprocessor">#ifdef MTCL_DISABLE_NAGLE</span></div>
 <div class="line"><a name="l00341"></a><span class="lineno">  341</span>&#160;        <span class="keywordtype">int</span> flag = 1;</div>
-<div class="line"><a name="l00342"></a><span class="lineno">  342</span>&#160;        <span class="keywordflow">if</span> (setsockopt(connfd, IPPROTO_TCP, TCP_NODELAY, (<span class="keywordtype">char</span> *) &amp;flag, <span class="keyword">sizeof</span>(<span class="keywordtype">int</span>)) &lt; 0){</div>
+<div class="line"><a name="l00342"></a><span class="lineno">  342</span>&#160;        <span class="keywordflow">if</span> (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (<span class="keywordtype">char</span> *) &amp;flag, <span class="keyword">sizeof</span>(<span class="keywordtype">int</span>)) &lt; 0){</div>
 <div class="line"><a name="l00343"></a><span class="lineno">  343</span>&#160;            MTCL_TCP_ERROR(<span class="stringliteral">&quot;ConnTcp::connect setsockopt ERROR: errno=%d -- %s\n&quot;</span>, errno, strerror(errno));</div>
 <div class="line"><a name="l00344"></a><span class="lineno">  344</span>&#160;            <span class="keywordflow">return</span>;</div>
 <div class="line"><a name="l00345"></a><span class="lineno">  345</span>&#160;        }</div>
