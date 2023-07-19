@@ -9,6 +9,7 @@
 
 enum HandleType {
     BROADCAST,
+    SCATTER,
     FANIN,
     FANOUT,
     MTCL_GATHER,

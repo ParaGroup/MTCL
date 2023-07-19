@@ -75,6 +75,7 @@ public:
                     return coll;
                 }
             },
+            {HandleType::SCATTER,  [&]{return new ScatterGeneric(participants, root, uniqtag);}},
             {HandleType::FANIN,  [&]{return new FanInGeneric(participants, root, uniqtag);}},
             {HandleType::FANOUT, [&]{return new FanOutGeneric(participants, root, uniqtag);}},
             {HandleType::MTCL_GATHER,  [&]{
@@ -223,6 +224,7 @@ CollectiveContext *createContext(HandleType type, int size, bool root, int rank)
 {
     const std::map<HandleType, std::function<CollectiveContext*()>> contexts = {
         {HandleType::BROADCAST,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
+        {HandleType::SCATTER,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
         {HandleType::FANIN,  [&]{return new CollectiveContext(size, root, rank, type, !root, root);}},
         {HandleType::FANOUT,  [&]{return new CollectiveContext(size, root, rank, type, root, !root);}},
         {HandleType::MTCL_GATHER,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}}

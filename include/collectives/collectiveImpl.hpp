@@ -197,6 +197,83 @@ public:
 
 };
 
+/**
+ * @brief Generic implementation of Scatter collective using low-level handles.
+ * This implementation is intended to be used by those transports that do not have
+ * an optimized implementation of the Scatter collective. This implementation
+ * can be selected using the \b SCATTER type and the \b GENERIC implementation,
+ * provided, respectively, by @see CollectiveType and @see ImplementationType. 
+ * 
+ */
+class ScatterGeneric : public CollectiveImpl {
+protected:
+    bool root;
+    
+public:
+    ssize_t probe(size_t& size, const bool blocking=true) {
+		MTCL_ERROR("[internal]:\t", "Scatter::probe operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t send(const void* buff, size_t size) {
+        size_t item_size = sizeof(int);
+
+        if (size % item_size != 0) {
+		    errno=EINVAL;
+            return -1;
+        }
+
+        int nworkers = participants.size();
+        int nelems = size / item_size;
+
+        int chunks = nelems / nworkers;
+        int r = nelems % nworkers;
+        int nelems_byte;
+
+        for(int i = 0; i < nworkers; i++) {
+            nelems_byte = (chunks + ((i < r) ? 1 : 0)) * item_size;
+            
+            if(participants.at(i)->send(buff, nelems_byte) < 0) {
+                errno = ECONNRESET;
+                return -1;
+            }
+
+            buff = (char*)buff + nelems_byte;
+        }
+
+        return size;
+    }
+
+    ssize_t receive(void* buff, size_t size) {
+        auto h = participants.at(0);
+        ssize_t res = receiveFromHandle(h, (char*)buff, size);
+        if(res == 0) h->close(true, false);
+
+        return res;
+    }
+
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+        if(root) {
+            return this->send(sendbuff, sendsize);
+        }
+        else {
+            return this->receive(recvbuff, recvsize);
+        }
+    }
+
+    void close(bool close_wr=true, bool close_rd=true) {
+        // Root process can issue an explicit close to all its non-root processes.
+        if(root) {
+            for(auto& h : participants) h->close(true, false);
+            return;
+        }
+    }
+
+public:
+    ScatterGeneric(std::vector<Handle*> participants, bool root, int uniqtag) : CollectiveImpl(participants, uniqtag), root(root) {}
+
+};
 
 class FanInGeneric : public CollectiveImpl {
 private:
