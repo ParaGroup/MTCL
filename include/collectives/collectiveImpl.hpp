@@ -208,7 +208,7 @@ public:
 class ScatterGeneric : public CollectiveImpl {
 protected:
     bool root;
-    
+
 public:
     ssize_t probe(size_t& size, const bool blocking=true) {
 		MTCL_ERROR("[internal]:\t", "Scatter::probe operation not supported\n");
@@ -217,48 +217,52 @@ public:
     }
 
     ssize_t send(const void* buff, size_t size) {
-        size_t item_size = sizeof(int);
-
-        if (size % item_size != 0) {
-		    errno=EINVAL;
-            return -1;
-        }
-
-        int nworkers = participants.size();
-        int nelems = size / item_size;
-
-        int chunks = nelems / nworkers;
-        int r = nelems % nworkers;
-        int nelems_byte;
-
-        for(int i = 0; i < nworkers; i++) {
-            nelems_byte = (chunks + ((i < r) ? 1 : 0)) * item_size;
-            
-            if(participants.at(i)->send(buff, nelems_byte) < 0) {
-                errno = ECONNRESET;
-                return -1;
-            }
-
-            buff = (char*)buff + nelems_byte;
-        }
-
-        return size;
+        MTCL_ERROR("[internal]:\t", "Scatter::send operation not supported\n");
+		errno=EINVAL;
+        return -1;
     }
 
     ssize_t receive(void* buff, size_t size) {
-        auto h = participants.at(0);
-        ssize_t res = receiveFromHandle(h, (char*)buff, size);
-        if(res == 0) h->close(true, false);
-
-        return res;
+        MTCL_ERROR("[internal]:\t", "Scatter::receive operation not supported\n");
+		errno=EINVAL;
+        return -1;
     }
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
         if(root) {
-            return this->send(sendbuff, sendsize);
-        }
-        else {
-            return this->receive(recvbuff, recvsize);
+            size_t nparticipants = participants.size() + 1;
+
+            if (sendsize % nparticipants != 0) {
+                errno=EINVAL;
+                return -1;
+            }
+
+            size_t chunksize = sendsize / nparticipants;
+
+            if (recvsize < chunksize) {
+                errno=EINVAL;
+                return -1;
+            }
+
+            memcpy((char*)recvbuff, sendbuff, chunksize);
+            sendbuff = (char*)sendbuff + chunksize;
+
+            for(size_t i = 0; i < participants.size(); i++) {
+                if(participants.at(i)->send(sendbuff, chunksize) < 0) {
+                    errno = ECONNRESET;
+                    return -1;
+                }
+
+                sendbuff = (char*)sendbuff + chunksize;
+            }
+
+            return sendsize;
+        } else {
+            auto h = participants.at(0);
+            ssize_t res = receiveFromHandle(h, (char*)recvbuff, recvsize);
+            if(res == 0) h->close(true, false);
+
+            return res;
         }
     }
 

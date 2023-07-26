@@ -138,6 +138,60 @@ public:
     }
 };
 
+class ScatterMPI : public MPICollective {
+private:
+
+public:
+    ScatterMPI(std::vector<Handle*> participants, bool root, int uniqtag) : MPICollective(participants, root, uniqtag) {}
+
+    ssize_t probe(size_t& size, const bool blocking=true) {
+		MTCL_ERROR("[internal]:\t", "Scatter::probe operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t send(const void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Scatter::send operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t receive(void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Scatter::receive operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+        size_t nparticipants = participants.size() + 1;
+
+        if (sendsize % nparticipants != 0) {
+            errno=EINVAL;
+            return -1;
+        }
+
+        int count = sendsize / nparticipants;
+
+        if(MPI_Scatter((void*)sendbuff, count, MPI_BYTE, recvbuff, count, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
+            errno = ECOMM;
+            return -1;
+        }
+
+        return sendsize;
+    }
+
+    void close(bool close_wr=true, bool close_rd=true) {
+		closing = true;		
+    }
+
+    void finalize(bool, std::string name="") {
+		if (!closing)
+			this->close(true,true);
+		
+        MPI_Group_free(&group);
+        MPI_Comm_free(&comm);
+    }
+};
 
 class GatherMPI : public MPICollective {
     size_t* probe_data;

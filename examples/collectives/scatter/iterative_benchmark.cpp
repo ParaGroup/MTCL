@@ -183,7 +183,7 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 		return;
 	}
 
-	for(int i=0; i< iterations; ++i) {
+	for(int i = 0; i < iterations; i++) {
 		MTCL_PRINT(0, "[Emitter]:\t", "starting iteration %d, size=%ld\n", i, size);
 		
 		int *data = new int[size];
@@ -192,7 +192,23 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 			data[i] = j;
 		}
 
-		hg.sendrecv(data, size * sizeof(int), nullptr, 0);		   			
+		int recvsize = size / hg.size();
+		int *recvbuf = new int[recvsize];
+
+		if (hg.sendrecv(data, size * sizeof(int), recvbuf, recvsize * sizeof(int)) <= 0) {
+			MTCL_ERROR("[Emitter]:\t", "send from scatter ERROR\n");
+			return;
+		}
+
+		std::cout << "SelfMessage-" << i << ": [ ";
+
+		for (int i = 0; i < recvsize; i++) {
+
+				std::cout << recvbuf[i] << " ";
+		}
+		
+		std::cout << "]" << std::endl;	   			
+		
 		// Receive result from feedback channel
 		auto h = Manager::getNext();
 		int res;
@@ -219,7 +235,7 @@ void Worker(const std::string& scatter_participants, const std::string& gather,
 			const std::string& scatter_root, const std::string& groot,
 			const int rank, const int iterations, size_t size) {
 
-	MTCL_PRINT(0, "[Worker]:\t", "bcast=%s, gather=%s, broot=%s, groot=%s, Worker%d\n",
+	MTCL_PRINT(0, "[Worker]:\t", "scatter_participants=%s, gather=%s, broot=%s, groot=%s, Worker%d\n",
 			   scatter_participants.c_str(), gather.c_str(), scatter_root.c_str(), groot.c_str(), rank);
 		
 	auto hg_scatter = Manager::createTeam(scatter_participants, scatter_root, SCATTER);	
@@ -234,9 +250,10 @@ void Worker(const std::string& scatter_participants, const std::string& gather,
 	
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, starting iteration %d, size=%ld\n", rank, i, size);
-		int *data = new int[size];
-		hg_scatter.sendrecv(nullptr, 0, data, size * sizeof(int));		   			
-		hg_gather.sendrecv(data, size * sizeof(int), nullptr, 0);
+		int datasize = size / hg_scatter.size();
+		int *data = new int[datasize];
+		hg_scatter.sendrecv(nullptr, 0, data, datasize * sizeof(int));		   			
+		hg_gather.sendrecv(data, datasize * sizeof(int), nullptr, 0);
 
 		delete [] data;
 		size = size << 1;
@@ -267,16 +284,17 @@ void Collector(const std::string& gather, const std::string& groot,
 	int *mydata;
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Collector]:\t", "starting iteration %d, size=%ld\n", i, size);
-		int *gatherdata = new int[(nworkers+1)*size]();
-		mydata = new int[size]();
+		int *gatherdata = new int[size]();
+		int mydatasize = size / (nworkers + 1);
+		mydata = new int[mydatasize]();
 		
-		hg.sendrecv(mydata, size * sizeof(int), gatherdata, size * sizeof(int));
+		hg.sendrecv(mydata, mydatasize * sizeof(int), gatherdata, mydatasize * sizeof(int));
 
 		for (int i = 0; i < nworkers + 1; i++) {
 			std::cout << "Message-" << i << ": [ ";
 
-			for (int j = 0; j < size; j++) {
-				std::cout << gatherdata[(i * size) + j] << " ";
+			for (int j = 0; j < mydatasize; j++) {
+				std::cout << gatherdata[(i * mydatasize) + j] << " ";
 			}
 
 			std::cout << "]" << std::endl;

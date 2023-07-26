@@ -75,7 +75,27 @@ public:
                     return coll;
                 }
             },
-            {HandleType::SCATTER,  [&]{return new ScatterGeneric(participants, root, uniqtag);}},
+            {HandleType::SCATTER,  [&]{
+                    CollectiveImpl* coll = nullptr;
+                    switch (impl) {
+                        case GENERIC:
+                            coll = new ScatterGeneric(participants, root, uniqtag);
+                            break;
+                        case MPI:
+                            #ifdef ENABLE_MPI
+                            void *max_tag;
+                            int flag;
+                            MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
+                            coll = new ScatterMPI(participants, root, uniqtag % (*(int*)max_tag));
+                            #endif
+                            break;
+                        default:
+                            coll = nullptr;
+                            break;
+                    }
+                    return coll;
+                }
+            },
             {HandleType::FANIN,  [&]{return new FanInGeneric(participants, root, uniqtag);}},
             {HandleType::FANOUT, [&]{return new FanOutGeneric(participants, root, uniqtag);}},
             {HandleType::MTCL_GATHER,  [&]{
