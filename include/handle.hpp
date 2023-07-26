@@ -81,7 +81,7 @@ public:
     virtual void close(bool close_wr=true, bool close_rd=true) = 0;
 
 
-    virtual ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    virtual ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         MTCL_PRINT(100, "[internal]:\t", "CommunicationHandle::sendrecv invalid operation.\n");
         errno = EINVAL;
         return -1;

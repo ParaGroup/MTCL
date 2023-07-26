@@ -195,7 +195,7 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 		int recvsize = size / hg.size();
 		int *recvbuf = new int[recvsize];
 
-		if (hg.sendrecv(data, size * sizeof(int), recvbuf, recvsize * sizeof(int)) <= 0) {
+		if (hg.sendrecv(data, size * sizeof(int), recvbuf, recvsize * sizeof(int), sizeof(int)) <= 0) {
 			MTCL_ERROR("[Emitter]:\t", "send from scatter ERROR\n");
 			return;
 		}
@@ -203,8 +203,7 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 		std::cout << "SelfMessage-" << i << ": [ ";
 
 		for (int i = 0; i < recvsize; i++) {
-
-				std::cout << recvbuf[i] << " ";
+			std::cout << recvbuf[i] << " ";
 		}
 		
 		std::cout << "]" << std::endl;	   			

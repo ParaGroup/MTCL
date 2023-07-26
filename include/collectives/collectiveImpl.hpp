@@ -126,7 +126,7 @@ public:
     virtual ssize_t receive(void* buff, size_t size) = 0;
     virtual void close(bool close_wr=true, bool close_rd=true) = 0;
 
-    virtual ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    virtual ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         MTCL_PRINT(100, "[internal]:\t", "CollectiveImpl::sendrecv invalid operation for the collective\n");
         errno = EINVAL;
         return -1;
@@ -157,30 +157,34 @@ public:
     }
 
     ssize_t send(const void* buff, size_t size) {
-        for(auto& h : participants) {
-            if(h->send(buff, size) < 0) {
-                errno = ECONNRESET;
-                return -1;
-            }
-        }
-
-        return size;
+        MTCL_ERROR("[internal]:\t", "Broadcast::send operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
     }
 
     ssize_t receive(void* buff, size_t size) {
-        auto h = participants.at(0);
-        ssize_t res = receiveFromHandle(h, (char*)buff, size);
-        if(res == 0) h->close(true, false);
-
-        return res;
+        MTCL_ERROR("[internal]:\t", "Broadcast::receive operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         if(root) {
-            return this->send(sendbuff, sendsize);
+            for(auto& h : participants) {
+                if(h->send(sendbuff, sendsize) < 0) {
+                    errno = ECONNRESET;
+                    return -1;
+                }
+            }
+
+            return sendsize;
         }
         else {
-            return this->receive(recvbuff, recvsize);
+            auto h = participants.at(0);
+            ssize_t res = receiveFromHandle(h, (char*)recvbuff, recvsize);
+            if(res == 0) h->close(true, false);
+
+            return res;
         }
     }
 
@@ -217,27 +221,33 @@ public:
     }
 
     ssize_t send(const void* buff, size_t size) {
-        MTCL_ERROR("[internal]:\t", "Scatter::send operation not supported\n");
+        MTCL_ERROR("[internal]:\t", "Scatter::send operation not supported, you must use the sendrecv method\n");
 		errno=EINVAL;
         return -1;
     }
 
     ssize_t receive(void* buff, size_t size) {
-        MTCL_ERROR("[internal]:\t", "Scatter::receive operation not supported\n");
+        MTCL_ERROR("[internal]:\t", "Scatter::receive operation not supported, you must use the sendrecv method\n");
 		errno=EINVAL;
         return -1;
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         if(root) {
-            size_t nparticipants = participants.size() + 1;
-
-            if (sendsize % nparticipants != 0) {
+            if (sendsize % datasize != 0) {
                 errno=EINVAL;
                 return -1;
             }
 
-            size_t chunksize = sendsize / nparticipants;
+            size_t nparticipants = participants.size() + 1;
+            size_t datacount = sendsize / datasize;
+
+            if (datacount % nparticipants != 0) {
+                errno=EINVAL;
+                return -1;
+            }
+
+            size_t chunksize = (datacount / nparticipants) * datasize;
 
             if (recvsize < chunksize) {
                 errno=EINVAL;
@@ -468,7 +478,7 @@ public:
         return sizeof(size_t);
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         if(root) {
             memcpy((char*)recvbuff+(rank*sendsize), sendbuff, sendsize);
             return this->receive(recvbuff, recvsize);

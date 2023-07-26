@@ -14,7 +14,7 @@
 
 
 #include <iostream>
-#include "../../../mtcl.hpp"
+#include <mtcl.hpp>
 
 #define MAX_MESSAGE_SIZE 100
 
@@ -72,7 +72,7 @@ int main(int argc, char** argv){
         return 1;
     }
     if(rank == 0) {
-#if 1
+#if 0
         hg.sendrecv((void*)hello.c_str(), hello.length(), nullptr, 0);
 #endif
     }

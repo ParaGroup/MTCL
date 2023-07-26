@@ -17,7 +17,7 @@
 
 
 #include <iostream>
-#include "../../../mtcl.hpp"
+#include <mtcl.hpp>
 
 #define MAX_MESSAGE_SIZE 100
 

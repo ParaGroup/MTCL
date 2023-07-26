@@ -216,8 +216,8 @@ public:
         return coll->peek();
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
-        return coll->sendrecv(sendbuff, sendsize, recvbuff, recvsize);
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        return coll->sendrecv(sendbuff, sendsize, recvbuff, recvsize, datasize);
     }
 
     void close(bool close_wr=true, bool close_rd=true) {

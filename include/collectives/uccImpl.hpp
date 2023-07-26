@@ -224,7 +224,7 @@ public:
         return size;
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         if(root) {
             return this->send(sendbuff, sendsize);
         }
@@ -270,7 +270,7 @@ public:
         return -1;
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {        
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {        
         ucc_coll_args_t args;
         ucc_coll_req_h  request;
 

@@ -101,27 +101,33 @@ public:
     }
 
     ssize_t send(const void* buff, size_t size) {
-        if(MPI_Bcast((void*)buff, size, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
-            errno = ECOMM;
-            return -1;
-        }
-        return size;
+        MTCL_ERROR("[internal]:\t", "Broadcast::send operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
     }
 
     ssize_t receive(void* buff, size_t size) {
-        if(MPI_Bcast((void*)buff, size, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
-            errno = ECOMM;
-            return -1;
-        }
-        return size;
+        MTCL_ERROR("[internal]:\t", "Broadcast::receive operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         if(root) {
-            return this->send(sendbuff, sendsize);
+            if(MPI_Bcast((void*)sendbuff, sendsize, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
+                errno = ECOMM;
+                return -1;
+            }
+            
+            return sendsize;
         }
         else {
-            return this->receive(recvbuff, recvsize);
+            if(MPI_Bcast((void*)recvbuff, recvsize, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
+                errno = ECOMM;
+                return -1;
+            }
+        
+            return recvsize;
         }
     }
 
@@ -151,28 +157,34 @@ public:
     }
 
     ssize_t send(const void* buff, size_t size) {
-        MTCL_ERROR("[internal]:\t", "Scatter::send operation not supported\n");
+        MTCL_ERROR("[internal]:\t", "Scatter::send operation not supported, you must use the sendrecv method\n");
 		errno=EINVAL;
         return -1;
     }
 
     ssize_t receive(void* buff, size_t size) {
-        MTCL_ERROR("[internal]:\t", "Scatter::receive operation not supported\n");
+        MTCL_ERROR("[internal]:\t", "Scatter::receive operation not supported, you must use the sendrecv method\n");
 		errno=EINVAL;
         return -1;
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
-        size_t nparticipants = participants.size() + 1;
-
-        if (sendsize % nparticipants != 0) {
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        if (sendsize % datasize != 0) {
             errno=EINVAL;
             return -1;
         }
 
-        int count = sendsize / nparticipants;
+        size_t nparticipants = participants.size() + 1;
+        size_t datacount = sendsize / datasize;
 
-        if(MPI_Scatter((void*)sendbuff, count, MPI_BYTE, recvbuff, count, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
+        if (datacount % nparticipants != 0) {
+            errno=EINVAL;
+            return -1;
+        }
+
+        size_t sendcount = (datacount / nparticipants) * datasize;
+
+        if(MPI_Scatter((void*)sendbuff, sendcount, MPI_BYTE, recvbuff, sendcount, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
             errno = ECOMM;
             return -1;
         }
@@ -220,7 +232,7 @@ public:
         return -1;
     }
     
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasieze = 1) {
         if(MPI_Gather(sendbuff, sendsize, MPI_BYTE, recvbuff, recvsize, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
             errno = ECOMM;
             return -1;
