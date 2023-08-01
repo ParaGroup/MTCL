@@ -192,7 +192,14 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 			data[i] = j;
 		}
 
-		int recvsize = size / hg.size();
+		int recvsize;
+
+		if (size % hg.size() == 0) {
+			recvsize = size / hg.size();
+		} else {
+			recvsize = (size / hg.size()) + 1;
+		}
+		
 		int *recvbuf = new int[recvsize];
 
 		if (hg.sendrecv(data, size * sizeof(int), recvbuf, recvsize * sizeof(int), sizeof(int)) <= 0) {
@@ -236,7 +243,7 @@ void Worker(const std::string& scatter_participants, const std::string& gather,
 
 	MTCL_PRINT(0, "[Worker]:\t", "scatter_participants=%s, gather=%s, broot=%s, groot=%s, Worker%d\n",
 			   scatter_participants.c_str(), gather.c_str(), scatter_root.c_str(), groot.c_str(), rank);
-		
+	
 	auto hg_scatter = Manager::createTeam(scatter_participants, scatter_root, SCATTER);	
 	auto hg_gather= Manager::createTeam(gather, groot, MTCL_GATHER);
 		
@@ -249,9 +256,16 @@ void Worker(const std::string& scatter_participants, const std::string& gather,
 	
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, starting iteration %d, size=%ld\n", rank, i, size);
-		int datasize = size / hg_scatter.size();
+		int datasize;
+		
+		if (size % hg_scatter.size() == 0) {
+			datasize = size / hg_scatter.size();
+		} else {
+			datasize = (size / hg_scatter.size()) + 1;
+		}
+
 		int *data = new int[datasize];
-		hg_scatter.sendrecv(nullptr, 0, data, datasize * sizeof(int));		   			
+		hg_scatter.sendrecv(nullptr, size * sizeof(int), data, datasize * sizeof(int), sizeof(int));
 		hg_gather.sendrecv(data, datasize * sizeof(int), nullptr, 0);
 
 		delete [] data;
@@ -283,8 +297,20 @@ void Collector(const std::string& gather, const std::string& groot,
 	int *mydata;
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Collector]:\t", "starting iteration %d, size=%ld\n", i, size);
-		int *gatherdata = new int[size]();
-		int mydatasize = size / (nworkers + 1);
+
+		int gatherdatasize;
+		int mydatasize;
+
+		if (size % hg.size() == 0) {
+			gatherdatasize = size;
+			mydatasize = size / (nworkers + 1);
+		} else {
+			gatherdatasize = ((size / hg.size()) + 1) * (nworkers + 1);
+			mydatasize = (size / hg.size()) + 1;
+		}
+
+		int *gatherdata = new int[gatherdatasize]();
+
 		mydata = new int[mydatasize]();
 		
 		hg.sendrecv(mydata, mydatasize * sizeof(int), gatherdata, mydatasize * sizeof(int));

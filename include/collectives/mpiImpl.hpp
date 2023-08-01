@@ -169,27 +169,52 @@ public:
     }
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        if (sendsize == 0) MTCL_MPI_PRINT(0, "[internal]:\t Scatter::sendrecv \"sendsize\" is equal to zero!\n");
+
         if (sendsize % datasize != 0) {
             errno=EINVAL;
             return -1;
         }
 
-        size_t nparticipants = participants.size() + 1;
+        int nparticipants;
+        MPI_Comm_size(comm, &nparticipants);
+
         size_t datacount = sendsize / datasize;
 
-        if (datacount % nparticipants != 0) {
-            errno=EINVAL;
-            return -1;
+        int *sendcounts = new int[nparticipants]();
+        int *displs = new int[nparticipants]();
+        
+        int displ = 0;
+
+        int sendcount = (datacount / nparticipants) * datasize;
+        int rcount = datacount % nparticipants;
+            
+        for (int i = 0; i < nparticipants; i++) {
+            sendcounts[i] = sendcount;
+                
+            if (rcount > 0) {
+                sendcounts[i] += datasize;
+                rcount--;
+            }
+                
+            displs[i] = displ;
+            displ += sendcounts[i];
         }
 
-        size_t sendcount = (datacount / nparticipants) * datasize;
-
-        if(MPI_Scatter((void*)sendbuff, sendcount, MPI_BYTE, recvbuff, sendcount, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
+        if (MPI_Scatterv((void*)sendbuff, sendcounts, displs, MPI_BYTE, recvbuff, recvsize, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
             errno = ECOMM;
             return -1;
         }
 
-        return sendsize;
+        int mpi_rank;
+        MPI_Comm_rank(comm, &mpi_rank);
+
+        recvsize = sendcounts[mpi_rank];
+
+        delete [] sendcounts;
+        delete [] displs;
+
+        return recvsize;
     }
 
     void close(bool close_wr=true, bool close_rd=true) {
@@ -232,7 +257,7 @@ public:
         return -1;
     }
     
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasieze = 1) {
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         if(MPI_Gather(sendbuff, sendsize, MPI_BYTE, recvbuff, recvsize, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
             errno = ECOMM;
             return -1;

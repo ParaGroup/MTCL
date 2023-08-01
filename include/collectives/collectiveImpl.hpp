@@ -242,22 +242,34 @@ public:
             size_t nparticipants = participants.size() + 1;
             size_t datacount = sendsize / datasize;
 
-            if (datacount % nparticipants != 0) {
+            size_t sendcount = (datacount / nparticipants) * datasize;
+            size_t rcount = (datacount % nparticipants);
+
+            size_t selfsendcount = sendcount;
+
+            if (rcount > 0) {
+                selfsendcount += datasize;
+                rcount--;
+            }
+
+            if (recvsize < selfsendcount) {
                 errno=EINVAL;
                 return -1;
             }
 
-            size_t chunksize = (datacount / nparticipants) * datasize;
+            memcpy((char*)recvbuff, sendbuff, selfsendcount);
+            sendbuff = (char*)sendbuff + selfsendcount;
+            
+            size_t chunksize;
+            
+            for (size_t i = 0; i < participants.size(); i++) {
+                chunksize = sendcount;
 
-            if (recvsize < chunksize) {
-                errno=EINVAL;
-                return -1;
-            }
+                if (rcount > 0) {
+                    chunksize += datasize;
+                    rcount--;
+                }
 
-            memcpy((char*)recvbuff, sendbuff, chunksize);
-            sendbuff = (char*)sendbuff + chunksize;
-
-            for(size_t i = 0; i < participants.size(); i++) {
                 if(participants.at(i)->send(sendbuff, chunksize) < 0) {
                     errno = ECONNRESET;
                     return -1;
@@ -265,8 +277,8 @@ public:
 
                 sendbuff = (char*)sendbuff + chunksize;
             }
-
-            return sendsize;
+            
+            return selfsendcount;
         } else {
             auto h = participants.at(0);
             ssize_t res = receiveFromHandle(h, (char*)recvbuff, recvsize);
@@ -474,7 +486,7 @@ public:
             h->send(&rank, sizeof(int));
             h->send(buff, size);
         }
-        
+
         return sizeof(size_t);
     }
 
