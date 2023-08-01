@@ -247,8 +247,9 @@ public:
     }
 	
     ssize_t send(const void* buff, size_t size) {
-		return -1; // TODO
-		
+        MTCL_ERROR("[internal]:\t", "Gather::send operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
     }
 
     ssize_t receive(void* buff, size_t size) {
@@ -258,11 +259,60 @@ public:
     }
     
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        if (recvsize == 0) MTCL_MPI_PRINT(0, "[internal]:\t Gather::sendrecv \"recvsize\" is equal to zero!\n");
+
+        if (recvsize % datasize != 0) {
+            errno=EINVAL;
+            return -1;
+        }
+
+        int nparticipants;
+        MPI_Comm_size(comm, &nparticipants);
+
+        size_t datacount = recvsize / datasize;
+
+        int *recvcounts = new int[nparticipants]();
+        int *displs = new int[nparticipants]();
+        
+        int displ = 0;
+
+        int recvcount = (datacount / nparticipants) * datasize;
+        int rcount = datacount % nparticipants;
+            
+        for (int i = 0; i < nparticipants; i++) {
+            recvcounts[i] = recvcount;
+                
+            if (rcount > 0) {
+                recvcounts[i] += datasize;
+                rcount--;
+            }
+                
+            displs[i] = displ;
+            displ += recvcounts[i];
+        }
+
+        int mpi_rank;
+        MPI_Comm_rank(comm, &mpi_rank);
+        std::cout << "QUI->" << root_rank << std::endl;
+        if (MPI_Gatherv((void*)sendbuff, recvcounts[mpi_rank], MPI_BYTE, recvbuff, recvcounts, displs, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
+            errno = ECOMM;
+            return -1;
+        }
+
+        sendsize = recvcounts[mpi_rank];
+
+        delete [] recvcounts;
+        delete [] displs;
+
+        return sendsize;
+        
+        /*
         if(MPI_Gather(sendbuff, sendsize, MPI_BYTE, recvbuff, recvsize, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
             errno = ECOMM;
             return -1;
         }
         return (root?(recvsize*participants.size()):sendsize);
+        */
     }
 
     void close(bool close_wr=true, bool close_rd=true) {
