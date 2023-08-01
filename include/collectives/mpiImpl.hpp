@@ -172,7 +172,7 @@ public:
         if (sendsize == 0) MTCL_MPI_PRINT(0, "[internal]:\t Scatter::sendrecv \"sendsize\" is equal to zero!\n");
 
         if (sendsize % datasize != 0) {
-            errno=EINVAL;
+            errno = EINVAL;
             return -1;
         }
 
@@ -201,13 +201,18 @@ public:
             displ += sendcounts[i];
         }
 
+        int mpi_rank;
+        MPI_Comm_rank(comm, &mpi_rank);
+
+        if (sendcounts[mpi_rank] > (int)recvsize) {
+            errno = EINVAL;
+            return -1;
+        }
+
         if (MPI_Scatterv((void*)sendbuff, sendcounts, displs, MPI_BYTE, recvbuff, recvsize, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
             errno = ECOMM;
             return -1;
         }
-
-        int mpi_rank;
-        MPI_Comm_rank(comm, &mpi_rank);
 
         recvsize = sendcounts[mpi_rank];
 
@@ -262,7 +267,7 @@ public:
         if (recvsize == 0) MTCL_MPI_PRINT(0, "[internal]:\t Gather::sendrecv \"recvsize\" is equal to zero!\n");
 
         if (recvsize % datasize != 0) {
-            errno=EINVAL;
+            errno = EINVAL;
             return -1;
         }
 
@@ -293,7 +298,12 @@ public:
 
         int mpi_rank;
         MPI_Comm_rank(comm, &mpi_rank);
-        std::cout << "QUI->" << root_rank << std::endl;
+        
+        if (recvcounts[mpi_rank] > (int)sendsize) {
+            errno = EINVAL;
+            return -1;
+        }
+
         if (MPI_Gatherv((void*)sendbuff, recvcounts[mpi_rank], MPI_BYTE, recvbuff, recvcounts, displs, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
             errno = ECOMM;
             return -1;
@@ -305,14 +315,6 @@ public:
         delete [] displs;
 
         return sendsize;
-        
-        /*
-        if(MPI_Gather(sendbuff, sendsize, MPI_BYTE, recvbuff, recvsize, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
-            errno = ECOMM;
-            return -1;
-        }
-        return (root?(recvsize*participants.size()):sendsize);
-        */
     }
 
     void close(bool close_wr=true, bool close_rd=true) {

@@ -188,7 +188,7 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 		
 		int *data = new int[size];
 
-		for (int i = 0, j = 100; i < size; i++, j += 100) {
+		for (size_t i = 0, j = 100; i < size; i++, j += 100) {
 			data[i] = j;
 		}
 
@@ -207,10 +207,14 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 			return;
 		}
 
-		std::cout << "SelfMessage-" << i << ": [ ";
+		std::cout << "[Emitter]: Message ->" << " [";
 
 		for (int i = 0; i < recvsize; i++) {
-			std::cout << recvbuf[i] << " ";
+			std::cout << recvbuf[i];
+
+			if (i != (recvsize - 1)) {
+				std::cout << ", "; 
+			}
 		}
 		
 		std::cout << "]" << std::endl;	   			
@@ -256,25 +260,27 @@ void Worker(const std::string& scatter_participants, const std::string& gather,
 	
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, starting iteration %d, size=%ld\n", rank, i, size);
-		int datasize;
+		int scatter_data_size;
 		
 		if (size % hg_scatter.size() == 0) {
-			datasize = size / hg_scatter.size();
+			scatter_data_size = size / hg_scatter.size();
 		} else {
-			datasize = (size / hg_scatter.size()) + 1;
+			scatter_data_size = (size / hg_scatter.size()) + 1;
 		}
 
-		int *data = new int[datasize];
-		hg_scatter.sendrecv(nullptr, size * sizeof(int), data, datasize * sizeof(int), sizeof(int));
-		hg_gather.sendrecv(data, datasize * sizeof(int), nullptr, 0);
+		int *scatter_data = new int[scatter_data_size];
+		hg_scatter.sendrecv(nullptr, size * sizeof(int), scatter_data, scatter_data_size * sizeof(int), sizeof(int));
 
-		delete [] data;
+		int gather_data_size = scatter_data_size * hg_gather.size();
+		hg_gather.sendrecv(scatter_data, scatter_data_size * sizeof(int), nullptr, gather_data_size * sizeof(int), sizeof(int));
+
+		delete [] scatter_data;
 		size = size << 1;
 		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, done iteration %d\n", rank, i);
 	}
 	
 	hg_scatter.close();        
-	hg_gather.close();	
+	hg_gather.close();
 }
 
 void Collector(const std::string& gather, const std::string& groot,
@@ -294,44 +300,49 @@ void Collector(const std::string& gather, const std::string& groot,
 		return;
 	}
 	
-	int *mydata;
+	int *data;
+
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Collector]:\t", "starting iteration %d, size=%ld\n", i, size);
 
-		int gatherdatasize;
-		int mydatasize;
+		int gather_data_size;
+		int data_size;
 
 		if (size % hg.size() == 0) {
-			gatherdatasize = size;
-			mydatasize = size / (nworkers + 1);
+			gather_data_size = size;
+			data_size = size / (nworkers + 1);
 		} else {
-			gatherdatasize = ((size / hg.size()) + 1) * (nworkers + 1);
-			mydatasize = (size / hg.size()) + 1;
+			gather_data_size = ((size / hg.size()) + 1) * (nworkers + 1);
+			data_size = (size / hg.size()) + 1;
 		}
 
-		int *gatherdata = new int[gatherdatasize]();
-
-		mydata = new int[mydatasize]();
+		int *gather_data = new int[gather_data_size]();
+		data = new int[data_size];
+		memset(data, -1, data_size * sizeof(int));
 		
-		hg.sendrecv(mydata, mydatasize * sizeof(int), gatherdata, mydatasize * sizeof(int));
+		hg.sendrecv(data, data_size * sizeof(int), gather_data, gather_data_size * sizeof(int), sizeof(int));
 
 		for (int i = 0; i < nworkers + 1; i++) {
-			std::cout << "Message-" << i << ": [ ";
+			std::cout << "[Collector]: Message-" << i << " -> [";
 
-			for (int j = 0; j < mydatasize; j++) {
-				std::cout << gatherdata[(i * mydatasize) + j] << " ";
+			for (int j = 0; j < data_size; j++) {
+				std::cout << gather_data[(i * data_size) + j];
+
+				if (j != (data_size -1)) {
+					std::cout << ", ";
+				}
 			}
 
 			std::cout << "]" << std::endl;
 		} 
-
+		
 		if (fbk.send(&COLLECTOR_RANK, sizeof(int))<=0) {
 			MTCL_ERROR("[Collector]:\t", "send to the Emitter ERROR\n");
 			return;
 		}
 		
-		delete [] gatherdata;
-		delete [] mydata;
+		delete [] gather_data;
+		delete [] data;
 		
 		size = size << 1;
 		MTCL_PRINT(0, "[Collector]:\t", "done iteration %d\n", i);
@@ -390,7 +401,7 @@ int main(int argc, char** argv){
 		Emitter(scatter_string, participants.at(EMITTER_RANK), iterations, size);
     } else {
 		if (rank == 1) {
-			Collector(gather_string, participants.at(COLLECTOR_RANK), participants.size()-1,
+			Collector(gather_string, participants.at(COLLECTOR_RANK), num_workers,
 					  iterations, size);
 		} else {	   
 			Worker(scatter_string, gather_string,
