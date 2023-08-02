@@ -4,7 +4,7 @@
  *
  *
  * Compile with:
- *  $> TPROTOCOL=<TCP|UCX|MPI> RAPIDJSON_HOME="/rapidjson/install/path" make -f ../Makefile clean test_scatter
+ *  $> TPROTOCOL=<TCP|UCX|MPI> RAPIDJSON_HOME="/rapidjson/install/path" make clean test_scatter
  * 
  * Execution with MPI:
  *  $> mpirun -n 1 ./test_scatter 0 size App1 : -n 1 ./test_scatter 1 size App2 : -n 1 ./test_scatter 2 size App3 : -n 1 ./test_scatter 3 size App4

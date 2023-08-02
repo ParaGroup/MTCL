@@ -1,0 +1,28 @@
+{
+    "components":[
+        {
+            "name":"Node0",
+            "host":"localhost",
+            "protocols":["MPI"],
+            "listen-endpoints":["MPI:0:10"]
+        },
+        {
+            "name":"Node1",
+            "host":"localhost",
+            "protocols":["MPI"],
+            "listen-endpoints":["MPI:1:10"]
+        },
+        {
+            "name":"Node2",
+            "host":"localhost",
+            "protocols":["MPI"],
+            "listen-endpoints":["MPI:2:10"]
+        },
+        {
+            "name":"Node3",
+            "host":"localhost",
+            "protocols":["MPI"],
+            "listen-endpoints":["MPI:3:10"]
+        }
+    ]
+}

@@ -208,7 +208,7 @@ public:
         }
 
         if ((size_t)sendcounts[my_group_rank] > recvsize) {
-			MTCL_ERROR("[internal]:\t","receive buffer too small %ld instead of %ld\n",sendcounts[my_group_rank], recvsize);
+			MTCL_ERROR("[internal]:\t","receive buffer too small %ld instead of %ld\n",recvsize ,sendcounts[my_group_rank]);
 
             errno = EINVAL;
             return -1;
