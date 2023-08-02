@@ -175,7 +175,7 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 	}
 	fbk.yield(); // give it back to the Manager
 	
-	auto hg = Manager::createTeam(scatter_participants, scatter_root, SCATTER);
+	auto hg = Manager::createTeam(scatter_participants, scatter_root, MTCL_SCATTER);
 	if (hg.isValid()) {
 		MTCL_PRINT(0,"[Emitter]:\t", "Emitter starting\n");
 	} else {
@@ -203,7 +203,7 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 		int *recvbuf = new int[recvsize];
 
 		if (hg.sendrecv(data, size * sizeof(int), recvbuf, recvsize * sizeof(int), sizeof(int)) <= 0) {
-			MTCL_ERROR("[Emitter]:\t", "send from scatter ERROR\n");
+			MTCL_ERROR("[Emitter]:\t", "scatter ERROR\n");
 			return;
 		}
 
@@ -248,7 +248,7 @@ void Worker(const std::string& scatter_participants, const std::string& gather,
 	MTCL_PRINT(0, "[Worker]:\t", "scatter_participants=%s, gather=%s, broot=%s, groot=%s, Worker%d\n",
 			   scatter_participants.c_str(), gather.c_str(), scatter_root.c_str(), groot.c_str(), rank);
 	
-	auto hg_scatter = Manager::createTeam(scatter_participants, scatter_root, SCATTER);	
+	auto hg_scatter = Manager::createTeam(scatter_participants, scatter_root, MTCL_SCATTER);	
 	auto hg_gather= Manager::createTeam(gather, groot, MTCL_GATHER);
 		
 	if (hg_scatter.isValid() && hg_gather.isValid()) {

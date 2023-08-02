@@ -49,7 +49,7 @@ public:
 
     bool setImplementation(ImplementationType impl, std::vector<Handle*> participants, int uniqtag) {
         const std::map<HandleType, std::function<CollectiveImpl*()>> contexts = {
-            {HandleType::BROADCAST,  [&]{
+            {HandleType::MTCL_BROADCAST,  [&]{
                     CollectiveImpl* coll = nullptr;
                     switch (impl) {
                         case GENERIC:
@@ -75,7 +75,7 @@ public:
                     return coll;
                 }
             },
-            {HandleType::SCATTER,  [&]{
+            {HandleType::MTCL_SCATTER,  [&]{
                     CollectiveImpl* coll = nullptr;
                     switch (impl) {
                         case GENERIC:
@@ -96,8 +96,8 @@ public:
                     return coll;
                 }
             },
-            {HandleType::FANIN,  [&]{return new FanInGeneric(participants, root, uniqtag);}},
-            {HandleType::FANOUT, [&]{return new FanOutGeneric(participants, root, uniqtag);}},
+            {HandleType::MTCL_FANIN,  [&]{return new FanInGeneric(participants, root, uniqtag);}},
+            {HandleType::MTCL_FANOUT, [&]{return new FanOutGeneric(participants, root, uniqtag);}},
             {HandleType::MTCL_GATHER,  [&]{
                     CollectiveImpl* coll = nullptr;
                     switch (impl) {
@@ -243,11 +243,11 @@ public:
 CollectiveContext *createContext(HandleType type, int size, bool root, int rank)
 {
     const std::map<HandleType, std::function<CollectiveContext*()>> contexts = {
-        {HandleType::BROADCAST,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
-        {HandleType::SCATTER,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
-        {HandleType::FANIN,  [&]{return new CollectiveContext(size, root, rank, type, !root, root);}},
-        {HandleType::FANOUT,  [&]{return new CollectiveContext(size, root, rank, type, root, !root);}},
-        {HandleType::MTCL_GATHER,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}}
+        {HandleType::MTCL_BROADCAST,   [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
+        {HandleType::MTCL_SCATTER,     [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
+        {HandleType::MTCL_FANIN,       [&]{return new CollectiveContext(size, root, rank, type, !root, root);}},
+        {HandleType::MTCL_FANOUT,      [&]{return new CollectiveContext(size, root, rank, type, root, !root);}},
+        {HandleType::MTCL_GATHER, [&]{return new CollectiveContext(size, root, rank, type, false, false);}}
 
     };
 

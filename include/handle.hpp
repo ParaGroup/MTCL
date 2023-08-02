@@ -8,10 +8,10 @@
 #include "utils.hpp"
 
 enum HandleType {
-    BROADCAST,
-    SCATTER,
-    FANIN,
-    FANOUT,
+    MTCL_BROADCAST,
+    MTCL_SCATTER,
+    MTCL_FANIN,
+    MTCL_FANOUT,
     MTCL_GATHER,
     P2P,
     PROXY,

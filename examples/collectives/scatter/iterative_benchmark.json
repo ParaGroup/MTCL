@@ -1,14 +1,14 @@
 {
     "components":[
         {
-            "name":"Emitter",
+            "name":"Emitter",    
             "host":"localhost",
             "protocols":["MPI"],
             "listen-endpoints":["MPI:0:10"]
         },
         {
-            "name":"Worker1",
-            "host":"localhost",
+            "name":"Worker1",   
+            "host":"localhost", 
             "protocols":["MPI"]
         },
         {
@@ -24,3 +24,5 @@
         }
     ]
 }
+
+

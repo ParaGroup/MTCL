@@ -175,7 +175,7 @@ void Emitter(const std::string& bcast, const std::string& broot, const int itera
 	}
 	fbk.yield(); // give it back to the Manager
 	
-	auto hg = Manager::createTeam(bcast, broot, BROADCAST);
+	auto hg = Manager::createTeam(bcast, broot, MTCL_BROADCAST);
 	if (hg.isValid()) {
 		MTCL_PRINT(0,"[Emitter]:\t", "Emitter starting\n");
 	} else {
@@ -216,7 +216,7 @@ void Worker(const std::string& bcast, const std::string& gather,
 	MTCL_PRINT(0, "[Worker]:\t", "bcast=%s, gather=%s, broot=%s, groot=%s, Worker%d\n",
 			   bcast.c_str(), gather.c_str(), broot.c_str(),groot.c_str(), rank);
 		
-	auto hg_bcast = Manager::createTeam(bcast, broot, BROADCAST);	
+	auto hg_bcast = Manager::createTeam(bcast, broot, MTCL_BROADCAST);	
 	auto hg_gather= Manager::createTeam(gather, groot, MTCL_GATHER);
 		
 	if (hg_bcast.isValid() && hg_gather.isValid()) {
@@ -331,7 +331,7 @@ int main(int argc, char** argv){
 		Emitter(broadcast_string, participants.at(EMITTER_RANK), iterations, size);
     } else {
 		if (rank == 1) {
-			Collector(gather_string, participants.at(COLLECTOR_RANK), participants.size()-1,
+			Collector(gather_string, participants.at(COLLECTOR_RANK), num_workers,
 					  iterations, size);
 		} else {	   
 			Worker(broadcast_string, gather_string,

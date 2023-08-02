@@ -13,56 +13,58 @@
 class MPICollective : public CollectiveImpl {
 protected:
     bool root;
-    int root_rank, local_rank;
+    int rank_of_the_root;
+	int my_group_rank;
     MPI_Comm comm;
     MPI_Group group;
     
     MPI_Request request_header = MPI_REQUEST_NULL;
     bool closing = false;
     ssize_t last_probe = -1;
-    int* ranks;
 
 public:
     MPICollective(std::vector<Handle*> participants, bool root, int uniqtag) : CollectiveImpl(participants, uniqtag), root(root) {
-
-        //TODO: add endianess conversion
+		//
+        //TODO: endianess conversion MUST BE added for all communications! 
+		//
+		int* ranks;
+		int local_rank;
         MPI_Comm_rank(MPI_COMM_WORLD, &local_rank);
         int coll_size;
         if(root) {
             coll_size = participants.size() + 1;
-            root_rank = local_rank;
+            rank_of_the_root = local_rank;
             ranks = new int[participants.size()+1];
-            ranks[0] = root_rank;
+            ranks[0] = rank_of_the_root;    // NOTE: the collective root has always MPI rank 0
 
+			int remote_rank;
+			// Here we need to know which are the MPI ranks of peers participating to the team
+			// IMPORTANT: the order is the one defined by the participant list!
             for(size_t i = 0; i < participants.size(); i++) {
-                participants.at(i)->send(&root_rank, sizeof(int));
-                int remote_rank;
                 receiveFromHandle(participants.at(i), &remote_rank, sizeof(int));
                 ranks[i+1] = remote_rank;
             }
 
+			// Sending all ranks to all team member (but the root)
             for(auto& p : participants) {
-                p->send(ranks, sizeof(int)*(participants.size()+1));  // checks!!!
+                p->send(ranks, sizeof(int)*(participants.size()+1));  // TODO: what if it fails?
             }
-
         }
         else {
-            int remote_rank;
-            receiveFromHandle(participants.at(0), &remote_rank, sizeof(int));
-            root_rank = remote_rank;
-
             participants.at(0)->send(&local_rank, sizeof(int));
             size_t sz;
             probeHandle(participants.at(0), sz, true);
             coll_size = sz/sizeof(int);
             ranks = new int[sz];
             receiveFromHandle(participants.at(0), ranks, sz);
+			rank_of_the_root = ranks[0];
         }
 
         MPI_Group group_world;
         if (MPI_Comm_group(MPI_COMM_WORLD, &group_world) != MPI_SUCCESS) {
 			MTCL_ERROR("[internal]:\t", "MPI_Collective::MPI_Comm_group\n");
 		}
+		// NOTE: the indexes of the ranks vector will be the new MPI rank of the processes!
         if (MPI_Group_incl(group_world, coll_size, ranks, &group) != MPI_SUCCESS) {
 			MTCL_ERROR("[internal]:\t", "MPI_Collective::MPI_Group_incl\n");
 		}
@@ -71,6 +73,9 @@ public:
 		}
 
         delete[] ranks;
+
+        MPI_Comm_rank(comm, &my_group_rank);
+		
         //TODO: closing connections???
     }
 
@@ -114,7 +119,7 @@ public:
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         if(root) {
-            if(MPI_Bcast((void*)sendbuff, sendsize, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
+            if(MPI_Bcast((void*)sendbuff, sendsize, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
                 errno = ECOMM;
                 return -1;
             }
@@ -122,7 +127,7 @@ public:
             return sendsize;
         }
         else {
-            if(MPI_Bcast((void*)recvbuff, recvsize, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
+            if(MPI_Bcast((void*)recvbuff, recvsize, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
                 errno = ECOMM;
                 return -1;
             }
@@ -169,7 +174,8 @@ public:
     }
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
-        if (sendsize == 0) MTCL_MPI_PRINT(0, "[internal]:\t Scatter::sendrecv \"sendsize\" is equal to zero!\n");
+        if (sendsize == 0)
+			MTCL_MPI_PRINT(0, "[internal]:\t Scatter::sendrecv \"sendsize\" is equal to zero!\n");
 
         if (sendsize % datasize != 0) {
             errno = EINVAL;
@@ -179,10 +185,10 @@ public:
         int nparticipants;
         MPI_Comm_size(comm, &nparticipants);
 
-        size_t datacount = sendsize / datasize;
+        int datacount = sendsize / datasize;
 
         int *sendcounts = new int[nparticipants]();
-        int *displs = new int[nparticipants]();
+        int *displs     = new int[nparticipants]();
         
         int displ = 0;
 
@@ -201,20 +207,19 @@ public:
             displ += sendcounts[i];
         }
 
-        int mpi_rank;
-        MPI_Comm_rank(comm, &mpi_rank);
+        if ((size_t)sendcounts[my_group_rank] > recvsize) {
+			MTCL_ERROR("[internal]:\t","receive buffer too small %ld instead of %ld\n",sendcounts[my_group_rank], recvsize);
 
-        if (sendcounts[mpi_rank] > (int)recvsize) {
             errno = EINVAL;
             return -1;
         }
 
-        if (MPI_Scatterv((void*)sendbuff, sendcounts, displs, MPI_BYTE, recvbuff, recvsize, MPI_BYTE, root_rank, comm) != MPI_SUCCESS) {
+        if (MPI_Scatterv((void*)sendbuff, sendcounts, displs, MPI_BYTE, recvbuff, recvsize, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
             errno = ECOMM;
             return -1;
         }
 
-        recvsize = sendcounts[mpi_rank];
+        recvsize = sendcounts[my_group_rank];
 
         delete [] sendcounts;
         delete [] displs;
@@ -296,20 +301,17 @@ public:
             displ += recvcounts[i];
         }
 
-        int mpi_rank;
-        MPI_Comm_rank(comm, &mpi_rank);
-        
-        if (recvcounts[mpi_rank] > (int)sendsize) {
+        if ((size_t)recvcounts[my_group_rank] > sendsize) {
             errno = EINVAL;
             return -1;
         }
 
-        if (MPI_Gatherv((void*)sendbuff, recvcounts[mpi_rank], MPI_BYTE, recvbuff, recvcounts, displs, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
+        if (MPI_Gatherv((void*)sendbuff, recvcounts[my_group_rank], MPI_BYTE, recvbuff, recvcounts, displs, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
             errno = ECOMM;
             return -1;
         }
 
-        sendsize = recvcounts[mpi_rank];
+        sendsize = recvcounts[my_group_rank];
 
         delete [] recvcounts;
         delete [] displs;

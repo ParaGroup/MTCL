@@ -640,6 +640,9 @@ public:
 
 
 #ifndef MTCL_DISABLE_COLLECTIVES
+	MTCL_PRINT(100, "[Manager]:\t", "Manager::createTeam participants: %s - root: %s - type: %d\n", participants.c_str(), root.c_str(), type);
+
+	
 #ifndef ENABLE_CONFIGFILE
         MTCL_ERROR("[Manager]:\t", "Manager::createTeam team creation is only available with a configuration file\n");
         return HandleUser();
@@ -696,7 +699,8 @@ public:
 			return HandleUser();
         }
 
-        MTCL_PRINT(100, "[Manager]:\t", "Manager::createTeam initializing collective with size: %d - AppName: %s - rank: %d - mpi: %d - ucc: %d\n", size, Manager::appName.c_str(), rank, mpi_impl, ucc_impl);
+        MTCL_PRINT(100, "[Manager]:\t", "Manager::createTeam initializing collective with size: %d - AppName: %s - rank: %d - mpi: %d - ucc: %d\n",
+				   size, Manager::appName.c_str(), rank, mpi_impl, ucc_impl);
 
 
         std::vector<Handle*> coll_handles;
@@ -789,7 +793,7 @@ public:
             switch(impl){
                 case MPI: protocol = "MPI:"; break;
                 case UCC: protocol = "UCX:";
-                // case GNERIC: we simply let the runtime to select the available protocol
+			    case GENERIC:;   //we simply let the runtime to select the available protocol
             }
 
             handle = connectHandle(protocol+root, CCONNECTION_RETRY, CCONNECTION_TIMEOUT);
@@ -890,7 +894,8 @@ void CollectiveContext::yield() {
         Manager::releaseTeam(this);
     }
     else if(!closed_rd) {
-        MTCL_PRINT(1, "[internal]:\t", "CollectiveContext::yield cannot yield this context.\n");
+        MTCL_PRINT(1, "[internal]:\t", "CollectiveContext::yield() cannot yield this context.\n");
+		//
         //TODO: if yield is called by HandleUser destructor, we may want to close
         //      the collective if its type is BROADCAST or GATHER
     }

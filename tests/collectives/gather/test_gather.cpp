@@ -19,13 +19,13 @@
 
 #include <iostream>
 #include <string>
-#include "../../../mtcl.hpp"
+#include "mtcl.hpp"
 
 int main(int argc, char** argv){
 
     if(argc < 3) {
-        printf("Usage: %s <0|1> <App1|App2>\n", argv[0]);
-        return 1;
+		MTCL_ERROR("[test_gather]:\t", "Usage: %s <0|1> <App1|App2>\n", argv[0]);
+        return -1;
     }
 
     int rank = atoi(argv[1]);
@@ -42,8 +42,8 @@ int main(int argc, char** argv){
 #endif
 
     if(config.empty()) {
-        printf("No protocol enabled. Please compile with TPROTOCOL=TCP|UCX|MPI\n");
-        return 1;
+		MTCL_ERROR("[test_gather]:\t", "No protocol enabled. Please compile with TPROTOCOL=TCP|UCX|MPI\n");
+        return -1;
     }
 
     printf("Running with config file: %s\n", config.c_str());
@@ -56,14 +56,13 @@ int main(int argc, char** argv){
     data += '\0';
 
     char* buff = nullptr;
-    if(rank == 0) buff = new char[hg.size()*data.length()];
+	size_t recvsize=hg.size()*data.length();
+    if(rank == 0) buff = new char[recvsize];
+	
+    if (hg.sendrecv(data.c_str(), data.length(), buff, recvsize) <= 0) {
+		MTCL_ERROR("[test_gather]:\t", "sendrecv failed\n");
+	}
 
-    hg.sendrecv(data.c_str(), data.length(), buff, data.length());
-//     if(rank != 0) {
-// #if 1
-//         hg.sendrecv(data.c_str(), data.length(), buff, data.length());
-// #endif
-//     }
     hg.close();
 
     // Root

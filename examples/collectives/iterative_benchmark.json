@@ -17,6 +17,11 @@
             "protocols":["TCP"]
         },
         {
+            "name":"Worker3",
+            "host":"localhost",
+            "protocols":["TCP"]
+        },
+        {
             "name":"Collector",
             "host":"localhost",
             "protocols":["TCP"],
