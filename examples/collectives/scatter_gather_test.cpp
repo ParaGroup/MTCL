@@ -98,7 +98,7 @@ int main(int argc, char* argv[]){
 			int *recvbuff = new int[recvsize]();
 		
 			if (hg.sendrecv(data, size * sizeof(int), recvbuff, recvsize * sizeof(int), sizeof(int)) <= 0) {
-				MTCL_ERROR("[test_scatter]:\t", "sendrecv failed\n");
+				MTCL_ERROR("[scatter_gather_test]:\t", "sendrecv failed\n");
 				return -1;
 			}
 
@@ -114,6 +114,8 @@ int main(int argc, char* argv[]){
 				if (i != recvsize - 1) std::cout << ", ";
 			}
 
+			delete [] recvbuff;
+
 			std::cout << "]";
 
 			if (rank == node_root) {
@@ -125,6 +127,8 @@ int main(int argc, char* argv[]){
 				}
 
 				std::cout << "]";
+
+				delete [] data;
 			}
 
 			std::cout << "\n";
@@ -141,7 +145,7 @@ int main(int argc, char* argv[]){
 				sendbuff[i] = rank;
 		
 			if (hg.sendrecv(sendbuff, sendsize * sizeof(int), data, size * sizeof(int), sizeof(int)) <= 0) {
-				MTCL_ERROR("[test_scatter]:\t", "sendrecv failed\n");
+				MTCL_ERROR("[scatter_gather_test]:\t", "sendrecv failed\n");
 				return -1;
 			}
 
@@ -156,6 +160,8 @@ int main(int argc, char* argv[]){
 				if (i != sendsize - 1) std::cout << ", ";
 			}
 
+			delete [] sendbuff;
+
 			std::cout << "]";
 
 			if (rank == node_root) {
@@ -167,6 +173,8 @@ int main(int argc, char* argv[]){
 				}
 
 				std::cout << "]";
+
+				delete [] data;
 			}
 
 			std::cout << "\n";

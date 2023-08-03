@@ -208,8 +208,7 @@ public:
         }
 
         if ((size_t)sendcounts[my_group_rank] > recvsize) {
-			MTCL_ERROR("[internal]:\t","receive buffer too small %ld instead of %ld\n",recvsize ,sendcounts[my_group_rank]);
-
+			MTCL_ERROR("[internal]:\t","receive buffer too small %ld instead of %ld\n", recvsize, sendcounts[my_group_rank]);
             errno = EINVAL;
             return -1;
         }
@@ -269,7 +268,8 @@ public:
     }
     
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
-        if (recvsize == 0) MTCL_MPI_PRINT(0, "[internal]:\t Gather::sendrecv \"recvsize\" is equal to zero!\n");
+        if (recvsize == 0)
+            MTCL_MPI_PRINT(0, "[internal]:\t Gather::sendrecv \"recvsize\" is equal to zero!\n");
 
         if (recvsize % datasize != 0) {
             errno = EINVAL;
@@ -302,6 +302,7 @@ public:
         }
 
         if ((size_t)recvcounts[my_group_rank] > sendsize) {
+            MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, recvcounts[my_group_rank]);
             errno = EINVAL;
             return -1;
         }
