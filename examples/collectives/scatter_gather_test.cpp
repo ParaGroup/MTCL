@@ -55,7 +55,12 @@ int main(int argc, char* argv[]){
 	int node_root = atoi(argv[4]);
 	int node_1 = atoi(argv[5]);
 	int node_2 = atoi(argv[6]);
-	
+
+	std::map<int, int> pos_map;
+	pos_map[node_root] = 0;
+	pos_map[node_1] = 1;
+	pos_map[node_2] = 2;
+
     std::string config{"scatter_gather_test.json"};
 	std::string appName = "Node" + std::to_string(rank);
 
@@ -93,7 +98,7 @@ int main(int argc, char* argv[]){
 			int r = size % hg.size();
 
 			size_t recvsize = p;
-			if (r && rank < r) recvsize++;
+			if (r && pos_map[rank] < r) recvsize++;
 
 			int *recvbuff = new int[recvsize]();
 		
@@ -137,7 +142,7 @@ int main(int argc, char* argv[]){
 			int r = size % hg.size();
 
 			size_t sendsize = p;
-			if (r && rank < r) sendsize++;
+			if (r && pos_map[rank] < r) sendsize++;
 
 			int *sendbuff = new int[sendsize]();
 

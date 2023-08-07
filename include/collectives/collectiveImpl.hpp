@@ -237,6 +237,12 @@ public:
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         if(root) {
+            if (sendbuff == nullptr) {
+                MTCL_ERROR("[internal]:\t","sender buffer == nullptr\n");
+                errno=EFAULT;
+                return -1;
+            }
+
             if (sendsize % datasize != 0) {
                 errno=EINVAL;
                 return -1;
@@ -252,6 +258,12 @@ public:
             if (rcount > 0) {
                 selfsendcount += datasize;
                 rcount--;
+            }
+
+            if (recvbuff == nullptr) {
+                MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
+                errno=EFAULT;
+                return -1;
             }
 
             if (recvsize < selfsendcount) {
@@ -283,6 +295,12 @@ public:
             
             return selfsendcount;
         } else {
+            if (recvbuff == nullptr) {
+                MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
+                errno=EFAULT;
+                return -1;
+            }
+
             auto h = participants.at(0);
             ssize_t res = receiveFromHandle(h, (char*)recvbuff, recvsize);
             if(res == 0) h->close(true, false);
@@ -478,6 +496,12 @@ public:
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
 		MTCL_TCP_PRINT(100, "sendrecv, sendsize=%ld, recvsize=%ld, datasize=%ld, nparticipants=%ld\n", sendsize, recvsize, datasize, nparticipants);
 
+        if (sendbuff == nullptr) {
+            MTCL_ERROR("[internal]:\t","sender buffer == nullptr\n");
+            errno=EFAULT;
+            return -1;
+        }
+
         if (recvsize % datasize != 0) {
             errno=EINVAL;
             return -1;
@@ -498,6 +522,12 @@ public:
             if (sendsize < selfrecvcount) {
                 MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, selfrecvcount);
                 errno=EINVAL;
+                return -1;
+            }
+
+            if (recvbuff == nullptr) {
+                MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
+                errno=EFAULT;
                 return -1;
             }
 
@@ -551,8 +581,11 @@ public:
             }
 
             auto h = participants.at(0);
-            h->send(&rank, sizeof(int));   // TODO: check errors!
-            h->send(sendbuff, chunksize);
+
+            if((h->send(&rank, sizeof(int)) < 0) || (h->send(sendbuff, chunksize) < 0)) {
+                errno = ECONNRESET;
+                return -1;
+            }
 
             return chunksize;
         }
