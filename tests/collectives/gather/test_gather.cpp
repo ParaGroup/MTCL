@@ -46,20 +46,21 @@ int main(int argc, char** argv){
         return -1;
     }
 
-    printf("Running with config file: %s\n", config.c_str());
 	Manager::init(argv[2], config);
 
     auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", MTCL_GATHER);
-    if(hg.isValid()) printf("Created team with size: %d\n", hg.size());
+    if(!hg.isValid()) {
+		MTCL_ERROR("[test_gather]:\t", "Error creating the team\n");
+		return -1;
+	}
     
     std::string data{argv[2]};
-    data += '\0';
 
     char* buff = nullptr;
 	size_t recvsize=hg.size()*data.length();
     if(rank == 0) buff = new char[recvsize];
 	
-    if (hg.sendrecv(data.c_str(), data.length(), buff, recvsize) <= 0) {
+    if (hg.sendrecv(data.c_str(), data.length(), buff, recvsize, data.length()) <= 0) {
 		MTCL_ERROR("[test_gather]:\t", "sendrecv failed\n");
 	}
 

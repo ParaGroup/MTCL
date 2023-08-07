@@ -3,6 +3,7 @@
 
 #include "collectiveImpl.hpp"
 #include <mpi.h>
+#include <cassert>
 
 /**
  * @brief MPI implementation of collective operations. Abstract class, only provides
@@ -12,10 +13,12 @@
  */
 class MPICollective : public CollectiveImpl {
 protected:
-    bool root;
-    int rank_of_the_root;
-	int my_group_rank;
-    MPI_Comm comm;
+    bool root;               // root flag
+    int rank_of_the_root;    // MPI rank of the root
+	int my_group_rank;       // team rank
+	int my_mpi_rank;         // MPI rank 
+	int nparticipants;       // size of the team/group
+    MPI_Comm comm;           
     MPI_Group group;
     
     MPI_Request request_header = MPI_REQUEST_NULL;
@@ -23,17 +26,16 @@ protected:
     ssize_t last_probe = -1;
 
 public:
-    MPICollective(std::vector<Handle*> participants, bool root, int uniqtag) : CollectiveImpl(participants, uniqtag), root(root) {
+    MPICollective(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : CollectiveImpl(participants, nparticipants, uniqtag), root(root) {
 		//
         //TODO: endianess conversion MUST BE added for all communications! 
 		//
 		int* ranks;
-		int local_rank;
-        MPI_Comm_rank(MPI_COMM_WORLD, &local_rank);
+        MPI_Comm_rank(MPI_COMM_WORLD, &my_mpi_rank);
         int coll_size;
         if(root) {
             coll_size = participants.size() + 1;
-            rank_of_the_root = local_rank;
+            rank_of_the_root = my_mpi_rank;
             ranks = new int[participants.size()+1];
             ranks[0] = rank_of_the_root;    // NOTE: the collective root has always MPI rank 0
 
@@ -51,7 +53,7 @@ public:
             }
         }
         else {
-            participants.at(0)->send(&local_rank, sizeof(int));
+            participants.at(0)->send(&my_mpi_rank, sizeof(int));
             size_t sz;
             probeHandle(participants.at(0), sz, true);
             coll_size = sz/sizeof(int);
@@ -62,19 +64,23 @@ public:
 
         MPI_Group group_world;
         if (MPI_Comm_group(MPI_COMM_WORLD, &group_world) != MPI_SUCCESS) {
-			MTCL_ERROR("[internal]:\t", "MPI_Collective::MPI_Comm_group\n");
+			MTCL_ERROR("[internal]:\t", "MPICollective::MPI_Comm_group\n");
 		}
 		// NOTE: the indexes of the ranks vector will be the new MPI rank of the processes!
         if (MPI_Group_incl(group_world, coll_size, ranks, &group) != MPI_SUCCESS) {
-			MTCL_ERROR("[internal]:\t", "MPI_Collective::MPI_Group_incl\n");
+			MTCL_ERROR("[internal]:\t", "MPICollective::MPI_Group_incl\n");
 		}
         if (MPI_Comm_create_group(MPI_COMM_WORLD, group, uniqtag, &comm) != MPI_SUCCESS) {
-			MTCL_ERROR("[internal]:\t", "MPI_Collective::MPI_Comm_create_group\n");
+			MTCL_ERROR("[internal]:\t", "MPICollective::MPI_Comm_create_group\n");
 		}
 
         delete[] ranks;
 
-        MPI_Comm_rank(comm, &my_group_rank);
+        MPI_Group_rank(group, &my_group_rank);
+		this->nparticipants = coll_size;
+		if (this->nparticipants != (int)(CollectiveImpl::nparticipants)) {
+			MTCL_ERROR("[internal]:\t", "MPICollective, nparticipants missmatch!!\n");
+		}
 		
         //TODO: closing connections???
     }
@@ -96,7 +102,7 @@ class BroadcastMPI : public MPICollective {
 private:
 
 public:
-    BroadcastMPI(std::vector<Handle*> participants, bool root, int uniqtag) : MPICollective(participants, root, uniqtag) {}
+    BroadcastMPI(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : MPICollective(participants, nparticipants, root, uniqtag) {}
 
 
     ssize_t probe(size_t& size, const bool blocking=true) {
@@ -123,7 +129,9 @@ public:
                 errno = ECOMM;
                 return -1;
             }
-            
+            if (recvbuff) 
+				memcpy(recvbuff, sendbuff, sendsize);
+			
             return sendsize;
         }
         else {
@@ -153,7 +161,7 @@ class ScatterMPI : public MPICollective {
 private:
 
 public:
-    ScatterMPI(std::vector<Handle*> participants, bool root, int uniqtag) : MPICollective(participants, root, uniqtag) {}
+    ScatterMPI(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : MPICollective(participants, nparticipants, root, uniqtag) {}
 
     ssize_t probe(size_t& size, const bool blocking=true) {
 		MTCL_ERROR("[internal]:\t", "Scatter::probe operation not supported\n");
@@ -174,6 +182,9 @@ public:
     }
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+		MTCL_MPI_PRINT(100, "group rank=%d (MPI rank=%d), sendsize=%ld, recvsize=%ld, datasize=%ld\n",
+					   my_group_rank, my_mpi_rank, sendsize, recvsize, datasize);
+
         if (sendsize == 0)
 			MTCL_MPI_PRINT(0, "[internal]:\t Scatter::sendrecv \"sendsize\" is equal to zero!\n");
 
@@ -181,10 +192,7 @@ public:
             errno = EINVAL;
             return -1;
         }
-
-        int nparticipants;
-        MPI_Comm_size(comm, &nparticipants);
-
+		
         int datacount = sendsize / datasize;
 
         int *sendcounts = new int[nparticipants]();
@@ -207,8 +215,13 @@ public:
             displ += sendcounts[i];
         }
 
-        if ((size_t)sendcounts[my_group_rank] > recvsize) {
-			MTCL_ERROR("[internal]:\t","receive buffer too small %ld instead of %ld\n", recvsize, sendcounts[my_group_rank]);
+  	    if (static_cast<size_t>(sendcounts[my_group_rank]) > recvsize) {
+			MTCL_ERROR("[internal]:\t","receive buffer too small %ld instead of %ld (team rank=%d, MPI rank=%d)\n", recvsize, sendcounts[my_group_rank], my_group_rank, my_mpi_rank);
+			
+			fprintf(stderr, "nparticipants=%d\n", nparticipants);
+			for (int i = 0; i < nparticipants; i++) 
+				fprintf(stderr, "%d, %d\n", sendcounts[i], displs[i]);
+			
             errno = EINVAL;
             return -1;
         }
@@ -240,12 +253,8 @@ public:
 };
 
 class GatherMPI : public MPICollective {
-    size_t* probe_data;
-    size_t  EOS = 0;
-
 public:
-    GatherMPI(std::vector<Handle*> participants, bool root, int uniqtag) : MPICollective(participants, root, uniqtag) {
-        probe_data = new size_t[participants.size()+1];
+    GatherMPI(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : MPICollective(participants, nparticipants, root, uniqtag) {
     }
 
 
@@ -268,16 +277,12 @@ public:
     }
     
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
-        if (recvsize == 0)
-            MTCL_MPI_PRINT(0, "[internal]:\t Gather::sendrecv \"recvsize\" is equal to zero!\n");
+        if (recvsize == 0) MTCL_MPI_PRINT(0, "[internal]:\t Gather::sendrecv \"recvsize\" is equal to zero!\n");
 
         if (recvsize % datasize != 0) {
             errno = EINVAL;
             return -1;
         }
-
-        int nparticipants;
-        MPI_Comm_size(comm, &nparticipants);
 
         size_t datacount = recvsize / datasize;
 

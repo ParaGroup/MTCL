@@ -73,7 +73,7 @@ int main(int argc, char* argv[]){
 			hg = Manager::createTeam(participants, root, MTCL_GATHER);
 
 		if(!hg.isValid()) {
-			MTCL_ERROR("[scatter_gather_test]:\t", "Manager::createTeam for SCATTER, ERROR\n");
+			MTCL_ERROR("[scatter_gather_test]:\t", "Manager::createTeam ERROR\n");
 			return -1;
 		}
 

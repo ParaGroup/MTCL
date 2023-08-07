@@ -3,23 +3,28 @@
         {
             "name" : "App1",
             "host" : "localhost",
-            "protocols" :  ["MPI"],
-            "listen-endpoints" : ["MPI:0:10"]
+            "protocols" :  ["TCP"],
+            "listen-endpoints" : ["TCP:0.0.0.0:13000"]
         },
         {
             "name" : "App2",
             "host" : "localhost",
-            "protocols" : ["MPI"]
+            "protocols" : ["TCP"]
         },
         {
             "name" : "App3",
             "host" : "localhost",
-            "protocols" : ["MPI"]
+            "protocols" : ["TCP"]
         },
         {
             "name" : "App4",
             "host" : "localhost",
-            "protocols" : ["MPI"]
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "App5",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
         }
     ]
 }

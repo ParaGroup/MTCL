@@ -47,25 +47,25 @@ public:
                     counter = 1;
     }
 
-    bool setImplementation(ImplementationType impl, std::vector<Handle*> participants, int uniqtag) {
+    bool setImplementation(ImplementationType impl, std::vector<Handle*> participants, size_t nparticipants, int uniqtag) {
         const std::map<HandleType, std::function<CollectiveImpl*()>> contexts = {
             {HandleType::MTCL_BROADCAST,  [&]{
                     CollectiveImpl* coll = nullptr;
                     switch (impl) {
                         case GENERIC:
-                            coll = new BroadcastGeneric(participants, root, uniqtag);
+                            coll = new BroadcastGeneric(participants, nparticipants, root, uniqtag);
                             break;
                         case MPI:
                             #ifdef ENABLE_MPI
                             void *max_tag;
                             int flag;
                             MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
-                            coll = new BroadcastMPI(participants, root, uniqtag % (*(int*)max_tag));
+                            coll = new BroadcastMPI(participants, nparticipants, root, uniqtag % (*(int*)max_tag));
                             #endif
                             break;
                         case UCC:
                             #ifdef ENABLE_UCX
-                            coll = new BroadcastUCC(participants, rank, size, root, uniqtag);
+                            coll = new BroadcastUCC(participants, nparticipants, rank, size, root, uniqtag);
                             #endif
                             break;
                         default:
@@ -79,14 +79,14 @@ public:
                     CollectiveImpl* coll = nullptr;
                     switch (impl) {
                         case GENERIC:
-                            coll = new ScatterGeneric(participants, root, uniqtag);
+                            coll = new ScatterGeneric(participants, nparticipants, root, uniqtag);
                             break;
                         case MPI:
                             #ifdef ENABLE_MPI
                             void *max_tag;
                             int flag;
                             MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
-                            coll = new ScatterMPI(participants, root, uniqtag % (*(int*)max_tag));
+                            coll = new ScatterMPI(participants, nparticipants, root, uniqtag % (*(int*)max_tag));
                             #endif
                             break;
                         default:
@@ -96,25 +96,25 @@ public:
                     return coll;
                 }
             },
-            {HandleType::MTCL_FANIN,  [&]{return new FanInGeneric(participants, root, uniqtag);}},
-            {HandleType::MTCL_FANOUT, [&]{return new FanOutGeneric(participants, root, uniqtag);}},
+            {HandleType::MTCL_FANIN,  [&]{return new FanInGeneric(participants, nparticipants, root, uniqtag);}},
+            {HandleType::MTCL_FANOUT, [&]{return new FanOutGeneric(participants, nparticipants, root, uniqtag);}},
             {HandleType::MTCL_GATHER,  [&]{
                     CollectiveImpl* coll = nullptr;
                     switch (impl) {
                         case GENERIC:
-                            coll = new GatherGeneric(participants, root, rank, uniqtag);
+                            coll = new GatherGeneric(participants, nparticipants, root, rank, uniqtag);
                             break;
                         case MPI:
                             #ifdef ENABLE_MPI
                             void *max_tag;
                             int flag;
                             MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
-                            coll = new GatherMPI(participants, root, uniqtag % (*(int*)max_tag));
+                            coll = new GatherMPI(participants, nparticipants, root, uniqtag % (*(int*)max_tag));
                             #endif
                             break;
                         case UCC:
                             #ifdef ENABLE_UCX
-                            coll = new GatherUCC(participants, rank, size, root, uniqtag);
+                            coll = new GatherUCC(participants, nparticipants, rank, size, root, uniqtag);
                             #endif
                             break;
                         default:

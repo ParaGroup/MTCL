@@ -26,6 +26,7 @@ enum ImplementationType {
 class CollectiveImpl {
 protected:
     std::vector<Handle*> participants;
+	size_t nparticipants;
 	int uniqtag=-1;
 	
     //TODO: 
@@ -100,7 +101,7 @@ protected:
 
 
 public:
-    CollectiveImpl(std::vector<Handle*> participants, int uniqtag) : participants(participants),uniqtag(uniqtag) {
+    CollectiveImpl(std::vector<Handle*> participants, size_t nparticipants, int uniqtag) : participants(participants), nparticipants(nparticipants), uniqtag(uniqtag) {
         // for(auto& h : participants) h->incrementReferenceCounter();
     }
 
@@ -176,7 +177,9 @@ public:
                     return -1;
                 }
             }
-
+			if (recvbuff)
+				memcpy(recvbuff, sendbuff, sendsize);
+			
             return sendsize;
         }
         else {
@@ -197,7 +200,7 @@ public:
     }
 
 public:
-    BroadcastGeneric(std::vector<Handle*> participants, bool root, int uniqtag) : CollectiveImpl(participants, uniqtag), root(root) {}
+    BroadcastGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : CollectiveImpl(participants, nparticipants, uniqtag), root(root) {}
 
 };
 
@@ -239,7 +242,6 @@ public:
                 return -1;
             }
 
-            size_t nparticipants = participants.size() + 1;
             size_t datacount = sendsize / datasize;
 
             size_t sendcount = (datacount / nparticipants) * datasize;
@@ -298,7 +300,7 @@ public:
     }
 
 public:
-    ScatterGeneric(std::vector<Handle*> participants, bool root, int uniqtag) : CollectiveImpl(participants, uniqtag), root(root) {}
+    ScatterGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : CollectiveImpl(participants, nparticipants, uniqtag), root(root) {}
 
 };
 
@@ -385,7 +387,7 @@ public:
     }
 
 public:
-    FanInGeneric(std::vector<Handle*> participants, bool root, int uniqtag) : CollectiveImpl(participants,uniqtag), root(root) {}
+    FanInGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : CollectiveImpl(participants, nparticipants, uniqtag), root(root) {}
 
 };
 
@@ -442,20 +444,18 @@ public:
     }
 
 public:
-    FanOutGeneric(std::vector<Handle*> participants, bool root, int uniqtag) : CollectiveImpl(participants, uniqtag), root(root) {}
+    FanOutGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : CollectiveImpl(participants, nparticipants, uniqtag), root(root) {}
 
 };
 
 
 class GatherGeneric : public CollectiveImpl {
 private:
-    size_t current = 0;
     bool root;
     int rank;
-    bool allReady{true};
 public:
-    GatherGeneric(std::vector<Handle*> participants, bool root, int rank, int uniqtag) :
-        CollectiveImpl(participants, uniqtag), root(root), rank(rank) {}
+    GatherGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag) :
+        CollectiveImpl(participants, nparticipants, uniqtag), root(root), rank(rank) {}
 
     ssize_t probe(size_t& size, const bool blocking=true) {
 		MTCL_ERROR("[internal]:\t", "Gather::probe operation not supported\n");
@@ -476,22 +476,18 @@ public:
     }
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+		MTCL_TCP_PRINT(100, "sendrecv, sendsize=%ld, recvsize=%ld, datasize=%ld, nparticipants=%ld\n", sendsize, recvsize, datasize, nparticipants);
+
         if (recvsize % datasize != 0) {
             errno=EINVAL;
             return -1;
         }
 
-        // Numero dei partecipanti totali,
-        // size_t nparticipants = participants.size() + 1
-        // Funziona per il root ma non per chi invia
-        
-        // Numero fissato per il test
-        size_t nparticipants = 3;
         size_t datacount = recvsize / datasize;
 
         size_t recvcount = (datacount / nparticipants) * datasize;
         size_t rcount = (datacount % nparticipants);
-        
+		
         if(root) {
             size_t selfrecvcount = recvcount;
 
@@ -527,7 +523,7 @@ public:
                 r = rcount;
 
                 while (remote_rank) {
-                    offset = recvcount + (r > 0 ? datasize : 0);
+                    offset += recvcount + (r > 0 ? datasize : 0);
                     r--;
                     remote_rank--;
                 } 
@@ -555,8 +551,7 @@ public:
             }
 
             auto h = participants.at(0);
-
-            h->send(&rank, sizeof(int));
+            h->send(&rank, sizeof(int));   // TODO: check errors!
             h->send(sendbuff, chunksize);
 
             return chunksize;

@@ -33,8 +33,11 @@ int main(int argc, char** argv){
     std::string config={"config.json"};
 	Manager::init(argv[3], config);
 
-    auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", MTCL_SCATTER);
-    if(hg.isValid()) printf("Created team with size: %d\n", hg.size());
+    auto hg = Manager::createTeam("App1:App2:App3:App4:App5", "App1", MTCL_SCATTER);
+    if(!hg.isValid()) {
+		MTCL_ERROR("[test_scatter]:\t", "Cannot create the scatter team\n");
+		return -1;
+	}
 
 	data_t *data = nullptr;
 
@@ -54,9 +57,9 @@ int main(int argc, char** argv){
 	int r = size % hg.size();
 
 	size_t recvsize = p;
-	if (r && rank<r) recvsize++;
+	if (r && (rank<r)) recvsize++;
 
-	data_t *buff = new data_t[recvsize]{0.0,""};
+	data_t *buff = new data_t[recvsize]{0.0,"null"};
 	
     if (hg.sendrecv(data, sndsize, buff, recvsize*sizeof(data_t), sizeof(data_t)) <= 0) {
 		MTCL_ERROR("[test_scatter]:\t", "sendrecv failed\n");
@@ -65,7 +68,7 @@ int main(int argc, char** argv){
     hg.close();
 
 	// just for having a "clean" printing to the stdout
-	usleep(rank * 500000);
+	usleep(rank * 300000);
 	std::cout << "rank: " << rank << "\n";
 	for(size_t i=0; i<recvsize; ++i) 
 		std::cout << "[" << buff[i].x << ", " << buff[i].str << "] ";

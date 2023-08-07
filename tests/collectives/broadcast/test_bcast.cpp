@@ -19,7 +19,6 @@
 #define MAX_MESSAGE_SIZE 100
 
 inline static std::string hello{"Hello team!"};
-inline static std::string bye{"Bye team!"};
 
 int main(int argc, char** argv){
 
@@ -47,7 +46,7 @@ int main(int argc, char** argv){
     int rank = atoi(argv[1]);
 	Manager::init(argv[2], config);
 
-    auto hg = Manager::createTeam("App1:App2", "App1", BROADCAST);
+    auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", MTCL_BROADCAST);
     if(!hg.isValid()) {
         MTCL_PRINT(1, "[test_bcast]:\t", "error creating team [%s].\n", hg.getName());
         return 1;
@@ -56,13 +55,11 @@ int main(int argc, char** argv){
     char *sendbuff{nullptr}, *recvbuff{nullptr};
     size_t sendsize{0}, recvsize{0};
 
+	recvsize = hello.length();
+	recvbuff = new char[recvsize+1];
     if(rank == 0) {
         sendbuff = (char*)hello.c_str();
         sendsize = hello.length();
-    }
-    else {
-        recvsize = hello.length();
-        recvbuff = new char[recvsize+1];
     }
 
     ssize_t res;
@@ -71,16 +68,9 @@ int main(int argc, char** argv){
         printf("res is: %ld - errno: %d\n", res, errno);
         return 1;
     }
-    if(rank == 0) {
-#if 0
-        hg.sendrecv((void*)hello.c_str(), hello.length(), nullptr, 0);
-#endif
-    }
-    else {
-        recvbuff[hello.length()] = '\0';
-        std::cout << "Received: " << recvbuff << std::endl;
-        delete[] recvbuff;
-    }
+	recvbuff[hello.length()] = '\0';
+	std::cout << rank << " received: " << recvbuff << std::endl;
+	delete[] recvbuff;
     
     hg.close();
     Manager::finalize(true);
