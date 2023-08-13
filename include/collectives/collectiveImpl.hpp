@@ -28,6 +28,7 @@ protected:
     std::vector<Handle*> participants;
 	size_t nparticipants;
 	int uniqtag=-1;
+	int rank;   // team rank 
 	
     //TODO: 
     // virtual bool canSend() = 0;
@@ -101,7 +102,8 @@ protected:
 
 
 public:
-    CollectiveImpl(std::vector<Handle*> participants, size_t nparticipants, int uniqtag) : participants(participants), nparticipants(nparticipants), uniqtag(uniqtag) {
+    CollectiveImpl(std::vector<Handle*> participants, size_t nparticipants, int rank, int uniqtag)
+		: participants(participants), nparticipants(nparticipants), uniqtag(uniqtag), rank(rank) {
         // for(auto& h : participants) h->incrementReferenceCounter();
     }
 
@@ -121,12 +123,15 @@ public:
 
         return false;
     }
-
+	
     virtual ssize_t probe(size_t& size, const bool blocking=true) = 0;
     virtual ssize_t send(const void* buff, size_t size) = 0;
     virtual ssize_t receive(void* buff, size_t size) = 0;
     virtual void close(bool close_wr=true, bool close_rd=true) = 0;
 
+	virtual int getTeamRank() {	return rank; }
+
+	
     virtual ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         MTCL_PRINT(100, "[internal]:\t", "CollectiveImpl::sendrecv invalid operation for the collective\n");
         errno = EINVAL;
@@ -200,7 +205,8 @@ public:
     }
 
 public:
-    BroadcastGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : CollectiveImpl(participants, nparticipants, uniqtag), root(root) {}
+    BroadcastGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag)
+		: CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
 
 };
 
@@ -318,7 +324,8 @@ public:
     }
 
 public:
-    ScatterGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : CollectiveImpl(participants, nparticipants, uniqtag), root(root) {}
+    ScatterGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag)
+		: CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
 
 };
 
@@ -405,7 +412,8 @@ public:
     }
 
 public:
-    FanInGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : CollectiveImpl(participants, nparticipants, uniqtag), root(root) {}
+    FanInGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag)
+		: CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
 
 };
 
@@ -462,7 +470,8 @@ public:
     }
 
 public:
-    FanOutGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int uniqtag) : CollectiveImpl(participants, nparticipants, uniqtag), root(root) {}
+    FanOutGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag)
+		: CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
 
 };
 
@@ -470,10 +479,9 @@ public:
 class GatherGeneric : public CollectiveImpl {
 private:
     bool root;
-    int rank;
 public:
     GatherGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag) :
-        CollectiveImpl(participants, nparticipants, uniqtag), root(root), rank(rank) {}
+        CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
 
     ssize_t probe(size_t& size, const bool blocking=true) {
 		MTCL_ERROR("[internal]:\t", "Gather::probe operation not supported\n");
@@ -568,7 +576,7 @@ public:
         } else {
             size_t chunksize;
 
-            if (rcount && (rank < (int)rcount)) {
+            if (rcount && (CollectiveImpl::rank < (int)rcount)) {
                 chunksize = recvcount + datasize;
             } else {
                 chunksize = recvcount;
@@ -582,7 +590,7 @@ public:
 
             auto h = participants.at(0);
 
-            if((h->send(&rank, sizeof(int)) < 0) || (h->send(sendbuff, chunksize) < 0)) {
+            if((h->send(&(CollectiveImpl::rank), sizeof(int)) < 0) || (h->send(sendbuff, chunksize) < 0)) {
                 errno = ECONNRESET;
                 return -1;
             }

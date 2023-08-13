@@ -106,8 +106,9 @@ protected:
 
 public:
     int root_rank;
-
-    UCCCollective(std::vector<Handle*> participants, int rank, int size, bool root, int uniqtag) : CollectiveImpl(participants, uniqtag), rank(rank), size(size), root(root) {
+	                                                 
+    UCCCollective(std::vector<Handle*> participants, int size, bool root, int rank, int uniqtag)
+		: CollectiveImpl(participants, size, rank, uniqtag), root(root) {
         /* === UCC collective operation === */
         /* Init ucc library */
         ucc_lib_params_t lib_params = {
@@ -122,8 +123,8 @@ public:
 
         UCC_coll_info_t* info = new UCC_coll_info_t();
         info->handles = &participants;
-        info->rank = rank;
-        info->size = size;
+        info->rank = CollectiveImpl::rank;
+        info->size = CollectiveImpl::nparticipants;
         info->root = root;
         info->coll_obj = this;
 
@@ -133,8 +134,8 @@ public:
             .req_test     = oob_allgather_test,
             .req_free     = oob_allgather_free,
             .coll_info    = (void*)info,
-            .n_oob_eps    = (uint32_t)size, 
-            .oob_ep       = (uint32_t)rank 
+            .n_oob_eps    = (uint32_t)(CollectiveImpl::nparticipants),
+            .oob_ep       = (uint32_t)(CollectiveImpl::rank) 
         };
 
 
@@ -165,7 +166,7 @@ public:
 class BroadcastUCC : public UCCCollective {
 
 public:
-    BroadcastUCC(std::vector<Handle*> participants, int rank, int size, bool root, int uniqtag) : UCCCollective(participants, rank, size, root, uniqtag) {}
+    BroadcastUCC(std::vector<Handle*> participants, int size, bool root, int rank, int uniqtag) : UCCCollective(participants, size, root, rank, uniqtag) {}
 
 
     ssize_t probe(size_t& size, const bool blocking=true)  {
@@ -173,7 +174,7 @@ public:
 		errno=EINVAL;
 		return -1;
 	}
-
+	// TODO: error CHECK!
     ssize_t send(const void* buff, size_t size) {
         ucc_coll_args_t      args;
         ucc_coll_req_h       request;
@@ -198,7 +199,7 @@ public:
         return size;
     }
 
-
+	// TODO: error CHECK!
     ssize_t receive(void* buff, size_t size) {
         ucc_coll_args_t      args;
         ucc_coll_req_h       req;
@@ -218,19 +219,21 @@ public:
             UCC_CHECK(ucc_context_progress(ctx));
         }
         ucc_collective_finalize(req);
-        
-        //last_probe = -1;
-
+		
         return size;
     }
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+		ssize_t sz=-1;
         if(root) {
-            return this->send(sendbuff, sendsize);
+            sz=this->send(sendbuff, sendsize);
+			if (sz>0 && recvbuff) 
+				memcpy(recvbuff, sendbuff, sendsize);			
         }
         else {
-            return this->receive(recvbuff, recvsize);
+            sz=this->receive(recvbuff, recvsize);
         }
+		return sz;
     }
 
     void close(bool close_wr=true, bool close_rd=true) {
@@ -250,7 +253,7 @@ class GatherUCC : public UCCCollective {
     ucc_coll_args_t      close_args;
 
 public:
-    GatherUCC(std::vector<Handle*> participants, int rank, int size, bool root, int uniqtag) : UCCCollective(participants, rank, size, root, uniqtag) {
+    GatherUCC(std::vector<Handle*> participants, int size, bool root, int rank, int uniqtag) : UCCCollective(participants, size, root, rank, uniqtag) {
 		//probe_data = new size_t[participants.size()+1];
     }
 

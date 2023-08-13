@@ -7,7 +7,7 @@
  *  $> TPROTOCOL=<TCP|UCX|MPI> RAPIDJSON_HOME="/rapidjson/install/path" make clean test_scatter
  * 
  * Execution with MPI:
- *  $> mpirun -n 1 ./test_scatter 0 size App1 : -n 1 ./test_scatter 1 size App2 : -n 1 ./test_scatter 2 size App3 : -n 1 ./test_scatter 3 size App4
+ *  $> mpirun -n 1 ./test_scatter size App1 : -n 1 ./test_scatter 1 size App2 : -n 1 ./test_scatter size App3 : -n 1 ./test_scatter size App4
  * 
  * */
 
@@ -22,23 +22,22 @@ struct data_t {
 
 int main(int argc, char** argv){
 
-    if(argc != 4) {
-		MTCL_ERROR("[test_scatter]:\t", "Usage: %s <0|1> size <App1|App2>\n", argv[0]);
+    if(argc != 3) {
+		MTCL_ERROR("[test_scatter]:\t", "Usage: %s size <App1|App2|...|AppN>\n", argv[0]);
         return -1;
     }
 
-    int rank = atoi(argv[1]);
-	int size = atoi(argv[2]);
+	int size = atoi(argv[1]);
 	
     std::string config={"config.json"};
-	Manager::init(argv[3], config);
+	Manager::init(argv[2], config);
 
     auto hg = Manager::createTeam("App1:App2:App3:App4:App5", "App1", MTCL_SCATTER);
     if(!hg.isValid()) {
 		MTCL_ERROR("[test_scatter]:\t", "Cannot create the scatter team\n");
 		return -1;
 	}
-
+	int rank = hg.getTeamRank();
 	data_t *data = nullptr;
 
 	if (rank==0) {

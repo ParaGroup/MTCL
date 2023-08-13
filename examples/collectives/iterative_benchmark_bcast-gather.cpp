@@ -22,10 +22,10 @@
  *          bcast                           gather  
  *
  * Compile with:
- *  $> TPROTOCOL=TCP||UCX||MPI [UCX_HOME="<ucx_path>" UCC_HOME="<ucc_path>"] RAPIDJSON_HOME="<rapidjson_path>" make clean iterative_benchmark
+ *  $> TPROTOCOL=TCP||UCX||MPI [UCX_HOME="<ucx_path>" UCC_HOME="<ucc_path>"] RAPIDJSON_HOME="<rapidjson_path>" make clean iterative_benchmark_bcast-gather
  * 
  * Execute with:
- *  $> ./iterative_benchmark <id> <num_workers> <iterations> <initial_size> [configuration_file_path]
+ *  $> ./iterative_benchmark_bcast-gather <id> <num_workers> <iterations> <initial_size> [configuration_file_path]
  * 
  * Parameters are:
  *   - id: specify which part of the application to run.
@@ -35,16 +35,16 @@
  *   - initial_size: is the size used in the first iteration, then the size is (initial_size * 2^(iter_index-1))
  *
  * Execution example with 2 workers, 10 iterations and an initial size of 64 bytes
- *  $> ./iterative_benchmark 0 2 10 64
- *  $> ./iterative_benchmark 1 2 10 64
- *  $> ./iterative_benchmark 2 2 10 64
- *  $> ./iterative_benchmark 3 2 10 64
+ *  $> ./iterative_benchmark_bcast-gather 0 2 10 64
+ *  $> ./iterative_benchmark_bcast-gather 1 2 10 64
+ *  $> ./iterative_benchmark_bcast-gather 2 2 10 64
+ *  $> ./iterative_benchmark_bcast-gather 3 2 10 64
  * 
  * or using mpirun and the MPMD model:
- *  $> mpirun -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 0 2 10 32 iterative_benchmark.json : \
- *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 1 2 10 32 iterative_benchmark.json : \
- *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 2 2 10 32 iterative_benchmark.json : \
- *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 3 2 10 32 iterative_benchmark.json
+ *  $> mpirun -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_bcast-gather 0 2 10 32 iterative_benchmark.json : \
+ *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_bcast-gather 1 2 10 32 iterative_benchmark.json : \
+ *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_bcast-gather 2 2 10 32 iterative_benchmark.json : \
+ *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_bcast-gather 3 2 10 32 iterative_benchmark.json
  * 
  * 
  */
@@ -211,30 +211,29 @@ void Emitter(const std::string& bcast, const std::string& broot, const int itera
 
 void Worker(const std::string& bcast, const std::string& gather,
 			const std::string& broot, const std::string& groot,
-			const int rank, const int iterations, size_t size) {
-
-	MTCL_PRINT(0, "[Worker]:\t", "bcast=%s, gather=%s, broot=%s, groot=%s, Worker%d\n",
-			   bcast.c_str(), gather.c_str(), broot.c_str(),groot.c_str(), rank);
-		
+			const int iterations, size_t size) {		
 	auto hg_bcast = Manager::createTeam(bcast, broot, MTCL_BROADCAST);	
 	auto hg_gather= Manager::createTeam(gather, groot, MTCL_GATHER);
 		
-	if (hg_bcast.isValid() && hg_gather.isValid()) {
-		MTCL_PRINT(0, "[Worker]:\t", "%s%d, starting\n", "Worker", rank);
-	} else {
+	if (!(hg_bcast.isValid() && hg_gather.isValid())) {
 		MTCL_ERROR("[Worker]:\t", "Manager::createTeam, invalid collective handles (BROADCAST and/or GATHER)\n");
 		return;
 	}
+	MTCL_PRINT(0, "[Worker]:\t", "bcast=%s, gather=%s, broot=%s, groot=%s, Worker%d\n",
+			   bcast.c_str(), gather.c_str(), broot.c_str(),groot.c_str(), hg_bcast.getTeamRank());
+
+	assert(hg_bcast.getTeamRank() == hg_gather.getTeamRank());
 	
 	for(int i=0; i< iterations; ++i) {
-		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, starting iteration %d, size=%ld\n", rank, i, size);
+		int gather_data_size = hg_gather.size()*size;		
+		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, starting iteration %d, size=%ld\n", hg_bcast.getTeamRank(), i, size);
 		char *data = new char[size]();
 		hg_bcast.sendrecv(nullptr, 0, data, size);		   			
-		hg_gather.sendrecv(data, size, nullptr, 0);
+		hg_gather.sendrecv(data, size, nullptr, gather_data_size); 
 
 		delete [] data;
 		size = size << 1;
-		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, done iteration %d\n", rank, i);
+		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, done iteration %d\n", hg_bcast.getTeamRank(), i);
 	}
 	
 	hg_bcast.close();        
@@ -260,11 +259,16 @@ void Collector(const std::string& gather, const std::string& groot,
 	
 	char *mydata;
 	for(int i=0; i< iterations; ++i) {
-		MTCL_PRINT(0, "[Collector]:\t", "starting iteration %d, size=%ld\n", i, size);
-		char *gatherdata = new char[(nworkers+1)*size]();
+		int gather_data_size = hg.size()*size;
+		MTCL_PRINT(0, "[Collector]:\t", "starting iteration %d, size=%ld, gather size=%d\n", i, size, gather_data_size);
+
+		char *gatherdata = new char[gather_data_size];
 		mydata = new char[size]();
 		
-		hg.sendrecv(mydata, size, gatherdata, size);
+		if (hg.sendrecv(mydata, size, gatherdata, gather_data_size)==-1) {
+			MTCL_ERROR("[Collector]:\t", "Gather sendrecv ERROR\n");
+			return;
+		}
 
 		if (fbk.send(&COLLECTOR_RANK, sizeof(int))<=0) {
 			MTCL_ERROR("[Collector]:\t", "send to the Emitter ERROR\n");
@@ -297,6 +301,21 @@ int main(int argc, char** argv){
     int iterations  = std::stol(argv[3]);
     size_t size     = std::stol(argv[4]);
 
+	if ((size/num_workers) < 1) {
+		MTCL_ERROR("[iterative_benchmark_bcast-gather]:\t", "initial size too small, trying to adjust 'size' and 'iterations'\n");
+	}   
+	while(iterations && ((size/num_workers) <= 1)) {
+		size*=2;
+		iterations--;
+	}
+	if (iterations==0) {
+		MTCL_ERROR("[iterative_benchmark_bcast-gather]:\t", "cannot adjust size and iterations, please change their values\n");
+		Manager::finalize(true); 
+		return 0;		
+	} else {
+		MTCL_ERROR("[iterative_benchmark_bcast-gather]:\t", "initial size=%d, iterations=%d\n", size, iterations);
+	}	
+	
     std::string configuration_file{"iterative_bench_auto.json"};
     // A user provided configuration file was specified
     if(argc == 6) {
@@ -336,7 +355,7 @@ int main(int argc, char** argv){
 		} else {	   
 			Worker(broadcast_string, gather_string,
 				   participants.at(EMITTER_RANK), participants.at(COLLECTOR_RANK),
-				   rank-1, iterations, size);
+				   iterations, size);
 		}
 	}
 	

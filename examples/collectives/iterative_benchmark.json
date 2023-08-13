@@ -3,29 +3,39 @@
         {
             "name":"Emitter",
             "host":"localhost",
-            "protocols":["TCP"],
-            "listen-endpoints":["TCP:0.0.0.0:50000"]
+            "protocols":["MPI"],
+            "listen-endpoints":["MPI:0:100"]
         },
         {
             "name":"Worker1",
             "host":"localhost",
-            "protocols":["TCP"]
+            "protocols":["MPI"]
         },
         {
             "name":"Worker2",
             "host":"localhost",
-            "protocols":["TCP"]
+            "protocols":["MPI"]
         },
         {
             "name":"Worker3",
             "host":"localhost",
-            "protocols":["TCP"]
+            "protocols":["MPI"]
+        },
+        {
+            "name":"Worker4",
+            "host":"localhost",
+            "protocols":["MPI"]
+        },
+        {
+            "name":"Worker5",
+            "host":"localhost",
+            "protocols":["MPI"]
         },
         {
             "name":"Collector",
             "host":"localhost",
-            "protocols":["TCP"],
-            "listen-endpoints":["TCP:0.0.0.0:52000"]
+            "protocols":["MPI"],
+            "listen-endpoints":["MPI:1:100"]
         }
     ]
 }

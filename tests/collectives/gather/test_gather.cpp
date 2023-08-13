@@ -7,13 +7,13 @@
  *  $> TPROTOCOL=<TCP|UCX|MPI> RAPIDJSON_HOME="/rapidjson/install/path" make -f ../Makefile clean test_gather
  * 
  * Execution:
- *  $> ./test_gather 0 App1
- *  $> ./test_gather 1 App2
- *  $> ./test_gather 2 App3
- *  $> ./test_gather 3 App4
+ *  $> ./test_gather App1
+ *  $> ./test_gather App2
+ *  $> ./test_gather App3
+ *  $> ./test_gather App4
  * 
  * Execution with MPI:
- *  $> mpirun -n 1 ./test_gather 0 App1 : -n 1 ./test_gather 1 App2 : -n 1 ./test_gather 2 App3 : -n 1 ./test_gather 3 App4
+ *  $> mpirun -n 1 ./test_gather App1 : -n 1 ./test_gather App2 : -n 1 ./test_gather App3 : -n 1 ./test_gather App4
  * 
  * */
 
@@ -23,12 +23,11 @@
 
 int main(int argc, char** argv){
 
-    if(argc < 3) {
-		MTCL_ERROR("[test_gather]:\t", "Usage: %s <0|1> <App1|App2>\n", argv[0]);
+    if(argc != 2) {
+		MTCL_ERROR("[test_gather]:\t", "Usage: %s <App1|App2|...|AppN>\n", argv[0]);
         return -1;
     }
 
-    int rank = atoi(argv[1]);
 
     std::string config;
 #ifdef ENABLE_TCP
@@ -46,7 +45,7 @@ int main(int argc, char** argv){
         return -1;
     }
 
-	Manager::init(argv[2], config);
+	Manager::init(argv[1], config);
 
     auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", MTCL_GATHER);
     if(!hg.isValid()) {
@@ -54,21 +53,22 @@ int main(int argc, char** argv){
 		return -1;
 	}
     
-    std::string data{argv[2]};
+    std::string data{argv[1]};
 
     char* buff = nullptr;
 	size_t recvsize=hg.size()*data.length();
-    if(rank == 0) buff = new char[recvsize];
+    if(hg.getTeamRank() == 0) buff = new char[recvsize];
 	
     if (hg.sendrecv(data.c_str(), data.length(), buff, recvsize, data.length()) <= 0) {
 		MTCL_ERROR("[test_gather]:\t", "sendrecv failed\n");
 	}
 
     hg.close();
-
+	
     // Root
-    if(rank == 0) {
-        for(int i = 0; i < hg.size(); i++) {
+    if(hg.getTeamRank() == 0) {
+
+		for(int i = 0; i < hg.size(); i++) {
             std::string res(buff+(i*data.length()), data.length());
             printf("buff[%d] = %s\n", i, res.c_str());
         }

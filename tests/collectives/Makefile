@@ -2,7 +2,7 @@ ifndef CXX
 CXX 	   = g++
 endif
 
-MTCL_DIR=../../..
+MTCL_DIR=../..
 
 CXXFLAGS  += -std=c++17 -DENABLE_CONFIGFILE
 INCS       = -I . -I $(MTCL_DIR)/include

@@ -170,6 +170,10 @@ public:
         return realHandle->getSize();
     }
 
+	int getTeamRank() {
+		return realHandle->getTeamRank();		
+	}
+
 	std::pair<bool, bool> isClosed(){
 		if (!realHandle) return {true, true};
 		return {realHandle->closed_rd, realHandle->closed_wr};

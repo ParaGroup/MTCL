@@ -16,14 +16,14 @@
  *  $> TPROTOCOL=TCP|MPI RAPIDJSON_HOME="<rapidjson_path>" make clean scatter_gather_test.cpp
  * 
  * Execute with:
- *  $> ./scatter_gather_test <node_id> <collective_type> <message_size> <root_node_id> <node_id> <node_id>
+ *  $> ./scatter_gather_test <id> <collective_type> <message_size> <root_node_id> <node_id> <node_id>
  * 
  * Parameters are:
- *   - id: specify the rank of the node
- *   - collective_type: specify scatter collective (0) or gather collective (1)
+ *   - id: is the rank of the node
+ *   - collective_type: specifies the scatter (0) or the gather (1) collectives
  *   - message_size: is the number of integers send or receive by root node
- *   - root_node_id: specify the root process
- * 	 - node_id: specify a participant in the collective
+ *   - root_node_id: specifies the root process
+ * 	 - node_id: is the id of a participant in the collective
  *
  * Execution example with scatter collective of (Node1 [root], Node3, Node4) and size of 8 elements
  *  $> ./scatter_gather_test 0 0 8 0 2 3

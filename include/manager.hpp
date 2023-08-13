@@ -868,7 +868,7 @@ public:
 		std::hash<std::string> hashf;
 		int uniqtag = static_cast<int>(hashf(teamID) % std::numeric_limits<int>::max());
         if (uniqtag < 0) uniqtag = -uniqtag; // FIX WITH BETTER LOGIC: the uniqtag must be positive
-        if(!ctx->setImplementation(impl, coll_handles, ctx->getSize(), uniqtag)) {
+        if(!ctx->setImplementation(impl, coll_handles, uniqtag)) {
             return HandleUser();
         }
         ctx->setName(teamID+"-"+Manager::appName);

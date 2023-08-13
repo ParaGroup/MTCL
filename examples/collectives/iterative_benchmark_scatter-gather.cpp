@@ -35,16 +35,16 @@
  *   - initial_size: is the size used in the first iteration, then the size is (initial_size * 2^(iter_index-1))
  *
  * Execution example with 2 workers, 10 iterations and an initial size of 64 bytes
- *  $> ./iterative_benchmark 0 2 10 64
- *  $> ./iterative_benchmark 1 2 10 64
- *  $> ./iterative_benchmark 2 2 10 64
- *  $> ./iterative_benchmark 3 2 10 64
+ *  $> ./iterative_benchmark_scatter-gather 0 2 10 64
+ *  $> ./iterative_benchmark_scatter-gather 1 2 10 64
+ *  $> ./iterative_benchmark_scatter-gather 2 2 10 64
+ *  $> ./iterative_benchmark_scatter-gather 3 2 10 64
  * 
  * or using mpirun and the MPMD model:
- *  $> mpirun -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 0 2 10 32 iterative_benchmark.json : \
- *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 1 2 10 32 iterative_benchmark.json : \
- *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 2 2 10 32 iterative_benchmark.json : \
- *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 3 2 10 32 iterative_benchmark.json
+ *  $> mpirun -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_scatter-gather 0 2 10 32 iterative_benchmark.json : \
+ *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_scatter-gather 1 2 10 32 iterative_benchmark.json : \
+ *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_scatter-gather 2 2 10 32 iterative_benchmark.json : \
+ *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_scatter-gather 3 2 10 32 iterative_benchmark.json
  * 
  * 
  */
@@ -367,6 +367,21 @@ int main(int argc, char** argv){
     int iterations  = std::stol(argv[3]);
     size_t size     = std::stol(argv[4]);
 
+	if ((size/num_workers) < 1) {
+		MTCL_ERROR("[iterative_benchmark_scatter-gather]:\t", "initial size too small, trying to adjust 'size' and 'iterations'\n");
+	}   
+	while(iterations && ((size/num_workers) <= 1)) {
+		size*=2;
+		iterations--;
+	}
+	if (iterations==0) {
+		MTCL_ERROR("[iterative_benchmark_scatter-gather]:\t", "cannot adjust size and iterations, please change their values\n");
+		Manager::finalize(true); 
+		return 0;		
+	} else {
+		MTCL_ERROR("[iterative_benchmark_scatter-gather]:\t", "initial size=%d, iterations=%d\n", size, iterations);
+	}
+	
     std::string configuration_file{"iterative_bench_auto.json"};
     // A user provided configuration file was specified
     if(argc == 6) {
