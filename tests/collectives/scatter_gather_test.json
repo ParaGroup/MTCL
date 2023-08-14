@@ -3,26 +3,26 @@
         {
             "name":"Node0",
             "host":"localhost",
-            "protocols":["TCP"],
-            "listen-endpoints":["TCP:0.0.0.0:42000"]
+            "protocols":["MPI"],
+            "listen-endpoints":["MPI:0:10"]
         },
         {
             "name":"Node1",
             "host":"localhost",
-            "protocols":["TCP"],
-            "listen-endpoints":["TCP:0.0.0.0:42001"]
+            "protocols":["MPI"],
+            "listen-endpoints":["MPI:1:10"]
         },
         {
             "name":"Node2",
             "host":"localhost",
-            "protocols":["TCP"],
-            "listen-endpoints":["TCP:0.0.0.0:42002"]
+            "protocols":["MPI"],
+            "listen-endpoints":["MPI:2:10"]
         },
         {
             "name":"Node3",
             "host":"localhost",
-            "protocols":["TCP"],
-            "listen-endpoints":["TCP:0.0.0.0:42003"]
+            "protocols":["MPI"],
+            "listen-endpoints":["MPI:3:10"]
         }
     ]
 }
