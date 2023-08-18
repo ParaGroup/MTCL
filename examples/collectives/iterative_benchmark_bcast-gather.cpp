@@ -185,8 +185,29 @@ void Emitter(const std::string& bcast, const std::string& broot, const int itera
 
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Emitter]:\t", "starting iteration %d, size=%ld\n", i, size);
-		char *data = new char[size]();
-		hg.sendrecv(data, size, nullptr, 0);		   			
+		int *data = new int[size]();
+
+		for (size_t i = 0, j = 100; i < size; i++, j += 100) {
+			data[i] = j;
+		}
+
+		if (hg.sendrecv(data, size * sizeof(int), nullptr, 0) <= 0) {
+			MTCL_ERROR("[Emitter]:\t", "broadcast ERROR\n");
+			return;
+		}
+
+		std::cout << "[Emitter]: Send ->" << " [";
+
+		for (size_t i = 0; i < size; i++) {
+			std::cout << data[i];
+
+			if (i != (size - 1)) {
+				std::cout << ", "; 
+			}
+		}
+		
+		std::cout << "]" << std::endl;
+
 		// Receive result from feedback channel
 		auto h = Manager::getNext();
 		int res;
@@ -227,9 +248,21 @@ void Worker(const std::string& bcast, const std::string& gather,
 	for(int i=0; i< iterations; ++i) {
 		int gather_data_size = hg_gather.size()*size;		
 		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, starting iteration %d, size=%ld\n", hg_bcast.getTeamRank(), i, size);
-		char *data = new char[size]();
-		hg_bcast.sendrecv(nullptr, 0, data, size);		   			
-		hg_gather.sendrecv(data, size, nullptr, gather_data_size); 
+		int *data = new int[size]();
+		hg_bcast.sendrecv(nullptr, 0, data, size * sizeof(int));		   			
+		hg_gather.sendrecv(data, size * sizeof(int), nullptr, gather_data_size * sizeof(int), sizeof(int));
+
+		std::cout << "[Worker-" << hg_bcast.getTeamRank() << "]: Receive-Send -> [";
+
+		for (size_t i = 0; i < size; i++) {
+			std::cout << data[i];
+
+			if (i != (size - 1)) {
+				std::cout << ", ";
+			}
+		}
+
+		std::cout << "]" << std::endl; 
 
 		delete [] data;
 		size = size << 1;
@@ -257,18 +290,32 @@ void Collector(const std::string& gather, const std::string& groot,
 		return;
 	}
 	
-	char *mydata;
+	int *mydata;
 	for(int i=0; i< iterations; ++i) {
 		int gather_data_size = hg.size()*size;
 		MTCL_PRINT(0, "[Collector]:\t", "starting iteration %d, size=%ld, gather size=%d\n", i, size, gather_data_size);
 
-		char *gatherdata = new char[gather_data_size];
-		mydata = new char[size]();
+		int *gatherdata = new int[gather_data_size];
+		mydata = new int[size]();
+
+		usleep(500000);
 		
-		if (hg.sendrecv(mydata, size, gatherdata, gather_data_size)==-1) {
+		if (hg.sendrecv(mydata, size * sizeof(int), gatherdata, gather_data_size * sizeof(int), sizeof(int))==-1) {
 			MTCL_ERROR("[Collector]:\t", "Gather sendrecv ERROR\n");
 			return;
 		}
+
+		std::cout << "[Collector]: Receive -> [";
+
+		for (int i = 0; i < gather_data_size; i++) {
+			std::cout << gatherdata[i];
+
+			if (i != (gather_data_size - 1)) {
+				std::cout << ", ";
+			}
+		}
+
+		std::cout << "]\n\n";
 
 		if (fbk.send(&COLLECTOR_RANK, sizeof(int))<=0) {
 			MTCL_ERROR("[Collector]:\t", "send to the Emitter ERROR\n");
@@ -301,19 +348,13 @@ int main(int argc, char** argv){
     int iterations  = std::stol(argv[3]);
     size_t size     = std::stol(argv[4]);
 
-	if ((size/num_workers) < 1) {
-		MTCL_ERROR("[iterative_benchmark_bcast-gather]:\t", "initial size too small, trying to adjust 'size' and 'iterations'\n");
-	}   
-	while(iterations && ((size/num_workers) <= 1)) {
-		size*=2;
-		iterations--;
-	}
 	if (iterations==0) {
-		MTCL_ERROR("[iterative_benchmark_bcast-gather]:\t", "cannot adjust size and iterations, please change their values\n");
+		MTCL_ERROR("[iterative_benchmark_bcast-gather]:\t", "iterations is equal to zero!\n");
 		Manager::finalize(true); 
 		return 0;		
 	} else {
-		MTCL_ERROR("[iterative_benchmark_bcast-gather]:\t", "initial size=%d, iterations=%d\n", size, iterations);
+		if (rank == EMITTER_RANK)
+			MTCL_ERROR("[iterative_benchmark_bcast-gather]:\t", "initial size=%d, iterations=%d\n", size, iterations);
 	}	
 	
     std::string configuration_file{"iterative_bench_auto.json"};

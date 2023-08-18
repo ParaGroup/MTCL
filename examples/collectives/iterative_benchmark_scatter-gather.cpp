@@ -192,14 +192,7 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 			data[i] = j;
 		}
 
-		int recvsize;
-
-		if (size % hg.size() == 0) {
-			recvsize = size / hg.size();
-		} else {
-			recvsize = (size / hg.size()) + 1;
-		}
-		
+		int recvsize = hg.getTeamPartitionSize(size);
 		int *recvbuf = new int[recvsize];
 
 		if (hg.sendrecv(data, size * sizeof(int), recvbuf, recvsize * sizeof(int), sizeof(int)) <= 0) {
@@ -207,7 +200,7 @@ void Emitter(const std::string& scatter_participants, const std::string& scatter
 			return;
 		}
 
-		std::cout << "[Emitter]: Message ->" << " [";
+		std::cout << "[Emitter]: Receive ->" << " [";
 
 		for (int i = 0; i < recvsize; i++) {
 			std::cout << recvbuf[i];
@@ -260,19 +253,24 @@ void Worker(const std::string& scatter_participants, const std::string& gather,
 	
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, starting iteration %d, size=%ld\n", rank, i, size);
-		int scatter_data_size;
 		
-		if (size % hg_scatter.size() == 0) {
-			scatter_data_size = size / hg_scatter.size();
-		} else {
-			scatter_data_size = (size / hg_scatter.size()) + 1;
-		}
-
+		int scatter_data_size = hg_scatter.getTeamPartitionSize(size);
 		int *scatter_data = new int[scatter_data_size];
 		hg_scatter.sendrecv(nullptr, size * sizeof(int), scatter_data, scatter_data_size * sizeof(int), sizeof(int));
 
-		int gather_data_size = scatter_data_size * hg_gather.size();
-		hg_gather.sendrecv(scatter_data, scatter_data_size * sizeof(int), nullptr, gather_data_size * sizeof(int), sizeof(int));
+		std::cout << "[Worker-" << rank << "]: Receive-Send -> [";
+
+		for (int i = 0; i < scatter_data_size; i++) {
+			std::cout << scatter_data[i];
+
+			if (i != (scatter_data_size - 1)) {
+				std::cout << ", ";
+			}
+		}
+
+		std::cout << "]" << std::endl;
+
+		hg_gather.sendrecv(scatter_data, scatter_data_size * sizeof(int), nullptr, size * sizeof(int), sizeof(int));
 
 		delete [] scatter_data;
 		size = size << 1;
@@ -300,41 +298,35 @@ void Collector(const std::string& gather, const std::string& groot,
 		return;
 	}
 	
-	int *data;
+	int *data, data_size;
 
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Collector]:\t", "starting iteration %d, size=%ld\n", i, size);
 
-		int gather_data_size;
-		int data_size;
+		data_size = hg.getTeamPartitionSize(size);
+		data = new int[data_size];
 
-		if (size % hg.size() == 0) {
-			gather_data_size = size;
-			data_size = size / (nworkers + 1);
-		} else {
-			gather_data_size = ((size / hg.size()) + 1) * (nworkers + 1);
-			data_size = (size / hg.size()) + 1;
+		for (int i = 0, j = 100; i < data_size; i++, j += 100) {
+			data[i] = j;
 		}
 
-		int *gather_data = new int[gather_data_size]();
-		data = new int[data_size];
-		memset(data, -1, data_size * sizeof(int));
+		int *gather_data = new int[size]();
+
+		usleep(500000);
 		
-		hg.sendrecv(data, data_size * sizeof(int), gather_data, gather_data_size * sizeof(int), sizeof(int));
+		hg.sendrecv(data, data_size * sizeof(int), gather_data, size * sizeof(int), sizeof(int));
 
-		for (int i = 0; i < nworkers + 1; i++) {
-			std::cout << "[Collector]: Message-" << i << " -> [";
+		std::cout << "[Collector]: Receive -> [";
 
-			for (int j = 0; j < data_size; j++) {
-				std::cout << gather_data[(i * data_size) + j];
+		for (size_t i = 0; i < size; i++) {
+			std::cout << gather_data[i];
 
-				if (j != (data_size -1)) {
-					std::cout << ", ";
-				}
+			if (i != (size - 1)) {
+				std::cout << ", ";
 			}
+		}
 
-			std::cout << "]" << std::endl;
-		} 
+		std::cout << "]\n\n";
 		
 		if (fbk.send(&COLLECTOR_RANK, sizeof(int))<=0) {
 			MTCL_ERROR("[Collector]:\t", "send to the Emitter ERROR\n");
@@ -347,6 +339,7 @@ void Collector(const std::string& gather, const std::string& groot,
 		size = size << 1;
 		MTCL_PRINT(0, "[Collector]:\t", "done iteration %d\n", i);
 	}
+
 	fbk.close();		
 	hg.close();
 }
@@ -367,10 +360,10 @@ int main(int argc, char** argv){
     int iterations  = std::stol(argv[3]);
     size_t size     = std::stol(argv[4]);
 
-	if ((size/num_workers) < 1) {
+	if ((size/(num_workers+1)) < 1) {
 		MTCL_ERROR("[iterative_benchmark_scatter-gather]:\t", "initial size too small, trying to adjust 'size' and 'iterations'\n");
 	}   
-	while(iterations && ((size/num_workers) <= 1)) {
+	while(iterations && ((size/(num_workers+1)) <= 1)) {
 		size*=2;
 		iterations--;
 	}
@@ -379,7 +372,8 @@ int main(int argc, char** argv){
 		Manager::finalize(true); 
 		return 0;		
 	} else {
-		MTCL_ERROR("[iterative_benchmark_scatter-gather]:\t", "initial size=%d, iterations=%d\n", size, iterations);
+		if (rank == EMITTER_RANK)
+			MTCL_ERROR("[iterative_benchmark_scatter-gather]:\t", "initial size=%d, iterations=%d\n", size, iterations);
 	}
 	
     std::string configuration_file{"iterative_bench_auto.json"};

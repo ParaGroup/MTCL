@@ -130,6 +130,14 @@ public:
     virtual void close(bool close_wr=true, bool close_rd=true) = 0;
 
 	virtual int getTeamRank() {	return rank; }
+    virtual int getTeamPartitionSize(size_t buffcount) {
+        int partition = buffcount / nparticipants;
+		int r = buffcount % nparticipants;
+
+		if (r && (rank < r)) partition++;
+
+        return partition;
+    }
 
 	
     virtual ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
@@ -242,6 +250,12 @@ public:
     }
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        if (recvbuff == nullptr) {
+            MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
+            errno=EFAULT;
+            return -1;
+        }
+
         if(root) {
             if (sendbuff == nullptr) {
                 MTCL_ERROR("[internal]:\t","sender buffer == nullptr\n");
@@ -264,12 +278,6 @@ public:
             if (rcount > 0) {
                 selfsendcount += datasize;
                 rcount--;
-            }
-
-            if (recvbuff == nullptr) {
-                MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
-                errno=EFAULT;
-                return -1;
             }
 
             if (recvsize < selfsendcount) {
@@ -301,12 +309,6 @@ public:
             
             return selfsendcount;
         } else {
-            if (recvbuff == nullptr) {
-                MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
-                errno=EFAULT;
-                return -1;
-            }
-
             auto h = participants.at(0);
             ssize_t res = receiveFromHandle(h, (char*)recvbuff, recvsize);
             if(res == 0) h->close(true, false);

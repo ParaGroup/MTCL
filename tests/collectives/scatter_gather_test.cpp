@@ -89,12 +89,7 @@ int main(int argc, char* argv[]){
 		}
 
 		if (type == 0) { // Scatter
-			int p = size / hg.size();
-			int r = size % hg.size();
-
-			size_t recvsize = p;
-			if (r && hg.getTeamRank() < r) recvsize++;
-
+			int recvsize = hg.getTeamPartitionSize(size);
 			int *recvbuff = new int[recvsize]();
 		
 			if (hg.sendrecv(data, size * sizeof(int), recvbuff, recvsize * sizeof(int), sizeof(int)) <= 0) {
@@ -109,7 +104,7 @@ int main(int argc, char* argv[]){
 
 			std::cout << "rank:" << rank << " -> [";
 
-			for(size_t i = 0; i < recvsize; i++) {
+			for(int i = 0; i < recvsize; i++) {
 				std::cout << recvbuff[i];
 				if (i != recvsize - 1) std::cout << ", ";
 			}
@@ -133,15 +128,10 @@ int main(int argc, char* argv[]){
 
 			std::cout << "\n";
 		} else { // Gather
-			int p = size / hg.size();
-			int r = size % hg.size();
-
-			size_t sendsize = p;
-			if (r && hg.getTeamRank() < r) sendsize++;
-
+			int sendsize = hg.getTeamPartitionSize(size);
 			int *sendbuff = new int[sendsize]();
 
-			for(size_t i = 0; i < sendsize; i++)
+			for(int i = 0; i < sendsize; i++)
 				sendbuff[i] = rank;
 		
 			if (hg.sendrecv(sendbuff, sendsize * sizeof(int), data, size * sizeof(int), sizeof(int)) <= 0) {
@@ -155,7 +145,7 @@ int main(int argc, char* argv[]){
 
 			std::cout << "rank:" << rank << " -> [";
 
-			for(size_t i = 0; i < sendsize; i++) {
+			for(int i = 0; i < sendsize; i++) {
 				std::cout << sendbuff[i];
 				if (i != sendsize - 1) std::cout << ", ";
 			}

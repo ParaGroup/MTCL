@@ -233,6 +233,10 @@ public:
 	int getTeamRank() {
 		return coll->getTeamRank();		
 	}
+
+    int getTeamPartitionSize(size_t buffcount) {
+        return coll->getTeamPartitionSize(buffcount);
+    }
 	
     void finalize(bool blockflag, std::string name="") {
         coll->finalize(blockflag, name);

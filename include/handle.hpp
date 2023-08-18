@@ -88,7 +88,8 @@ public:
     }
 
     virtual int getSize() {return 1;}
-	virtual int getTeamRank() { return -1;}
+	virtual int getTeamRank() { return -1; }
+    virtual int getTeamPartitionSize(size_t buffcount) { return -1; }
 	
     void setName(const std::string &name) { handleName = name; }
 	const std::string& getName() { return handleName; }

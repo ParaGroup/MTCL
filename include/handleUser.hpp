@@ -174,6 +174,10 @@ public:
 		return realHandle->getTeamRank();		
 	}
 
+	int getTeamPartitionSize(size_t buffcount) {
+		return realHandle->getTeamPartitionSize(buffcount);
+	}
+
 	std::pair<bool, bool> isClosed(){
 		if (!realHandle) return {true, true};
 		return {realHandle->closed_rd, realHandle->closed_wr};

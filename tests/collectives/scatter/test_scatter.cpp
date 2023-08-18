@@ -52,12 +52,7 @@ int main(int argc, char** argv){
 
 	size_t sndsize = size*sizeof(data_t);
 
-	int p = size / hg.size();
-	int r = size % hg.size();
-
-	size_t recvsize = p;
-	if (r && (rank<r)) recvsize++;
-
+	int recvsize = hg.getTeamPartitionSize(size);
 	data_t *buff = new data_t[recvsize]{0.0,"null"};
 	
     if (hg.sendrecv(data, sndsize, buff, recvsize*sizeof(data_t), sizeof(data_t)) <= 0) {
@@ -69,7 +64,7 @@ int main(int argc, char** argv){
 	// just for having a "clean" printing to the stdout
 	usleep(rank * 300000);
 	std::cout << "rank: " << rank << "\n";
-	for(size_t i=0; i<recvsize; ++i) 
+	for(int i=0; i<recvsize; ++i) 
 		std::cout << "[" << buff[i].x << ", " << buff[i].str << "] ";
 	std::cout << "\n";
 
