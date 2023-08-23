@@ -250,6 +250,8 @@ public:
     }
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        MTCL_TCP_PRINT(100, "sendrecv, sendsize=%ld, recvsize=%ld, datasize=%ld, nparticipants=%ld\n", sendsize, recvsize, datasize, nparticipants);
+
         if (recvbuff == nullptr) {
             MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
             errno=EFAULT;
@@ -610,6 +612,150 @@ public:
     }
     
     ~GatherGeneric () {}
+};
+
+class AllGatherGeneric : public CollectiveImpl {
+private:
+    bool root;
+public:
+    AllGatherGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag) :
+        CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
+
+    ssize_t probe(size_t& size, const bool blocking=true) {
+		MTCL_ERROR("[internal]:\t", "Gather::probe operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t receive(void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Gather::receive operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t send(const void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Gather::send operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+		MTCL_TCP_PRINT(100, "sendrecv, sendsize=%ld, recvsize=%ld, datasize=%ld, nparticipants=%ld\n", sendsize, recvsize, datasize, nparticipants);
+
+        if (sendbuff == nullptr) {
+            MTCL_ERROR("[internal]:\t","sender buffer == nullptr\n");
+            errno=EFAULT;
+            return -1;
+        }
+
+        if (recvbuff == nullptr) {
+                MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
+                errno=EFAULT;
+                return -1;
+        }
+
+        if (recvsize % datasize != 0) {
+            errno=EINVAL;
+            return -1;
+        }
+
+        size_t datacount = recvsize / datasize;
+
+        size_t recvcount = (datacount / nparticipants) * datasize;
+        size_t rcount = (datacount % nparticipants);
+		
+        if(root) {
+            size_t selfrecvcount = recvcount;
+
+            if (rcount > 0) {
+                selfrecvcount += datasize;
+            }
+
+            if (sendsize < selfrecvcount) {
+                MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, selfrecvcount);
+                errno=EINVAL;
+                return -1;
+            }
+
+            memcpy((char*)recvbuff, sendbuff, selfrecvcount);
+
+            size_t chunksize, offset;
+            ssize_t return_value;
+            int remote_rank, r;
+            
+            for (size_t i = 0; i < (nparticipants - 1); i++) {
+                // Receive rank
+                if ((return_value = receiveFromHandle(participants.at(i), &remote_rank, sizeof(int))) <= 0) {
+                    return return_value;
+                }
+
+                if (rcount && (remote_rank < (int)rcount)) {
+                    chunksize = recvcount + datasize;
+                } else {
+                    chunksize = recvcount;
+                }
+
+                offset = 0;
+                r = rcount;
+
+                while (remote_rank) {
+                    offset += recvcount + (r > 0 ? datasize : 0);
+                    r--;
+                    remote_rank--;
+                } 
+
+                // Receive data
+                if ((return_value = receiveFromHandle(participants.at(i), (char*)recvbuff + offset, chunksize)) <= 0) {
+                    return return_value;
+                }
+            }
+
+            for(auto h : participants) {
+                if(h->send(recvbuff, recvsize) < 0) {
+                    errno = ECONNRESET;
+                    return -1;
+                }
+            }
+            
+            return selfrecvcount;
+        } else {
+            size_t chunksize;
+
+            if (rcount && (CollectiveImpl::rank < (int)rcount)) {
+                chunksize = recvcount + datasize;
+            } else {
+                chunksize = recvcount;
+            }
+
+            if (chunksize > sendsize) {
+                MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, chunksize);
+                errno = EINVAL;
+                return -1;
+            }
+
+            auto h = participants.at(0);
+
+            if((h->send(&(CollectiveImpl::rank), sizeof(int)) < 0) || (h->send(sendbuff, chunksize) < 0)) {
+                errno = ECONNRESET;
+                return -1;
+            }
+
+            if (receiveFromHandle(h, (char*)recvbuff, recvsize) == 0)
+                h->close(true, false);
+
+            return chunksize;
+        }
+    }
+
+    void close(bool close_wr=true, bool close_rd=true) {        
+        for(auto& h : participants) {
+            h->close(true, false);
+        }
+
+        return;
+    }
+    
+    ~AllGatherGeneric () {}
 };
 
 #endif //COLLECTIVEIMPL_HPP

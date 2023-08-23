@@ -122,8 +122,29 @@ public:
                             break;
                     }
                     return coll;
-                }}
-
+                }
+            },
+            {HandleType::MTCL_ALLGATHER,  [&]{
+                    CollectiveImpl* coll = nullptr;
+                    switch (impl) {
+                        case GENERIC:
+                            coll = new AllGatherGeneric(participants, size, root, rank, uniqtag);
+                            break;
+                        case MPI:
+                            #ifdef ENABLE_MPI
+                            void *max_tag;
+                            int flag;
+                            MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
+                            coll = new AllGatherMPI(participants, size, root, rank, uniqtag % (*(int*)max_tag));
+                            #endif
+                            break;
+                        default:
+                            coll = nullptr;
+                            break;
+                    }
+                    return coll;
+                }
+            }
         };
 
         if (auto found = contexts.find(type); found != contexts.end()) {
@@ -255,8 +276,8 @@ CollectiveContext *createContext(HandleType type, int size, bool root, int rank)
         {HandleType::MTCL_SCATTER,     [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
         {HandleType::MTCL_FANIN,       [&]{return new CollectiveContext(size, root, rank, type, !root, root);}},
         {HandleType::MTCL_FANOUT,      [&]{return new CollectiveContext(size, root, rank, type, root, !root);}},
-        {HandleType::MTCL_GATHER, [&]{return new CollectiveContext(size, root, rank, type, false, false);}}
-
+        {HandleType::MTCL_GATHER, [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
+        {HandleType::MTCL_ALLGATHER, [&]{return new CollectiveContext(size, root, rank, type, false, false);}}
     };
 
     if (auto found = contexts.find(type); found != contexts.end()) {
