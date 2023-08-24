@@ -120,6 +120,7 @@ public:
         ucc_lib_config_release(lib_config);
 
         if(root) root_rank = rank;
+        this->rank = rank; 
 
         UCC_coll_info_t* info = new UCC_coll_info_t();
         info->handles = &participants;
@@ -273,32 +274,80 @@ public:
         return -1;
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {        
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        MTCL_UCX_PRINT(100, "sendrecv, sendsize=%ld, recvsize=%ld, datasize=%ld, nparticipants=%ld\n", sendsize, recvsize, datasize, nparticipants);
+
+        if (recvsize == 0)
+			MTCL_ERROR("[internal]:\t", "Gather::sendrecv \"recvsize\" is equal to zero, this is an ERROR!\n");
+
+        if (recvsize % datasize != 0) {
+            errno = EINVAL;
+            return -1;
+        }
+
+        size_t datacount = recvsize / datasize;
+
+        uint32_t *recvcounts = new uint32_t[nparticipants];
+        uint32_t *displs = new uint32_t[nparticipants];
+        
+        int displ = 0;
+
+        int recvcount = (datacount / nparticipants) * datasize;
+        int rcount = datacount % nparticipants;
+            
+        for (size_t i = 0; i < nparticipants; i++) {
+            recvcounts[i] = recvcount;
+                
+            if (rcount > 0) {
+                recvcounts[i] += datasize;
+                rcount--;
+            }
+                
+            displs[i] = displ;
+            displ += recvcounts[i];
+        }
+
+        if ((size_t)recvcounts[rank] > sendsize) {
+            MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, recvcounts[rank]);
+            errno = EINVAL;
+            return -1;
+        }
+
         ucc_coll_args_t args;
         ucc_coll_req_h  request;
 
         args.mask              = 0;
-        args.coll_type         = UCC_COLL_TYPE_GATHER;
+        args.coll_type         = UCC_COLL_TYPE_GATHERV;
         args.src.info.buffer   = (void*)sendbuff;
-        args.src.info.count    = sendsize;
+        args.src.info.count    = recvcounts[rank];
         args.src.info.datatype = UCC_DT_UINT8;
         args.src.info.mem_type = UCC_MEMORY_TYPE_HOST;
+
         if(root) {
-            args.dst.info.buffer   = (void*)recvbuff;
-            args.dst.info.count    = recvsize;
-            args.dst.info.datatype = UCC_DT_UINT8;
-            args.dst.info.mem_type = UCC_MEMORY_TYPE_HOST;
+            args.dst.info_v.buffer        = (void*)recvbuff;
+            args.dst.info_v.counts        = (ucc_count_t*)recvcounts;
+            args.dst.info_v.displacements = (ucc_aint_t*)displs;
+            args.dst.info_v.datatype      = UCC_DT_UINT8;
+            args.dst.info_v.mem_type      = UCC_MEMORY_TYPE_HOST;
         }
-        args.root              = root_rank;
+
+        args.root = root_rank;
 
         UCC_CHECK(ucc_collective_init(&args, &request, team)); 
-        UCC_CHECK(ucc_collective_post(request));    
+        UCC_CHECK(ucc_collective_post(request));  
+
         while (UCC_INPROGRESS == ucc_collective_test(request)) { 
             UCC_CHECK(ucc_context_progress(ctx));
         }
-        ucc_collective_finalize(request);
 
-		return (root?(recvsize*participants.size()):sendsize);
+        ucc_collective_finalize(request);
+		
+        sendsize = recvcounts[rank];
+
+        delete [] recvcounts;
+        delete [] displs;
+
+        return sendsize;
     }
 
     void close(bool close_wr=true, bool close_rd=true) {

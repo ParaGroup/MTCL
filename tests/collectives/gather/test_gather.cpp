@@ -7,13 +7,13 @@
  *  $> TPROTOCOL=<TCP|UCX|MPI> RAPIDJSON_HOME="/rapidjson/install/path" make -f ../Makefile clean test_gather
  * 
  * Execution:
- *  $> ./test_gather App1
- *  $> ./test_gather App2
- *  $> ./test_gather App3
- *  $> ./test_gather App4
+ *  $> ./test_gather App1 size
+ *  $> ./test_gather App2 size
+ *  $> ./test_gather App3 size
+ *  $> ./test_gather App4 size
  * 
  * Execution with MPI:
- *  $> mpirun -n 1 ./test_gather App1 : -n 1 ./test_gather App2 : -n 1 ./test_gather App3 : -n 1 ./test_gather App4
+ *  $> mpirun -n 1 ./test_gather App1 size : -n 1 ./test_gather App2 size : -n 1 ./test_gather App3 size : -n 1 ./test_gather App4 size
  * 
  * */
 
@@ -23,8 +23,8 @@
 
 int main(int argc, char** argv){
 
-    if(argc != 2) {
-		MTCL_ERROR("[test_gather]:\t", "Usage: %s <App1|App2|...|AppN>\n", argv[0]);
+    if(argc != 3) {
+		MTCL_ERROR("[test_gather]:\t", "Usage: %s <App1|App2|...|AppN> size\n", argv[0]);
         return -1;
     }
 
@@ -45,6 +45,13 @@ int main(int argc, char** argv){
         return -1;
     }
 
+    size_t size = std::stol(argv[2]);
+
+    if ((size / 4) < 1) {
+        MTCL_ERROR("[test_gather]:\t", "size too small!\n");
+        return -1;
+	} 
+
 	Manager::init(argv[1], config);
 
     auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", MTCL_GATHER);
@@ -53,13 +60,12 @@ int main(int argc, char** argv){
 		return -1;
 	}
     
-    std::string data{argv[1]};
-
     char* buff = nullptr;
-	size_t recvsize=hg.size()*data.length();
-    if(hg.getTeamRank() == 0) buff = new char[recvsize];
+    if(hg.getTeamRank() == 0) buff = new char[size + 1];
+
+    std::string data (hg.getTeamPartitionSize(size), argv[1][3]);
 	
-    if (hg.sendrecv(data.c_str(), data.length(), buff, recvsize, data.length()) <= 0) {
+    if (hg.sendrecv(data.c_str(), data.length(), buff, size) <= 0) {
 		MTCL_ERROR("[test_gather]:\t", "sendrecv failed\n");
 	}
 
@@ -67,12 +73,9 @@ int main(int argc, char** argv){
 	
     // Root
     if(hg.getTeamRank() == 0) {
-
-		for(int i = 0; i < hg.size(); i++) {
-            std::string res(buff+(i*data.length()), data.length());
-            printf("buff[%d] = %s\n", i, res.c_str());
-        }
-        delete[] buff;
+        buff[size] = '\0';
+        printf("buff = %s\n", buff);
+        delete [] buff;
     }
 
     Manager::finalize(true);
