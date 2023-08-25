@@ -469,4 +469,110 @@ public:
 
 };
 
+class AllGatherUCC : public UCCCollective {
+
+public:
+    AllGatherUCC(std::vector<Handle*> participants, int size, bool root, int rank, int uniqtag) : UCCCollective(participants, size, root, rank, uniqtag) {}
+
+    ssize_t probe(size_t& size, const bool blocking=true) {
+		MTCL_ERROR("[internal]:\t", "AllGather::probe operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t send(const void* buff, size_t size) {
+		MTCL_ERROR("[internal]:\t", "AllGather::send operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
+	}
+
+    ssize_t receive(void* buff, size_t size) {        
+		MTCL_ERROR("[internal]:\t", "AllGather::receive operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        MTCL_UCX_PRINT(100, "sendrecv, sendsize=%ld, recvsize=%ld, datasize=%ld, nparticipants=%ld\n", sendsize, recvsize, datasize, nparticipants);
+
+        if (recvsize == 0)
+			MTCL_ERROR("[internal]:\t", "AllGather::sendrecv \"recvsize\" is equal to zero, this is an ERROR!\n");
+
+        if (recvsize % datasize != 0) {
+            errno = EINVAL;
+            return -1;
+        }
+
+        int datacount = recvsize / datasize;
+
+        uint32_t *recvcounts = new uint32_t[nparticipants];
+        uint32_t *displs = new uint32_t[nparticipants];
+        
+        int displ = 0;
+
+        int recvcount = (datacount / nparticipants) * datasize;
+        int rcount = datacount % nparticipants;
+            
+        for (size_t i = 0; i < nparticipants; i++) {
+            recvcounts[i] = recvcount;
+                
+            if (rcount > 0) {
+                recvcounts[i] += datasize;
+                rcount--;
+            }
+                
+            displs[i] = displ;
+            displ += recvcounts[i];
+        }
+
+        if ((size_t)recvcounts[rank] > sendsize) {
+            MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, recvcounts[rank]);
+            errno = EINVAL;
+            return -1;
+        }
+
+        ucc_coll_args_t args;
+        ucc_coll_req_h  request;
+
+        args.mask              = 0;
+        args.coll_type         = UCC_COLL_TYPE_ALLGATHERV;
+        args.src.info.buffer   = (void*)sendbuff;
+        args.src.info.count    = recvcounts[rank];
+        args.src.info.datatype = UCC_DT_UINT8;
+        args.src.info.mem_type = UCC_MEMORY_TYPE_HOST;
+
+        args.dst.info_v.buffer        = (void*)recvbuff;
+        args.dst.info_v.counts        = (ucc_count_t*)recvcounts;
+        args.dst.info_v.displacements = (ucc_aint_t*)displs;
+        args.dst.info_v.datatype      = UCC_DT_UINT8;
+        args.dst.info_v.mem_type      = UCC_MEMORY_TYPE_HOST;
+
+        UCC_CHECK(ucc_collective_init(&args, &request, team)); 
+        UCC_CHECK(ucc_collective_post(request));  
+
+        while (UCC_INPROGRESS == ucc_collective_test(request)) { 
+            UCC_CHECK(ucc_context_progress(ctx));
+        }
+
+        ucc_collective_finalize(request);
+		
+        sendsize = recvcounts[rank];
+
+        delete [] recvcounts;
+        delete [] displs;
+
+        return sendsize;
+    }
+
+    void close(bool close_wr=true, bool close_rd=true) {
+		closing = true;
+    }
+
+    void finalize(bool, std::string name="") {
+		if (!closing)
+			this->close(true, true);
+    }
+
+};
+
 #endif //UCCCOLLIMPL_HPP

@@ -143,6 +143,11 @@ public:
                             coll = new AllGatherMPI(participants, size, root, rank, uniqtag % (*(int*)max_tag));
                             #endif
                             break;
+                        case UCC:
+                            #ifdef ENABLE_UCX
+                            coll = new AllGatherUCC(participants, size, root, rank, uniqtag);
+                            #endif
+                            break;
                         default:
                             coll = nullptr;
                             break;
