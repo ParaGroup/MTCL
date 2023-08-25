@@ -89,6 +89,11 @@ public:
                             coll = new ScatterMPI(participants, size, root, rank, uniqtag % (*(int*)max_tag));
                             #endif
                             break;
+                        case UCC:
+                            #ifdef ENABLE_UCX
+                            coll = new ScatterUCC(participants, size, root, rank, uniqtag);
+                            #endif
+                            break;
                         default:
                             coll = nullptr;
                             break;
