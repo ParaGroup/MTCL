@@ -428,4 +428,98 @@ class AllGatherMPI : public MPICollective {
     }
 };
 
+class AlltoallMPI : public MPICollective {
+    public:
+    
+    AlltoallMPI(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag) : MPICollective(participants, nparticipants, root, rank, uniqtag) {}
+
+	ssize_t probe(size_t& size, const bool blocking=true) {
+		MTCL_ERROR("[internal]:\t", "Alltoall::probe operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+	
+    ssize_t send(const void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Alltoall::send operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t receive(void* buff, size_t size) {
+		MTCL_ERROR("[internal]:\t", "Alltoall::receive operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        if (sendsize == 0)
+			MTCL_ERROR("[internal]:\t", "Alltoall::sendrecv \"sendsize\" is equal to zero, this is an ERROR!\n");
+
+        if (sendsize % datasize != 0) {
+            errno = EINVAL;
+            return -1;
+        }
+
+        size_t datacount = sendsize / datasize;
+
+        int *sendcounts = new int[nparticipants]();
+        int *sdispls = new int[nparticipants]();
+        int *recvcounts = new int[nparticipants]();
+        int *rdispls = new int[nparticipants]();
+
+        int sdispl = 0, rdispl = 0;
+
+        int sendcount = (datacount / nparticipants) * datasize;
+        int rcount = datacount % nparticipants;
+        int recvcount = sendcount;
+		if (rcount && (my_group_rank < rcount)) recvcount += datasize;
+            
+        for (int i = 0; i < nparticipants; i++) {
+            sendcounts[i] = sendcount;
+            recvcounts[i] = recvcount;
+                
+            if (rcount > 0) {
+                sendcounts[i] += datasize;
+                rcount--;
+            }
+                
+            sdispls[i] = sdispl;
+            sdispl += sendcounts[i];
+
+            rdispls[i] = rdispl;
+            rdispl += recvcount;
+        }
+
+        if ((size_t)sendcounts[my_group_rank] > recvsize) {
+            MTCL_ERROR("[internal]:\t","receive buffer too small %ld instead of %ld (team rank=%d, MPI rank=%d)\n", recvsize, sendcounts[my_group_rank], my_group_rank, my_mpi_rank);
+            errno = EINVAL;
+            return -1;
+        }
+
+        if (MPI_Alltoallv((void*)sendbuff, sendcounts, sdispls, MPI_BYTE, recvbuff, recvcounts, rdispls, MPI_BYTE, comm) != MPI_SUCCESS) {
+            errno = ECOMM;
+            return -1;
+        }
+
+        delete [] sendcounts;
+        delete [] recvcounts;
+        delete [] sdispls;
+        delete [] rdispls;
+
+        return recvcount * nparticipants;
+    }
+
+    void close(bool close_wr=true, bool close_rd=true) {
+		closing = true;
+    }
+
+    void finalize(bool, std::string name="") {
+		if(!closing) 
+			this->close(true, true);
+					
+        MPI_Group_free(&group);
+        MPI_Comm_free(&comm);
+    }
+};
+
 #endif //MPICOLLIMPL_HPP

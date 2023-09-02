@@ -14,6 +14,7 @@ enum HandleType {
     MTCL_FANOUT,
     MTCL_GATHER,
     MTCL_ALLGATHER,
+    MTCL_ALLTOALL,
     P2P,
     PROXY,
     INVALID_TYPE
