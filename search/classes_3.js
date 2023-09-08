@@ -1,6 +1,4 @@
 var searchData=
 [
-  ['gathergeneric_64',['GatherGeneric',['../classGatherGeneric.html',1,'']]],
-  ['gathermpi_65',['GatherMPI',['../classGatherMPI.html',1,'']]],
-  ['gatherucc_66',['GatherUCC',['../classGatherUCC.html',1,'']]]
+  ['data_5ft_78',['data_t',['../structdata__t.html',1,'']]]
 ];

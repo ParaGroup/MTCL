@@ -80,24 +80,27 @@ Inheritance diagram for MPICollective:</div>
  <div class="center">
   <img src="classMPICollective.png" usemap="#MPICollective_map" alt=""/>
   <map id="MPICollective_map" name="MPICollective_map">
-<area href="classCollectiveImpl.html" title="Interface for transport-specific network functionalities for collective operations...." alt="CollectiveImpl" shape="rect" coords="50,0,141,24"/>
-<area href="classBroadcastMPI.html" alt="BroadcastMPI" shape="rect" coords="0,112,91,136"/>
-<area href="classGatherMPI.html" alt="GatherMPI" shape="rect" coords="101,112,192,136"/>
+<area href="classCollectiveImpl.html" title="Interface for transport-specific network functionalities for collective operations...." alt="CollectiveImpl" shape="rect" coords="202,0,293,24"/>
+<area href="classAllGatherMPI.html" alt="AllGatherMPI" shape="rect" coords="0,112,91,136"/>
+<area href="classAlltoallMPI.html" alt="AlltoallMPI" shape="rect" coords="101,112,192,136"/>
+<area href="classBroadcastMPI.html" alt="BroadcastMPI" shape="rect" coords="202,112,293,136"/>
+<area href="classGatherMPI.html" alt="GatherMPI" shape="rect" coords="303,112,394,136"/>
+<area href="classScatterMPI.html" alt="ScatterMPI" shape="rect" coords="404,112,495,136"/>
   </map>
 </div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:ac82ac7a084d03d7ba4ec7664c0dac560"><td class="memItemLeft" align="right" valign="top"><a id="ac82ac7a084d03d7ba4ec7664c0dac560"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>MPICollective</b> (std::vector&lt; <a class="el" href="classHandle.html">Handle</a> * &gt; participants, bool root, int uniqtag)</td></tr>
-<tr class="separator:ac82ac7a084d03d7ba4ec7664c0dac560"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0b3e8aab875e438c4f0a365e1c3032bd"><td class="memItemLeft" align="right" valign="top"><a id="a0b3e8aab875e438c4f0a365e1c3032bd"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>MPICollective</b> (std::vector&lt; <a class="el" href="classHandle.html">Handle</a> * &gt; participants, size_t nparticipants, bool root, int rank, int uniqtag)</td></tr>
+<tr class="separator:a0b3e8aab875e438c4f0a365e1c3032bd"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa327bfd77949bdc736be151c8e749db5"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classMPICollective.html#aa327bfd77949bdc736be151c8e749db5">peek</a> () override</td></tr>
 <tr class="memdesc:aa327bfd77949bdc736be151c8e749db5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks if any of the participants has something ready to be read.  <a href="classMPICollective.html#aa327bfd77949bdc736be151c8e749db5">More...</a><br /></td></tr>
 <tr class="separator:aa327bfd77949bdc736be151c8e749db5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pub_methods_classCollectiveImpl"><td colspan="2" onclick="javascript:toggleInherit('pub_methods_classCollectiveImpl')"><img src="closed.png" alt="-"/>&#160;Public Member Functions inherited from <a class="el" href="classCollectiveImpl.html">CollectiveImpl</a></td></tr>
-<tr class="memitem:a50e903acac3a14b3ec5ae3d1e8975c78 inherit pub_methods_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="a50e903acac3a14b3ec5ae3d1e8975c78"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>CollectiveImpl</b> (std::vector&lt; <a class="el" href="classHandle.html">Handle</a> * &gt; participants, int uniqtag)</td></tr>
-<tr class="separator:a50e903acac3a14b3ec5ae3d1e8975c78 inherit pub_methods_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a37d539a82e386ac4fae3692413649132 inherit pub_methods_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="a37d539a82e386ac4fae3692413649132"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>CollectiveImpl</b> (std::vector&lt; <a class="el" href="classHandle.html">Handle</a> * &gt; participants, size_t nparticipants, int rank, int uniqtag)</td></tr>
+<tr class="separator:a37d539a82e386ac4fae3692413649132 inherit pub_methods_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab6b9ae5fa0887cdb69ac9ed97f590e83 inherit pub_methods_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="ab6b9ae5fa0887cdb69ac9ed97f590e83"></a>
 virtual ssize_t&#160;</td><td class="memItemRight" valign="bottom"><b>probe</b> (size_t &amp;size, const bool blocking=true)=0</td></tr>
 <tr class="separator:ab6b9ae5fa0887cdb69ac9ed97f590e83 inherit pub_methods_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -110,9 +113,15 @@ virtual ssize_t&#160;</td><td class="memItemRight" valign="bottom"><b>receive</b
 <tr class="memitem:a54b9e5513bce4deea44092edb2a7bfeb inherit pub_methods_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="a54b9e5513bce4deea44092edb2a7bfeb"></a>
 virtual void&#160;</td><td class="memItemRight" valign="bottom"><b>close</b> (bool close_wr=true, bool close_rd=true)=0</td></tr>
 <tr class="separator:a54b9e5513bce4deea44092edb2a7bfeb inherit pub_methods_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:afb434de0caef8566f540742794f0ecb3 inherit pub_methods_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="afb434de0caef8566f540742794f0ecb3"></a>
-virtual ssize_t&#160;</td><td class="memItemRight" valign="bottom"><b>sendrecv</b> (const void *sendbuff, size_t sendsize, void *recvbuff, size_t recvsize)</td></tr>
-<tr class="separator:afb434de0caef8566f540742794f0ecb3 inherit pub_methods_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a57065515d16ed6fff4e0fcd8dd7fb61d inherit pub_methods_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="a57065515d16ed6fff4e0fcd8dd7fb61d"></a>
+virtual int&#160;</td><td class="memItemRight" valign="bottom"><b>getTeamRank</b> ()</td></tr>
+<tr class="separator:a57065515d16ed6fff4e0fcd8dd7fb61d inherit pub_methods_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a044021f2c1f14d92d2b2b1c00cb04953 inherit pub_methods_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="a044021f2c1f14d92d2b2b1c00cb04953"></a>
+virtual int&#160;</td><td class="memItemRight" valign="bottom"><b>getTeamPartitionSize</b> (size_t buffcount)</td></tr>
+<tr class="separator:a044021f2c1f14d92d2b2b1c00cb04953 inherit pub_methods_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a395e7567368ef838d51067dc415d3fae inherit pub_methods_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="a395e7567368ef838d51067dc415d3fae"></a>
+virtual ssize_t&#160;</td><td class="memItemRight" valign="bottom"><b>sendrecv</b> (const void *sendbuff, size_t sendsize, void *recvbuff, size_t recvsize, size_t datasize=1)</td></tr>
+<tr class="separator:a395e7567368ef838d51067dc415d3fae inherit pub_methods_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee8a425378723bf895f7bd33cdba0dff inherit pub_methods_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="aee8a425378723bf895f7bd33cdba0dff"></a>
 virtual void&#160;</td><td class="memItemRight" valign="bottom"><b>finalize</b> (bool, std::string name=&quot;&quot;)</td></tr>
 <tr class="separator:aee8a425378723bf895f7bd33cdba0dff inherit pub_methods_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -122,12 +131,18 @@ Protected Attributes</h2></td></tr>
 <tr class="memitem:af3abb08455a9d00085a16380f7fd6a4f"><td class="memItemLeft" align="right" valign="top"><a id="af3abb08455a9d00085a16380f7fd6a4f"></a>
 bool&#160;</td><td class="memItemRight" valign="bottom"><b>root</b></td></tr>
 <tr class="separator:af3abb08455a9d00085a16380f7fd6a4f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac6d3e0ec6aa6df5a6c8f331699084057"><td class="memItemLeft" align="right" valign="top"><a id="ac6d3e0ec6aa6df5a6c8f331699084057"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>root_rank</b></td></tr>
-<tr class="separator:ac6d3e0ec6aa6df5a6c8f331699084057"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa2c39de7e2e7e9f0614ec9856131ce30"><td class="memItemLeft" align="right" valign="top"><a id="aa2c39de7e2e7e9f0614ec9856131ce30"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>local_rank</b></td></tr>
-<tr class="separator:aa2c39de7e2e7e9f0614ec9856131ce30"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0e1d1f3015aa8a9ff559a2ac90708482"><td class="memItemLeft" align="right" valign="top"><a id="a0e1d1f3015aa8a9ff559a2ac90708482"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>rank_of_the_root</b></td></tr>
+<tr class="separator:a0e1d1f3015aa8a9ff559a2ac90708482"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a77485382ab75660b4c6e6a60504bdbc8"><td class="memItemLeft" align="right" valign="top"><a id="a77485382ab75660b4c6e6a60504bdbc8"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>my_group_rank</b></td></tr>
+<tr class="separator:a77485382ab75660b4c6e6a60504bdbc8"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aee523fd2c386a90ceace7e6c915dd2ef"><td class="memItemLeft" align="right" valign="top"><a id="aee523fd2c386a90ceace7e6c915dd2ef"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>my_mpi_rank</b></td></tr>
+<tr class="separator:aee523fd2c386a90ceace7e6c915dd2ef"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a08df3c30a266790fe4b37ebbd7b30ec4"><td class="memItemLeft" align="right" valign="top"><a id="a08df3c30a266790fe4b37ebbd7b30ec4"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>nparticipants</b></td></tr>
+<tr class="separator:a08df3c30a266790fe4b37ebbd7b30ec4"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a48f59ae089f5dc37693d7390b1be8d0b"><td class="memItemLeft" align="right" valign="top"><a id="a48f59ae089f5dc37693d7390b1be8d0b"></a>
 MPI_Comm&#160;</td><td class="memItemRight" valign="bottom"><b>comm</b></td></tr>
 <tr class="separator:a48f59ae089f5dc37693d7390b1be8d0b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -143,16 +158,19 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>closing</b> = false</
 <tr class="memitem:acd30ce540a0bbf8638037e60bcf72f90"><td class="memItemLeft" align="right" valign="top"><a id="acd30ce540a0bbf8638037e60bcf72f90"></a>
 ssize_t&#160;</td><td class="memItemRight" valign="bottom"><b>last_probe</b> = -1</td></tr>
 <tr class="separator:acd30ce540a0bbf8638037e60bcf72f90"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a19d0977baa18fe3221e7ab2a3faa6f8e"><td class="memItemLeft" align="right" valign="top"><a id="a19d0977baa18fe3221e7ab2a3faa6f8e"></a>
-int *&#160;</td><td class="memItemRight" valign="bottom"><b>ranks</b></td></tr>
-<tr class="separator:a19d0977baa18fe3221e7ab2a3faa6f8e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="inherit_header pro_attribs_classCollectiveImpl"><td colspan="2" onclick="javascript:toggleInherit('pro_attribs_classCollectiveImpl')"><img src="closed.png" alt="-"/>&#160;Protected Attributes inherited from <a class="el" href="classCollectiveImpl.html">CollectiveImpl</a></td></tr>
 <tr class="memitem:a4b99364e3b4f3252d09aba2594da365d inherit pro_attribs_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="a4b99364e3b4f3252d09aba2594da365d"></a>
 std::vector&lt; <a class="el" href="classHandle.html">Handle</a> * &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>participants</b></td></tr>
 <tr class="separator:a4b99364e3b4f3252d09aba2594da365d inherit pro_attribs_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac8cdc4f0ab91795d574aa8386e4f2f57 inherit pro_attribs_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="ac8cdc4f0ab91795d574aa8386e4f2f57"></a>
+size_t&#160;</td><td class="memItemRight" valign="bottom"><b>nparticipants</b></td></tr>
+<tr class="separator:ac8cdc4f0ab91795d574aa8386e4f2f57 inherit pro_attribs_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a6cf23bb64d03cef8fdcd0bcd04514c29 inherit pro_attribs_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="a6cf23bb64d03cef8fdcd0bcd04514c29"></a>
 int&#160;</td><td class="memItemRight" valign="bottom"><b>uniqtag</b> =-1</td></tr>
 <tr class="separator:a6cf23bb64d03cef8fdcd0bcd04514c29 inherit pro_attribs_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a7bf16d99dd97b61602bb46ba730c9632 inherit pro_attribs_classCollectiveImpl"><td class="memItemLeft" align="right" valign="top"><a id="a7bf16d99dd97b61602bb46ba730c9632"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>rank</b></td></tr>
+<tr class="separator:a7bf16d99dd97b61602bb46ba730c9632 inherit pro_attribs_classCollectiveImpl"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="inherited"></a>
 Additional Inherited Members</h2></td></tr>

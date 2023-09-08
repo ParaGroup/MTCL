@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['ucccollective_79',['UCCCollective',['../classUCCCollective.html',1,'']]]
+  ['manager_92',['Manager',['../classManager.html',1,'']]],
+  ['mpicollective_93',['MPICollective',['../classMPICollective.html',1,'']]]
 ];

@@ -1,7 +1,9 @@
 var searchData=
 [
-  ['broadcastgeneric_48',['BroadcastGeneric',['../classBroadcastGeneric.html',1,'']]],
-  ['broadcastmpi_49',['BroadcastMPI',['../classBroadcastMPI.html',1,'']]],
-  ['broadcastucc_50',['BroadcastUCC',['../classBroadcastUCC.html',1,'']]],
-  ['buffer_5felement_5ft_51',['buffer_element_t',['../structshmBuffer_1_1buffer__element__t.html',1,'shmBuffer']]]
+  ['allgathergeneric_58',['AllGatherGeneric',['../classAllGatherGeneric.html',1,'']]],
+  ['allgathermpi_59',['AllGatherMPI',['../classAllGatherMPI.html',1,'']]],
+  ['allgatherucc_60',['AllGatherUCC',['../classAllGatherUCC.html',1,'']]],
+  ['alltoallgeneric_61',['AlltoallGeneric',['../classAlltoallGeneric.html',1,'']]],
+  ['alltoallmpi_62',['AlltoallMPI',['../classAlltoallMPI.html',1,'']]],
+  ['alltoallucc_63',['AlltoallUCC',['../classAlltoallUCC.html',1,'']]]
 ];
