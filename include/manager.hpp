@@ -55,7 +55,7 @@ class Manager {
    
     inline static std::map<std::string, std::shared_ptr<ConnType>> protocolsMap;    
 	inline static std::queue<HandleUser> handleReady;
-    inline static std::map<std::string, std::vector<Handle*>> groupsReady;
+    inline static std::map<std::string, std::map<std::string,Handle*>> groupsReady;
 #ifndef MTCL_DISABLE_COLLECTIVES
     inline static std::map<CollectiveContext*, bool> contexts;
 #endif
@@ -86,50 +86,69 @@ private:
 	// initial handshake for a connection, it could be a p2p connection or a connection
 	// part of a collective handle
 #ifdef ISPROXY
-    static inline int connectionHandshake(char *& teamID, Handle *h) { return 0; }
+    static inline int connectionHandshake(char *& teamID, char *& appName, Handle *h) { return 0; }
 #else
-	static inline int connectionHandshake(char *& teamID, Handle *h) {
+	static inline int connectionHandshake(char *& teamID, char *& appName, Handle *h) {
 		// new connection, read handle type (p2p=0, collective=1)
+		int collective = 0;		
 		size_t size;
 		if (h->probe(size, true) <=0) {
 			MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, errno=%d\n", errno);
 			teamID=nullptr;
+			appName=nullptr;
 			return -1;
 		}
-		int collective = 0;		
 		if (h->receive(&collective, sizeof(int)) <=0) {
 			MTCL_ERROR("[Manager]:\t", "addinQ handshake error in receiving collective flag, errno=%d\n", errno);
 			teamID=nullptr;
+			appName=nullptr;
 			return -1;
 		}
-        
 		// If collective, the handle sends further data with string teamID.
 		// The teamID uniquely associate a single context to all handles of the same collective
 		// This is useful to synchronize the root thread for the accepts.
 		if(collective) {
-			size_t size;
+			if (h->probe(size, true) <= 0) {
+				MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, appName size, errno=%d\n", errno);
+				teamID=nullptr;
+				appName=nullptr;
+				return -1;
+			}
+			appName = new char[size+1];
+			assert(appName);
+			if (h->receive(appName, size) <=0) {
+				MTCL_ERROR("[Manager]:\t", "addinQ handshake error in receive appName, errno=%d\n", errno);
+				teamID=nullptr;
+				appName=nullptr;
+				return -1;			
+			}
+			appName[size]='\0';				   
 			if (h->probe(size, true) <= 0) {
 				MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, teamID size, errno=%d\n", errno);
 				teamID=nullptr;
+				appName=nullptr;
 				return -1;
 			}
 			// sanity check
 			if (size>1048576) {
 				MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, teamID size TOO LARGE (size=%ld)\n", size);
 				teamID=nullptr;
+				delete [] appName;
+				appName=nullptr;
 				return -1;
-			}
-			
+			}			
 			teamID = new char[size+1];
 			assert(teamID);
 			if (h->receive(teamID, size) <=0) {
 				MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, receiving teamID, errno=%d\n", errno);
 				delete [] teamID;
+				delete [] appName;
 				teamID=nullptr;
+				appName=nullptr;
 				return -1;
 			}
 			teamID[size] = '\0';			
-			MTCL_PRINT(100, "[Manager]: \t", "Manager::addinQ received connection for team: %s\n", teamID);
+			MTCL_PRINT(100, "[Manager]: \t", "Manager::addinQ received connection for team %s from appName=%s\n", teamID, appName);
 		}	
 		return 0;
 	}
@@ -139,14 +158,16 @@ private:
 	static inline void addinQ(bool b, Handle* h) {
         if(b) { // we have to see if it is part of a collective
 			char *teamID=nullptr;
-			if (connectionHandshake(teamID, h)==-1) return;
+			char *appName=nullptr;
+			if (connectionHandshake(teamID, appName, h)==-1) return;
 
 			if (teamID) {
                 if(groupsReady.count(teamID) == 0)
-                    groupsReady.emplace(teamID, std::vector<Handle*>{});
-				
-                groupsReady.at(teamID).push_back(h);
-                delete[] teamID;
+                    groupsReady.emplace(teamID, std::map<std::string, Handle*>{});
+
+				groupsReady.at(teamID).insert({appName, h});
+                delete [] teamID;
+				delete [] appName;
                 return;
             }
         }
@@ -157,17 +178,20 @@ private:
     static inline void addinQ(const bool b, Handle* h) {
 
         if(b) { // For each new connection... is the handle coming from a collective?
-			char *teamID = nullptr;
-			if (connectionHandshake(teamID, h) == -1) return;
+			char *teamID  = nullptr;
+			char *appName = nullptr;
+			if (connectionHandshake(teamID, appName, h) == -1) return;
 
 			if (teamID) {
 				std::unique_lock lk(group_mutex);
                 if(groupsReady.count(teamID) == 0)
-                    groupsReady.emplace(teamID, std::vector<Handle*>{});
-				
-                groupsReady.at(teamID).push_back(h);
-                delete[] teamID;
+                    groupsReady.emplace(teamID, std::map<std::string, Handle*>{});
+
+                groupsReady.at(teamID).insert({appName, h});
                 group_cond.notify_one();
+
+                delete[] teamID;
+				delete[] appName;
                 return;
             }
         }
@@ -640,6 +664,9 @@ public:
 
 
 #ifndef MTCL_DISABLE_COLLECTIVES
+	MTCL_PRINT(100, "[Manager]:\t", "Manager::createTeam participants: %s - root: %s - type: %d\n", participants.c_str(), root.c_str(), type);
+
+	
 #ifndef ENABLE_CONFIGFILE
         MTCL_ERROR("[Manager]:\t", "Manager::createTeam team creation is only available with a configuration file\n");
         return HandleUser();
@@ -654,18 +681,21 @@ public:
 		createdTeams.insert(teamID);
 		
         // Retrieve team size
-        int size = 0;
+        size_t size = 0;
         std::istringstream is(participants);
         std::string line;
         int rank = 0;
         bool mpi_impl = true, ucc_impl = true;
         bool root_ok = false;
 
+		std::vector<std::string> ordering;
+		
         while(std::getline(is, line, ':')) {
             if(Manager::appName == line) {
                 rank=size;
             }
             if(root == line) root_ok=true;
+			else ordering.push_back(line);
 
             bool mpi = false;
             bool ucc = false;
@@ -685,7 +715,8 @@ public:
 
             size++;
         }
-
+		assert(ordering.size() == (size-1));
+		
         if(std::get<2>(components[root]).size() == 0) {
             MTCL_ERROR("[internal]:\t", "Manager::createTeam root App [\"%s\"] has no listening endpoints\n", root.c_str());
 			return HandleUser();
@@ -696,9 +727,12 @@ public:
 			return HandleUser();
         }
 
-        MTCL_PRINT(100, "[Manager]:\t", "Manager::createTeam initializing collective with size: %d - AppName: %s - rank: %d - mpi: %d - ucc: %d\n", size, Manager::appName.c_str(), rank, mpi_impl, ucc_impl);
+        MTCL_PRINT(100, "[Manager]:\t", "Manager::createTeam initializing collective with size: %d - AppName: %s - rank: %d - mpi: %d - ucc: %d\n",
+				   size, Manager::appName.c_str(), rank, mpi_impl, ucc_impl);
 
 
+		// This vector will contain the participants' handle ordered according to the ordering vector
+		// (i.e., according to the order in the participants string)
         std::vector<Handle*> coll_handles;
 
         ImplementationType impl;
@@ -726,7 +760,14 @@ public:
 
 #if defined(SINGLE_IO_THREAD)
                 if ((groupsReady.count(teamID) != 0) && ctx->update(groupsReady.at(teamID).size())) {
-                    coll_handles = groupsReady.at(teamID);
+					for(auto appName : ordering) {
+						auto h = groupsReady.at(teamID).find(appName);
+						assert(h != groupsReady.at(teamID).end());
+						coll_handles.push_back(h->second);
+					}
+					for(auto h : coll_handles) {
+						h->setName(teamID+"-"+Manager::appName);
+					}
                     groupsReady.erase(teamID);
                 }
                 else {
@@ -736,7 +777,11 @@ public:
                             conn->update();
                         }
                         if ((groupsReady.count(teamID) != 0) && ctx->update(groupsReady.at(teamID).size())) {
-                            coll_handles = groupsReady.at(teamID);
+							for(auto appName : ordering) {
+								auto h = groupsReady.at(teamID).find(appName);
+								assert(h != groupsReady.at(teamID).end());
+								coll_handles.push_back(h->second);
+							}
                             for(auto h : coll_handles) {
                                 h->setName(teamID+"-"+Manager::appName);
                             }
@@ -751,8 +796,11 @@ public:
                 group_cond.wait(lk, [&]{
                     return (groupsReady.count(teamID) != 0) && ctx->update(groupsReady.at(teamID).size());
                 });
-                coll_handles = groupsReady.at(teamID);
 
+				for(auto appName : ordering) {
+					auto h = groupsReady.at(teamID).find(appName);					
+					coll_handles.push_back(h->second);
+				}
 				for(auto h : coll_handles) {
 					h->setName(teamID+"-"+Manager::appName);
 				}
@@ -789,7 +837,7 @@ public:
             switch(impl){
                 case MPI: protocol = "MPI:"; break;
                 case UCC: protocol = "UCX:";
-                // case GNERIC: we simply let the runtime to select the available protocol
+			    case GENERIC:;   //we simply let the runtime to select the available protocol
             }
 
             handle = connectHandle(protocol+root, CCONNECTION_RETRY, CCONNECTION_TIMEOUT);
@@ -809,8 +857,9 @@ public:
             }
 			
             int collective = 1;
-            handle->send(&collective, sizeof(int));
-            handle->send(teamID.c_str(), teamID.length());
+			handle->send(&collective, sizeof(int));         // TODO: error check!
+			handle->send((Manager::appName).c_str(), (Manager::appName).length());  // ''
+            handle->send(teamID.c_str(), teamID.length());  // ''
 
 			handle->setName(teamID+"-"+Manager::appName);
 
@@ -890,7 +939,8 @@ void CollectiveContext::yield() {
         Manager::releaseTeam(this);
     }
     else if(!closed_rd) {
-        MTCL_PRINT(1, "[internal]:\t", "CollectiveContext::yield cannot yield this context.\n");
+        MTCL_PRINT(1, "[internal]:\t", "CollectiveContext::yield() cannot yield this context.\n");
+		//
         //TODO: if yield is called by HandleUser destructor, we may want to close
         //      the collective if its type is BROADCAST or GATHER
     }

@@ -49,23 +49,23 @@ public:
 
     bool setImplementation(ImplementationType impl, std::vector<Handle*> participants, int uniqtag) {
         const std::map<HandleType, std::function<CollectiveImpl*()>> contexts = {
-            {HandleType::BROADCAST,  [&]{
+            {HandleType::MTCL_BROADCAST,  [&]{
                     CollectiveImpl* coll = nullptr;
                     switch (impl) {
                         case GENERIC:
-                            coll = new BroadcastGeneric(participants, root, uniqtag);
+                            coll = new BroadcastGeneric(participants, size, root, rank, uniqtag);
                             break;
                         case MPI:
                             #ifdef ENABLE_MPI
                             void *max_tag;
                             int flag;
                             MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
-                            coll = new BroadcastMPI(participants, root, uniqtag % (*(int*)max_tag));
+                            coll = new BroadcastMPI(participants, size, root, rank, uniqtag % (*(int*)max_tag));
                             #endif
                             break;
                         case UCC:
                             #ifdef ENABLE_UCX
-                            coll = new BroadcastUCC(participants, rank, size, root, uniqtag);
+                            coll = new BroadcastUCC(participants, size, root, rank,  uniqtag);
                             #endif
                             break;
                         default:
@@ -75,25 +75,23 @@ public:
                     return coll;
                 }
             },
-            {HandleType::FANIN,  [&]{return new FanInGeneric(participants, root, uniqtag);}},
-            {HandleType::FANOUT, [&]{return new FanOutGeneric(participants, root, uniqtag);}},
-            {HandleType::MTCL_GATHER,  [&]{
+            {HandleType::MTCL_SCATTER,  [&]{
                     CollectiveImpl* coll = nullptr;
                     switch (impl) {
                         case GENERIC:
-                            coll = new GatherGeneric(participants, root, rank, uniqtag);
+                            coll = new ScatterGeneric(participants, size, root, rank, uniqtag);
                             break;
                         case MPI:
                             #ifdef ENABLE_MPI
                             void *max_tag;
                             int flag;
                             MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
-                            coll = new GatherMPI(participants, root, uniqtag % (*(int*)max_tag));
+                            coll = new ScatterMPI(participants, size, root, rank, uniqtag % (*(int*)max_tag));
                             #endif
                             break;
                         case UCC:
                             #ifdef ENABLE_UCX
-                            coll = new GatherUCC(participants, rank, size, root, uniqtag);
+                            coll = new ScatterUCC(participants, size, root, rank, uniqtag);
                             #endif
                             break;
                         default:
@@ -101,8 +99,88 @@ public:
                             break;
                     }
                     return coll;
-                }}
-
+                }
+            },
+            {HandleType::MTCL_FANIN,  [&]{return new FanInGeneric(participants, size, root, rank, uniqtag);}},
+            {HandleType::MTCL_FANOUT, [&]{return new FanOutGeneric(participants, size, root, rank, uniqtag);}},
+            {HandleType::MTCL_GATHER,  [&]{
+                    CollectiveImpl* coll = nullptr;
+                    switch (impl) {
+                        case GENERIC:
+                            coll = new GatherGeneric(participants, size, root, rank, uniqtag);
+                            break;
+                        case MPI:
+                            #ifdef ENABLE_MPI
+                            void *max_tag;
+                            int flag;
+                            MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
+                            coll = new GatherMPI(participants, size, root, rank, uniqtag % (*(int*)max_tag));
+                            #endif
+                            break;
+                        case UCC:
+                            #ifdef ENABLE_UCX
+                            coll = new GatherUCC(participants, size, root, rank, uniqtag);
+                            #endif
+                            break;
+                        default:
+                            coll = nullptr;
+                            break;
+                    }
+                    return coll;
+                }
+            },
+            {HandleType::MTCL_ALLGATHER,  [&]{
+                    CollectiveImpl* coll = nullptr;
+                    switch (impl) {
+                        case GENERIC:
+                            coll = new AllGatherGeneric(participants, size, root, rank, uniqtag);
+                            break;
+                        case MPI:
+                            #ifdef ENABLE_MPI
+                            void *max_tag;
+                            int flag;
+                            MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
+                            coll = new AllGatherMPI(participants, size, root, rank, uniqtag % (*(int*)max_tag));
+                            #endif
+                            break;
+                        case UCC:
+                            #ifdef ENABLE_UCX
+                            coll = new AllGatherUCC(participants, size, root, rank, uniqtag);
+                            #endif
+                            break;
+                        default:
+                            coll = nullptr;
+                            break;
+                    }
+                    return coll;
+                }
+            },
+            {HandleType::MTCL_ALLTOALL,  [&]{
+                    CollectiveImpl* coll = nullptr;
+                    switch (impl) {
+                        case GENERIC:
+                            coll = new AlltoallGeneric(participants, size, root, rank, uniqtag);
+                            break;
+                        case MPI:
+                            #ifdef ENABLE_MPI
+                            void *max_tag;
+                            int flag;
+                            MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
+                            coll = new AlltoallMPI(participants, size, root, rank, uniqtag % (*(int*)max_tag));
+                            #endif
+                            break;
+                        case UCC:
+                            #ifdef ENABLE_UCX
+                            coll = new AlltoallUCC(participants, size, root, rank, uniqtag);
+                            #endif
+                            break;
+                        default:
+                            coll = nullptr;
+                            break;
+                    }
+                    return coll;
+                }
+            }
         };
 
         if (auto found = contexts.find(type); found != contexts.end()) {
@@ -195,8 +273,8 @@ public:
         return coll->peek();
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
-        return coll->sendrecv(sendbuff, sendsize, recvbuff, recvsize);
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        return coll->sendrecv(sendbuff, sendsize, recvbuff, recvsize, datasize);
     }
 
     void close(bool close_wr=true, bool close_rd=true) {
@@ -209,6 +287,14 @@ public:
         return size;
     }
 
+	int getTeamRank() {
+		return coll->getTeamRank();		
+	}
+
+    int getTeamPartitionSize(size_t buffcount) {
+        return coll->getTeamPartitionSize(buffcount);
+    }
+	
     void finalize(bool blockflag, std::string name="") {
         coll->finalize(blockflag, name);
     }
@@ -222,11 +308,13 @@ public:
 CollectiveContext *createContext(HandleType type, int size, bool root, int rank)
 {
     const std::map<HandleType, std::function<CollectiveContext*()>> contexts = {
-        {HandleType::BROADCAST,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
-        {HandleType::FANIN,  [&]{return new CollectiveContext(size, root, rank, type, !root, root);}},
-        {HandleType::FANOUT,  [&]{return new CollectiveContext(size, root, rank, type, root, !root);}},
-        {HandleType::MTCL_GATHER,  [&]{return new CollectiveContext(size, root, rank, type, false, false);}}
-
+        {HandleType::MTCL_BROADCAST,   [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
+        {HandleType::MTCL_SCATTER,     [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
+        {HandleType::MTCL_FANIN,       [&]{return new CollectiveContext(size, root, rank, type, !root, root);}},
+        {HandleType::MTCL_FANOUT,      [&]{return new CollectiveContext(size, root, rank, type, root, !root);}},
+        {HandleType::MTCL_GATHER, [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
+        {HandleType::MTCL_ALLGATHER, [&]{return new CollectiveContext(size, root, rank, type, false, false);}},
+        {HandleType::MTCL_ALLTOALL, [&]{return new CollectiveContext(size, root, rank, type, false, false);}}
     };
 
     if (auto found = contexts.find(type); found != contexts.end()) {

@@ -4,7 +4,7 @@
             "name":"Emitter",
             "host":"localhost",
             "protocols":["UCX"],
-            "listen-endpoints":["UCX:0.0.0.0:13000"]
+            "listen-endpoints":["UCX:0.0.0.0:42000"]
         },
         {
             "name":"Worker1",
@@ -17,25 +17,10 @@
             "protocols":["UCX"]
         },
         {
-            "name":"Worker3",
-            "host":"localhost",
-            "protocols":["UCX"]
-        },
-        {
-            "name":"Worker4",
-            "host":"localhost",
-            "protocols":["UCX"]
-        },
-        {
-            "name":"Worker5",
-            "host":"localhost",
-            "protocols":["UCX"]
-        },
-        {
             "name":"Collector",
             "host":"localhost",
             "protocols":["UCX"],
-            "listen-endpoints":["UCX:0.0.0.0:14000"]
+            "listen-endpoints":["UCX:0.0.0.0:42001"]
         }
     ]
 }

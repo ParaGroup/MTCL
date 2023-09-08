@@ -17,7 +17,7 @@
 
 
 #include <iostream>
-#include "../../../mtcl.hpp"
+#include <mtcl.hpp>
 
 #define MAX_MESSAGE_SIZE 100
 
@@ -53,8 +53,8 @@ int main(int argc, char** argv){
 
     // Root
     if(rank == 0) {
-        auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", BROADCAST);
-        auto hg2 = Manager::createTeam("App1:App2", "App1", BROADCAST);
+        auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", MTCL_BROADCAST);
+        auto hg2 = Manager::createTeam("App1:App2", "App1", MTCL_BROADCAST);
         if(!hg.isValid() || !hg2.isValid()) {
             MTCL_PRINT(1, "[test_bcast_multi]:\t", "there was some error creating the teams.\n");
             return 1;
@@ -68,14 +68,14 @@ int main(int argc, char** argv){
         // hg2.close();
     }
     else {
-		auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", BROADCAST);
+		auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", MTCL_BROADCAST);
         if(!hg.isValid()) {
             return 1;
         }
 
         HandleUser hg2;
         if(rank==1) {
-            hg2 = Manager::createTeam("App1:App2", "App1", BROADCAST);
+            hg2 = Manager::createTeam("App1:App2", "App1", MTCL_BROADCAST);
             if(!hg2.isValid()) {
                 return 1;
             }

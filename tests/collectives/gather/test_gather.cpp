@@ -7,28 +7,27 @@
  *  $> TPROTOCOL=<TCP|UCX|MPI> RAPIDJSON_HOME="/rapidjson/install/path" make -f ../Makefile clean test_gather
  * 
  * Execution:
- *  $> ./test_gather 0 App1
- *  $> ./test_gather 1 App2
- *  $> ./test_gather 2 App3
- *  $> ./test_gather 3 App4
+ *  $> ./test_gather App1 size
+ *  $> ./test_gather App2 size
+ *  $> ./test_gather App3 size
+ *  $> ./test_gather App4 size
  * 
  * Execution with MPI:
- *  $> mpirun -n 1 ./test_gather 0 App1 : -n 1 ./test_gather 1 App2 : -n 1 ./test_gather 2 App3 : -n 1 ./test_gather 3 App4
+ *  $> mpirun -n 1 ./test_gather App1 size : -n 1 ./test_gather App2 size : -n 1 ./test_gather App3 size : -n 1 ./test_gather App4 size
  * 
  * */
 
 #include <iostream>
 #include <string>
-#include "../../../mtcl.hpp"
+#include "mtcl.hpp"
 
 int main(int argc, char** argv){
 
-    if(argc < 3) {
-        printf("Usage: %s <0|1> <App1|App2>\n", argv[0]);
-        return 1;
+    if(argc != 3) {
+		MTCL_ERROR("[test_gather]:\t", "Usage: %s <App1|App2|...|AppN> size\n", argv[0]);
+        return -1;
     }
 
-    int rank = atoi(argv[1]);
 
     std::string config;
 #ifdef ENABLE_TCP
@@ -42,37 +41,41 @@ int main(int argc, char** argv){
 #endif
 
     if(config.empty()) {
-        printf("No protocol enabled. Please compile with TPROTOCOL=TCP|UCX|MPI\n");
-        return 1;
+		MTCL_ERROR("[test_gather]:\t", "No protocol enabled. Please compile with TPROTOCOL=TCP|UCX|MPI\n");
+        return -1;
     }
 
-    printf("Running with config file: %s\n", config.c_str());
-	Manager::init(argv[2], config);
+    size_t size = std::stol(argv[2]);
+
+    if ((size / 4) < 1) {
+        MTCL_ERROR("[test_gather]:\t", "size too small!\n");
+        return -1;
+	} 
+
+	Manager::init(argv[1], config);
 
     auto hg = Manager::createTeam("App1:App2:App3:App4", "App1", MTCL_GATHER);
-    if(hg.isValid()) printf("Created team with size: %d\n", hg.size());
+    if(!hg.isValid()) {
+		MTCL_ERROR("[test_gather]:\t", "Error creating the team\n");
+		return -1;
+	}
     
-    std::string data{argv[2]};
-    data += '\0';
-
     char* buff = nullptr;
-    if(rank == 0) buff = new char[hg.size()*data.length()];
+    if(hg.getTeamRank() == 0) buff = new char[size + 1];
 
-    hg.sendrecv(data.c_str(), data.length(), buff, data.length());
-//     if(rank != 0) {
-// #if 1
-//         hg.sendrecv(data.c_str(), data.length(), buff, data.length());
-// #endif
-//     }
+    std::string data (hg.getTeamPartitionSize(size), argv[1][3]);
+	
+    if (hg.sendrecv(data.c_str(), data.length(), buff, size) <= 0) {
+		MTCL_ERROR("[test_gather]:\t", "sendrecv failed\n");
+	}
+
     hg.close();
-
+	
     // Root
-    if(rank == 0) {
-        for(int i = 0; i < hg.size(); i++) {
-            std::string res(buff+(i*data.length()), data.length());
-            printf("buff[%d] = %s\n", i, res.c_str());
-        }
-        delete[] buff;
+    if(hg.getTeamRank() == 0) {
+        buff[size] = '\0';
+        printf("buff = %s\n", buff);
+        delete [] buff;
     }
 
     Manager::finalize(true);

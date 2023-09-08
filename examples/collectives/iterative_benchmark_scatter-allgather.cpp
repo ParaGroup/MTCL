@@ -1,7 +1,7 @@
 /*
  *
  * Iterative benchmark testing MTCL collectives implementation. 
- * This test is focused on the Broadcast and Gather collectives. 
+ * This test is focused on the Scatter and AllGather collectives. 
  * The former allows the Emitter to send data to each Worker, 
  * the latter allows the Collector to retrieve partial results. 
  * The final result is then shipped via a P2P feedback channel
@@ -19,33 +19,32 @@
  *   v            | --> Worker1 (App2) --> |                   |
  * Emitter -----> |        ...             | ----> Collector --
  *                | --> WorkerN (App3) --> |                         
- *          bcast                           gather  
+ *     scatter            allgather             allgather  
  *
  * Compile with:
- *  $> TPROTOCOL=TCP||UCX||MPI [UCX_HOME="<ucx_path>" UCC_HOME="<ucc_path>"] RAPIDJSON_HOME="<rapidjson_path>" make clean iterative_benchmark
+ *  $> TPROTOCOL=TCP||UCX||MPI [UCX_HOME="<ucx_path>" UCC_HOME="<ucc_path>"] RAPIDJSON_HOME="<rapidjson_path>" make clean iterative_benchmark_scatter-allgather
  * 
  * Execute with:
- *  $> ./iterative_benchmark <id> <num_workers> <iterations> <initial_size> [configuration_file_path]
+ *  $> ./iterative_benchmark_scatter-allgather <id> <num_workers> <iterations> <initial_size> [configuration_file_path]
  * 
  * Parameters are:
  *   - id: specify which part of the application to run.
  *          (Emitter id: 0, Collector id: 1, Worker id: [2,num_workers+1))
  *   - num_workers: specify how many workers need to be launched
  *   - iterations : total number of iterations
- *   - initial_size: is the size used in the first iteration, then the size is (initial_size * 2^(iter_index-1))
+ *   - initial_size: is the number of integers send by Emitter in the first iteration, then the size is (initial_size * 2^(iter_index-1))
  *
- * Execution example with 2 workers, 10 iterations and an initial size of 64 bytes
- *  $> ./iterative_benchmark 0 2 10 64
- *  $> ./iterative_benchmark 1 2 10 64
- *  $> ./iterative_benchmark 2 2 10 64
- *  $> ./iterative_benchmark 3 2 10 64
+ * Execution example with 2 workers, 10 iterations and an initial size of 4 numbers
+ *  $> ./iterative_benchmark_scatter-allgather 0 2 10 4
+ *  $> ./iterative_benchmark_scatter-allgather 1 2 10 4
+ *  $> ./iterative_benchmark_scatter-allgather 2 2 10 4
+ *  $> ./iterative_benchmark_scatter-allgather 3 2 10 4
  * 
  * or using mpirun and the MPMD model:
- *  $> mpirun -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 0 2 10 32 iterative_benchmark.json : \
- *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 1 2 10 32 iterative_benchmark.json : \
- *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 2 2 10 32 iterative_benchmark.json : \
- *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark 3 2 10 32 iterative_benchmark.json
- * 
+ *  $> mpirun -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_scatter-allgather 0 2 10 4 iterative_benchmark.json : \
+ *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_scatter-allgather 1 2 10 4 iterative_benchmark.json : \
+ *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_scatter-allgather 2 2 10 4 iterative_benchmark.json : \
+ *            -x MTCL_VERBOSE="all" -n 1 ./iterative_benchmark_scatter-allgather 3 2 10 4 iterative_benchmark.json
  * 
  */
 
@@ -165,7 +164,7 @@ void generate_configuration(int num_workers) {
     doc.Accept(writer);
 }
 
-void Emitter(const std::string& bcast, const std::string& broot, const int iterations, size_t size) {
+void Emitter(const std::string& scatter_participants, const std::string& scatter_root, const int iterations, size_t size) {
 
 	// Waiting for Collector
 	auto fbk = Manager::getNext();
@@ -175,18 +174,43 @@ void Emitter(const std::string& bcast, const std::string& broot, const int itera
 	}
 	fbk.yield(); // give it back to the Manager
 	
-	auto hg = Manager::createTeam(bcast, broot, BROADCAST);
+	auto hg = Manager::createTeam(scatter_participants, scatter_root, MTCL_SCATTER);
 	if (hg.isValid()) {
 		MTCL_PRINT(0,"[Emitter]:\t", "Emitter starting\n");
 	} else {
-		MTCL_ERROR("[Emitter]:\t", "Manager::createTeam for BROADCAST, ERROR\n");
+		MTCL_ERROR("[Emitter]:\t", "Manager::createTeam for SCATTER, ERROR\n");
 		return;
 	}
 
-	for(int i=0; i< iterations; ++i) {
+	for(int i = 0; i < iterations; i++) {
 		MTCL_PRINT(0, "[Emitter]:\t", "starting iteration %d, size=%ld\n", i, size);
-		char *data = new char[size]();
-		hg.sendrecv(data, size, nullptr, 0);		   			
+		
+		int *data = new int[size];
+
+		for (size_t i = 0, j = 100; i < size; i++, j += 100) {
+			data[i] = j;
+		}
+
+		int recvsize = hg.getTeamPartitionSize(size);
+		int *recvbuf = new int[recvsize];
+
+		if (hg.sendrecv(data, size * sizeof(int), recvbuf, recvsize * sizeof(int), sizeof(int)) <= 0) {
+			MTCL_ERROR("[Emitter]:\t", "scatter ERROR\n");
+			return;
+		}
+
+		std::cout << "[Emitter]: Receive ->" << " [";
+
+		for (int i = 0; i < recvsize; i++) {
+			std::cout << recvbuf[i];
+
+			if (i != (recvsize - 1)) {
+				std::cout << ", "; 
+			}
+		}
+		
+		std::cout << "]" << std::endl;	   			
+		
 		// Receive result from feedback channel
 		auto h = Manager::getNext();
 		int res;
@@ -209,39 +233,66 @@ void Emitter(const std::string& bcast, const std::string& broot, const int itera
 	hg.close();
 }
 
-void Worker(const std::string& bcast, const std::string& gather,
-			const std::string& broot, const std::string& groot,
+void Worker(const std::string& scatter_participants, const std::string& allgather,
+			const std::string& scatter_root, const std::string& groot,
 			const int rank, const int iterations, size_t size) {
 
-	MTCL_PRINT(0, "[Worker]:\t", "bcast=%s, gather=%s, broot=%s, groot=%s, Worker%d\n",
-			   bcast.c_str(), gather.c_str(), broot.c_str(),groot.c_str(), rank);
+	MTCL_PRINT(0, "[Worker]:\t", "scatter_participants=%s, allgather=%s, broot=%s, groot=%s, Worker%d\n",
+			   scatter_participants.c_str(), allgather.c_str(), scatter_root.c_str(), groot.c_str(), rank);
+	
+	auto hg_scatter = Manager::createTeam(scatter_participants, scatter_root, MTCL_SCATTER);	
+	auto hg_allgather= Manager::createTeam(allgather, groot, MTCL_ALLGATHER);
 		
-	auto hg_bcast = Manager::createTeam(bcast, broot, BROADCAST);	
-	auto hg_gather= Manager::createTeam(gather, groot, MTCL_GATHER);
-		
-	if (hg_bcast.isValid() && hg_gather.isValid()) {
+	if (hg_scatter.isValid() && hg_allgather.isValid()) {
 		MTCL_PRINT(0, "[Worker]:\t", "%s%d, starting\n", "Worker", rank);
 	} else {
-		MTCL_ERROR("[Worker]:\t", "Manager::createTeam, invalid collective handles (BROADCAST and/or GATHER)\n");
+		MTCL_ERROR("[Worker]:\t", "Manager::createTeam, invalid collective handles (SCATTER and/or ALLGATHER)\n");
 		return;
 	}
 	
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, starting iteration %d, size=%ld\n", rank, i, size);
-		char *data = new char[size]();
-		hg_bcast.sendrecv(nullptr, 0, data, size);		   			
-		hg_gather.sendrecv(data, size, nullptr, 0);
+		
+		int scatter_data_size = hg_scatter.getTeamPartitionSize(size);
+		int *scatter_data = new int[scatter_data_size];
+		hg_scatter.sendrecv(nullptr, size * sizeof(int), scatter_data, scatter_data_size * sizeof(int), sizeof(int));
 
-		delete [] data;
+		int *allgather_data = new int[size]();
+		hg_allgather.sendrecv(scatter_data, scatter_data_size * sizeof(int), allgather_data, size * sizeof(int), sizeof(int));
+
+		std::cout << "[Worker-" << rank << "]: Receive-Send -> [";
+
+		for (int i = 0; i < scatter_data_size; i++) {
+			std::cout << scatter_data[i];
+
+			if (i != (scatter_data_size - 1)) {
+				std::cout << ", ";
+			}
+		}
+
+		std::cout << "]\tReceive (allgather) -> [";
+
+		for (size_t i = 0; i < size; i++) {
+			std::cout << allgather_data[i];
+
+			if (i != (size - 1)) {
+				std::cout << ", ";
+			}
+		}
+
+		std::cout << "]" << std::endl;
+
+		delete [] scatter_data;
+		delete [] allgather_data;
 		size = size << 1;
 		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, done iteration %d\n", rank, i);
 	}
 	
-	hg_bcast.close();        
-	hg_gather.close();	
+	hg_scatter.close();        
+	hg_allgather.close();
 }
 
-void Collector(const std::string& gather, const std::string& groot,
+void Collector(const std::string& allgather, const std::string& groot,
 			   const int nworkers, const int iterations, size_t size) {
 
 	auto fbk = Manager::connect("Emitter", 100, 200);
@@ -250,33 +301,56 @@ void Collector(const std::string& gather, const std::string& groot,
 		return;
 	}
 
-	auto hg = Manager::createTeam(gather, groot, MTCL_GATHER);
+	auto hg = Manager::createTeam(allgather, groot, MTCL_ALLGATHER);
 	if (hg.isValid()) {
 		MTCL_PRINT(0,"[Collector]:\t", "Collector starting\n");
 	} else {
-		MTCL_ERROR("[Collector]:\t", "Manager::createTeam for GATHER, ERROR\n");
+		MTCL_ERROR("[Collector]:\t", "Manager::createTeam for ALLGATHER, ERROR\n");
 		return;
 	}
 	
-	char *mydata;
+	int *data, data_size;
+
 	for(int i=0; i< iterations; ++i) {
 		MTCL_PRINT(0, "[Collector]:\t", "starting iteration %d, size=%ld\n", i, size);
-		char *gatherdata = new char[(nworkers+1)*size]();
-		mydata = new char[size]();
-		
-		hg.sendrecv(mydata, size, gatherdata, size);
 
+		data_size = hg.getTeamPartitionSize(size);
+		data = new int[data_size];
+
+		for (int i = 0, j = 100; i < data_size; i++, j += 100) {
+			data[i] = j;
+		}
+
+		int *gather_data = new int[size]();
+		
+		hg.sendrecv(data, data_size * sizeof(int), gather_data, size * sizeof(int), sizeof(int));
+
+		usleep(500000);
+
+		std::cout << "[Collector]: Receive (allgather) -> [";
+
+		for (size_t i = 0; i < size; i++) {
+			std::cout << gather_data[i];
+
+			if (i != (size - 1)) {
+				std::cout << ", ";
+			}
+		}
+
+		std::cout << "]\n\n";
+		
 		if (fbk.send(&COLLECTOR_RANK, sizeof(int))<=0) {
 			MTCL_ERROR("[Collector]:\t", "send to the Emitter ERROR\n");
 			return;
 		}
 		
-		delete [] gatherdata;
-		delete [] mydata;
+		delete [] gather_data;
+		delete [] data;
 		
 		size = size << 1;
 		MTCL_PRINT(0, "[Collector]:\t", "done iteration %d\n", i);
 	}
+
 	fbk.close();		
 	hg.close();
 }
@@ -285,7 +359,7 @@ void Collector(const std::string& gather, const std::string& groot,
 int main(int argc, char** argv){
 
     if(argc < 5) {
-		std::cout << "Usage: " << argv[0] << " <0|1|2> <num workers> <n. iterations> <initial_size(bytes)> [configuration_file]\n";
+		std::cout << "Usage: " << argv[0] << " <0|1|2> <num workers> <n. iterations> <initial_size(elements)> [configuration_file]\n";
 		std::cout << "      - 0 Emitter, 1 Collector, 2 for each Worker\n";
 		std::cout << "      - initial_size for the first iteration, then the size is (initial_size * 2^(iter_index-1))\n";
 		std::cout << "        (e.g., 5 iterations, 512 initial size  --> size= 512, 1024, 2048, 4096, 8196)\n";
@@ -297,6 +371,22 @@ int main(int argc, char** argv){
     int iterations  = std::stol(argv[3]);
     size_t size     = std::stol(argv[4]);
 
+	if ((size/(num_workers+1)) < 1) {
+		MTCL_ERROR("[iterative_benchmark_scatter-allgather]:\t", "initial size too small, trying to adjust 'size' and 'iterations'\n");
+	}   
+	while(iterations && ((size/(num_workers+1)) <= 1)) {
+		size*=2;
+		iterations--;
+	}
+	if (iterations==0) {
+		MTCL_ERROR("[iterative_benchmark_scatter-allgather]:\t", "cannot adjust size and iterations, please change their values\n");
+		Manager::finalize(true); 
+		return 0;		
+	} else {
+		if (rank == EMITTER_RANK)
+			MTCL_ERROR("[iterative_benchmark_scatter-allgather]:\t", "initial size=%d, iterations=%d\n", size, iterations);
+	}
+	
     std::string configuration_file{"iterative_bench_auto.json"};
     // A user provided configuration file was specified
     if(argc == 6) {
@@ -311,16 +401,16 @@ int main(int argc, char** argv){
         appName = participants.at(WORKER_RANK) + std::to_string(rank-1);
     } else appName = participants.at(rank);
 
-    std::string broadcast_string{participants.at(EMITTER_RANK)};
-    std::string worker_string{};
-    std::string gather_string{participants.at(COLLECTOR_RANK)};
+	std::string scatter_string{participants.at(EMITTER_RANK)};
+	std::string worker_string{};
+    std::string allgather_string{participants.at(COLLECTOR_RANK)};
 
     for(int i=1; i<=num_workers; i++) {
         std::string worker_i{participants.at(WORKER_RANK) + std::to_string(i)};
         worker_string += (":" + worker_i);
     }
-    broadcast_string += worker_string;
-    gather_string    += worker_string;
+    scatter_string += worker_string;
+    allgather_string += worker_string;
 
 	if (Manager::init(appName, configuration_file) < 0) {
 		MTCL_ERROR("[MTCL]:\t", "Manager::init ERROR\n");
@@ -328,13 +418,13 @@ int main(int argc, char** argv){
 	}
 
     if(rank == 0) {
-		Emitter(broadcast_string, participants.at(EMITTER_RANK), iterations, size);
+		Emitter(scatter_string, participants.at(EMITTER_RANK), iterations, size);
     } else {
 		if (rank == 1) {
-			Collector(gather_string, participants.at(COLLECTOR_RANK), participants.size()-1,
+			Collector(allgather_string, participants.at(COLLECTOR_RANK), num_workers,
 					  iterations, size);
 		} else {	   
-			Worker(broadcast_string, gather_string,
+			Worker(scatter_string, allgather_string,
 				   participants.at(EMITTER_RANK), participants.at(COLLECTOR_RANK),
 				   rank-1, iterations, size);
 		}

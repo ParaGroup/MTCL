@@ -157,9 +157,9 @@ public:
 		return realHandle->receive(buff, std::min(sz,size));
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
 		realHandle->probed={false,0};
-        return realHandle->sendrecv(sendbuff, sendsize, recvbuff, recvsize);
+        return realHandle->sendrecv(sendbuff, sendsize, recvbuff, recvsize, datasize);
     }
 
     void close(){
@@ -169,6 +169,14 @@ public:
     int size() {
         return realHandle->getSize();
     }
+
+	int getTeamRank() {
+		return realHandle->getTeamRank();		
+	}
+
+	int getTeamPartitionSize(size_t buffcount) {
+		return realHandle->getTeamPartitionSize(buffcount);
+	}
 
 	std::pair<bool, bool> isClosed(){
 		if (!realHandle) return {true, true};

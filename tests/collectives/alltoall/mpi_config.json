@@ -11,12 +11,12 @@
             "host" : "localhost",
             "protocols" : ["MPI"]
         },
-	{
+        {
             "name" : "App3",
             "host" : "localhost",
             "protocols" : ["MPI"]
         },
-	{
+        {
             "name" : "App4",
             "host" : "localhost",
             "protocols" : ["MPI"]

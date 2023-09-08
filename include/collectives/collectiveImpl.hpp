@@ -26,7 +26,9 @@ enum ImplementationType {
 class CollectiveImpl {
 protected:
     std::vector<Handle*> participants;
+	size_t nparticipants;
 	int uniqtag=-1;
+	int rank;   // team rank 
 	
     //TODO: 
     // virtual bool canSend() = 0;
@@ -100,7 +102,8 @@ protected:
 
 
 public:
-    CollectiveImpl(std::vector<Handle*> participants, int uniqtag) : participants(participants),uniqtag(uniqtag) {
+    CollectiveImpl(std::vector<Handle*> participants, size_t nparticipants, int rank, int uniqtag)
+		: participants(participants), nparticipants(nparticipants), uniqtag(uniqtag), rank(rank) {
         // for(auto& h : participants) h->incrementReferenceCounter();
     }
 
@@ -120,13 +123,24 @@ public:
 
         return false;
     }
-
+	
     virtual ssize_t probe(size_t& size, const bool blocking=true) = 0;
     virtual ssize_t send(const void* buff, size_t size) = 0;
     virtual ssize_t receive(void* buff, size_t size) = 0;
     virtual void close(bool close_wr=true, bool close_rd=true) = 0;
 
-    virtual ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+	virtual int getTeamRank() {	return rank; }
+    virtual int getTeamPartitionSize(size_t buffcount) {
+        int partition = buffcount / nparticipants;
+		int r = buffcount % nparticipants;
+
+		if (r && (rank < r)) partition++;
+
+        return partition;
+    }
+
+	
+    virtual ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         MTCL_PRINT(100, "[internal]:\t", "CollectiveImpl::sendrecv invalid operation for the collective\n");
         errno = EINVAL;
         return -1;
@@ -157,30 +171,36 @@ public:
     }
 
     ssize_t send(const void* buff, size_t size) {
-        for(auto& h : participants) {
-            if(h->send(buff, size) < 0) {
-                errno = ECONNRESET;
-                return -1;
-            }
-        }
-
-        return size;
+        MTCL_ERROR("[internal]:\t", "Broadcast::send operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
     }
 
     ssize_t receive(void* buff, size_t size) {
-        auto h = participants.at(0);
-        ssize_t res = receiveFromHandle(h, (char*)buff, size);
-        if(res == 0) h->close(true, false);
-
-        return res;
+        MTCL_ERROR("[internal]:\t", "Broadcast::receive operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         if(root) {
-            return this->send(sendbuff, sendsize);
+            for(auto& h : participants) {
+                if(h->send(sendbuff, sendsize) < 0) {
+                    errno = ECONNRESET;
+                    return -1;
+                }
+            }
+			if (recvbuff)
+				memcpy(recvbuff, sendbuff, sendsize);
+			
+            return sendsize;
         }
         else {
-            return this->receive(recvbuff, recvsize);
+            auto h = participants.at(0);
+            ssize_t res = receiveFromHandle(h, (char*)recvbuff, recvsize);
+            if(res == 0) h->close(true, false);
+
+            return res;
         }
     }
 
@@ -193,10 +213,125 @@ public:
     }
 
 public:
-    BroadcastGeneric(std::vector<Handle*> participants, bool root, int uniqtag) : CollectiveImpl(participants, uniqtag), root(root) {}
+    BroadcastGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag)
+		: CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
 
 };
 
+/**
+ * @brief Generic implementation of Scatter collective using low-level handles.
+ * This implementation is intended to be used by those transports that do not have
+ * an optimized implementation of the Scatter collective. This implementation
+ * can be selected using the \b SCATTER type and the \b GENERIC implementation,
+ * provided, respectively, by @see CollectiveType and @see ImplementationType. 
+ * 
+ */
+class ScatterGeneric : public CollectiveImpl {
+protected:
+    bool root;
+
+public:
+    ssize_t probe(size_t& size, const bool blocking=true) {
+		MTCL_ERROR("[internal]:\t", "Scatter::probe operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t send(const void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Scatter::send operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t receive(void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Scatter::receive operation not supported, you must use the sendrecv method\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+        MTCL_TCP_PRINT(100, "sendrecv, sendsize=%ld, recvsize=%ld, datasize=%ld, nparticipants=%ld\n", sendsize, recvsize, datasize, nparticipants);
+
+        if (recvbuff == nullptr) {
+            MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
+            errno=EFAULT;
+            return -1;
+        }
+
+        if(root) {
+            if (sendbuff == nullptr) {
+                MTCL_ERROR("[internal]:\t","sender buffer == nullptr\n");
+                errno=EFAULT;
+                return -1;
+            }
+
+            if (sendsize % datasize != 0) {
+                errno=EINVAL;
+                return -1;
+            }
+
+            size_t datacount = sendsize / datasize;
+
+            size_t sendcount = (datacount / nparticipants) * datasize;
+            size_t rcount = (datacount % nparticipants);
+
+            size_t selfsendcount = sendcount;
+
+            if (rcount > 0) {
+                selfsendcount += datasize;
+                rcount--;
+            }
+
+            if (recvsize < selfsendcount) {
+                MTCL_ERROR("[internal]:\t","receive buffer too small %ld instead of %ld\n", recvsize, selfsendcount);
+                errno=EINVAL;
+                return -1;
+            }
+
+            memcpy((char*)recvbuff, sendbuff, selfsendcount);
+            sendbuff = (char*)sendbuff + selfsendcount;
+            
+            size_t chunksize;
+            
+            for (size_t i = 0; i < (nparticipants -1); i++) {
+                chunksize = sendcount;
+
+                if (rcount > 0) {
+                    chunksize += datasize;
+                    rcount--;
+                }
+
+                if(participants.at(i)->send(sendbuff, chunksize) < 0) {
+                    errno = ECONNRESET;
+                    return -1;
+                }
+
+                sendbuff = (char*)sendbuff + chunksize;
+            }
+            
+            return selfsendcount;
+        } else {
+            auto h = participants.at(0);
+            ssize_t res = receiveFromHandle(h, (char*)recvbuff, recvsize);
+            if(res == 0) h->close(true, false);
+
+            return res;
+        }
+    }
+
+    void close(bool close_wr=true, bool close_rd=true) {
+        // Root process can issue an explicit close to all its non-root processes.
+        if(root) {
+            for(auto& h : participants) h->close(true, false);
+            return;
+        }
+    }
+
+public:
+    ScatterGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag)
+		: CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
+
+};
 
 class FanInGeneric : public CollectiveImpl {
 private:
@@ -281,7 +416,8 @@ public:
     }
 
 public:
-    FanInGeneric(std::vector<Handle*> participants, bool root, int uniqtag) : CollectiveImpl(participants,uniqtag), root(root) {}
+    FanInGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag)
+		: CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
 
 };
 
@@ -338,20 +474,18 @@ public:
     }
 
 public:
-    FanOutGeneric(std::vector<Handle*> participants, bool root, int uniqtag) : CollectiveImpl(participants, uniqtag), root(root) {}
+    FanOutGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag)
+		: CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
 
 };
 
 
 class GatherGeneric : public CollectiveImpl {
 private:
-    size_t current = 0;
     bool root;
-    int rank;
-    bool allReady{true};
 public:
-    GatherGeneric(std::vector<Handle*> participants, bool root, int rank, int uniqtag) :
-        CollectiveImpl(participants, uniqtag), root(root), rank(rank) {}
+    GatherGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag) :
+        CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
 
     ssize_t probe(size_t& size, const bool blocking=true) {
 		MTCL_ERROR("[internal]:\t", "Gather::probe operation not supported\n");
@@ -359,41 +493,100 @@ public:
         return -1;
     }
 
-    // The buffer must be (participants.size()+1)*size
     ssize_t receive(void* buff, size_t size) {
-        for(auto& h : participants) {
-            ssize_t res;
-
-            // Receive rank
-            int remote_rank;
-            res = receiveFromHandle(h, &remote_rank, sizeof(int));
-            if(res <= 0) return res;
-
-            // Receive data
-            res = receiveFromHandle(h, (char*)buff+(remote_rank*size), size);
-            if(res <= 0) return res;
-        }
-
-        return sizeof(size_t);
+        MTCL_ERROR("[internal]:\t", "Gather::receive operation not supported\n");
+		errno=EINVAL;
+        return -1;
     }
 
     ssize_t send(const void* buff, size_t size) {
-        // Qui c'è solo l'handle del root
-        for(auto& h : participants) {
-            h->send(&rank, sizeof(int));
-            h->send(buff, size);
-        }
-        
-        return sizeof(size_t);
+        MTCL_ERROR("[internal]:\t", "Gather::send operation not supported\n");
+		errno=EINVAL;
+        return -1;
     }
 
-    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
-        if(root) {
-            memcpy((char*)recvbuff+(rank*sendsize), sendbuff, sendsize);
-            return this->receive(recvbuff, recvsize);
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+		MTCL_TCP_PRINT(100, "sendrecv, sendsize=%ld, recvsize=%ld, datasize=%ld, nparticipants=%ld\n", sendsize, recvsize, datasize, nparticipants);
+
+        if (sendbuff == nullptr) {
+            MTCL_ERROR("[internal]:\t","sender buffer == nullptr\n");
+            errno=EFAULT;
+            return -1;
         }
-        else {
-            return this->send(sendbuff, sendsize);
+
+        if (recvsize % datasize != 0) {
+            errno=EINVAL;
+            return -1;
+        }
+
+        size_t datacount = recvsize / datasize;
+
+        size_t recvcount = (datacount / nparticipants) * datasize;
+        size_t rcount = (datacount % nparticipants);
+		
+        if(root) {
+            size_t selfrecvcount = recvcount;
+
+            if (rcount > 0) {
+                selfrecvcount += datasize;
+            }
+
+            if (sendsize < selfrecvcount) {
+                MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, selfrecvcount);
+                errno=EINVAL;
+                return -1;
+            }
+
+            if (recvbuff == nullptr) {
+                MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
+                errno=EFAULT;
+                return -1;
+            }
+
+            memcpy((char*)recvbuff, sendbuff, selfrecvcount);
+
+            size_t chunksize, displ = selfrecvcount;
+            ssize_t return_value;
+            
+            for (size_t i = 0; i < (nparticipants - 1); i++) {
+                if (rcount && ((i + 1) < rcount)) {
+                    chunksize = recvcount + datasize;
+                } else {
+                    chunksize = recvcount;
+                }
+
+                // Receive data
+                if ((return_value = receiveFromHandle(participants.at(i), (char*)recvbuff + displ, chunksize)) <= 0) {
+                    return return_value;
+                }
+
+                displ += chunksize;
+            }
+            
+            return selfrecvcount;
+        } else {
+            size_t chunksize;
+
+            if (rcount && (CollectiveImpl::rank < (int)rcount)) {
+                chunksize = recvcount + datasize;
+            } else {
+                chunksize = recvcount;
+            }
+
+            if (chunksize > sendsize) {
+                MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, chunksize);
+                errno = EINVAL;
+                return -1;
+            }
+
+            auto h = participants.at(0);
+
+            if(h->send(sendbuff, chunksize) < 0) {
+                errno = ECONNRESET;
+                return -1;
+            }
+
+            return chunksize;
         }
     }
 
@@ -406,6 +599,267 @@ public:
     }
     
     ~GatherGeneric () {}
+};
+
+class AllGatherGeneric : public CollectiveImpl {
+private:
+    bool root;
+public:
+    AllGatherGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag) :
+        CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
+
+    ssize_t probe(size_t& size, const bool blocking=true) {
+		MTCL_ERROR("[internal]:\t", "Gather::probe operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t receive(void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Gather::receive operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t send(const void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Gather::send operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+		MTCL_TCP_PRINT(100, "sendrecv, sendsize=%ld, recvsize=%ld, datasize=%ld, nparticipants=%ld\n", sendsize, recvsize, datasize, nparticipants);
+
+        if (sendbuff == nullptr) {
+            MTCL_ERROR("[internal]:\t","sender buffer == nullptr\n");
+            errno=EFAULT;
+            return -1;
+        }
+
+        if (recvbuff == nullptr) {
+                MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
+                errno=EFAULT;
+                return -1;
+        }
+
+        if (recvsize % datasize != 0) {
+            errno=EINVAL;
+            return -1;
+        }
+
+        size_t datacount = recvsize / datasize;
+
+        size_t recvcount = (datacount / nparticipants) * datasize;
+        size_t rcount = (datacount % nparticipants);
+		
+        if(root) {
+            size_t selfrecvcount = recvcount;
+
+            if (rcount > 0) {
+                selfrecvcount += datasize;
+            }
+
+            if (sendsize < selfrecvcount) {
+                MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, selfrecvcount);
+                errno=EINVAL;
+                return -1;
+            }
+
+            memcpy((char*)recvbuff, sendbuff, selfrecvcount);
+
+            size_t chunksize, displ = selfrecvcount;
+            ssize_t return_value;
+            
+            for (size_t i = 0; i < (nparticipants - 1); i++) {
+                if (rcount && ((i + 1) < rcount)) {
+                    chunksize = recvcount + datasize;
+                } else {
+                    chunksize = recvcount;
+                }
+
+                // Receive data
+                if ((return_value = receiveFromHandle(participants.at(i), (char*)recvbuff + displ, chunksize)) <= 0) {
+                    return return_value;
+                }
+
+                displ += chunksize;
+            }
+
+            for(auto h : participants) {
+                if(h->send(recvbuff, recvsize) < 0) {
+                    errno = ECONNRESET;
+                    return -1;
+                }
+            }
+            
+            return selfrecvcount;
+        } else {
+            size_t chunksize;
+
+            if (rcount && (CollectiveImpl::rank < (int)rcount)) {
+                chunksize = recvcount + datasize;
+            } else {
+                chunksize = recvcount;
+            }
+
+            if (chunksize > sendsize) {
+                MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, chunksize);
+                errno = EINVAL;
+                return -1;
+            }
+
+            auto h = participants.at(0);
+
+            if(h->send(sendbuff, chunksize) < 0) {
+                errno = ECONNRESET;
+                return -1;
+            }
+
+            if (receiveFromHandle(h, (char*)recvbuff, recvsize) == 0)
+                h->close(true, false);
+
+            return chunksize;
+        }
+    }
+
+    void close(bool close_wr=true, bool close_rd=true) {        
+        for(auto& h : participants) {
+            h->close(true, false);
+        }
+
+        return;
+    }
+    
+    ~AllGatherGeneric () {}
+};
+
+class AlltoallGeneric : public CollectiveImpl {
+private:
+    bool root;
+public:
+    AlltoallGeneric(std::vector<Handle*> participants, size_t nparticipants, bool root, int rank, int uniqtag) :
+        CollectiveImpl(participants, nparticipants, rank, uniqtag), root(root) {}
+
+    ssize_t probe(size_t& size, const bool blocking=true) {
+		MTCL_ERROR("[internal]:\t", "Alltoall::probe operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t receive(void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Alltoall::receive operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t send(const void* buff, size_t size) {
+        MTCL_ERROR("[internal]:\t", "Alltoall::send operation not supported\n");
+		errno=EINVAL;
+        return -1;
+    }
+
+    ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
+		MTCL_TCP_PRINT(100, "sendrecv, sendsize=%ld, recvsize=%ld, datasize=%ld, nparticipants=%ld\n", sendsize, recvsize, datasize, nparticipants);
+
+        if (sendbuff == nullptr) {
+            MTCL_ERROR("[internal]:\t","sender buffer == nullptr\n");
+            errno = EFAULT;
+            return -1;
+        }
+
+        if (recvbuff == nullptr) {
+            MTCL_ERROR("[internal]:\t","receive buffer == nullptr\n");
+            errno = EFAULT;
+            return -1;
+        }
+
+        if (sendsize % datasize != 0) {
+            errno = EINVAL;
+            return -1;
+        }
+
+        size_t datacount = sendsize / datasize;
+        size_t sendcount = (datacount / nparticipants) * datasize;
+        size_t rcount = datacount % nparticipants;
+
+        size_t selfrecvcount = (sendcount + ((rcount && (rank < (int)rcount)) ? datasize : 0)) * nparticipants;
+
+        if (recvsize < selfrecvcount) {
+            MTCL_ERROR("[internal]:\t","receive buffer too small %ld instead of %ld\n", recvsize, selfrecvcount);
+            errno = EINVAL;
+            return -1;
+        }
+		
+        if(root) {
+            char *allsendbuff = new char[sendsize * (nparticipants - 1)];
+            int return_value;
+            
+            for (size_t i = 0; i < (nparticipants - 1); i++) {
+                if ((return_value = receiveFromHandle(participants.at(i), (char*)allsendbuff + (i * sendsize), sendsize)) <= 0) {
+                    return return_value;
+                }
+            }
+
+            size_t chunksize, offset, displ = 0;
+                
+            for (size_t i = 0; i < nparticipants; i++) {
+                chunksize = sendcount;
+                    
+                if (rcount > 0) {
+                    chunksize += datasize;
+                    rcount--;
+                }
+
+                char *chunkbuff;
+
+                if (i == 0)
+                    chunkbuff = (char*)recvbuff;
+                else
+                    chunkbuff = new char[chunksize * nparticipants];
+
+                memcpy(chunkbuff, (char*)sendbuff + displ, chunksize);
+
+                offset = chunksize;
+
+                for (size_t j = 0; j < (nparticipants -1); j++) {
+                    memcpy(chunkbuff + offset, allsendbuff + (j * sendsize) + displ, chunksize);
+                    offset += chunksize;
+                }
+
+                displ += chunksize;
+
+                if (i != 0) {
+                    if(participants.at(i - 1)->send(chunkbuff, chunksize * nparticipants) < 0) {
+                        errno = ECONNRESET;
+                        return -1;
+                    }
+                }
+            }
+            
+            return selfrecvcount;
+        } else {
+            auto h = participants.at(0);
+
+            if(h->send(sendbuff, sendsize) < 0) {
+                errno = ECONNRESET;
+                return -1;
+            }
+
+            if (receiveFromHandle(h, (char*)recvbuff, recvsize) == 0)
+                h->close(true, false);
+
+            return selfrecvcount;
+        }
+    }
+
+    void close(bool close_wr=true, bool close_rd=true) {        
+        for(auto& h : participants) {
+            h->close(true, false);
+        }
+
+        return;
+    }
+    
+    ~AlltoallGeneric () {}
 };
 
 #endif //COLLECTIVEIMPL_HPP

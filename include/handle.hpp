@@ -8,10 +8,13 @@
 #include "utils.hpp"
 
 enum HandleType {
-    BROADCAST,
-    FANIN,
-    FANOUT,
+    MTCL_BROADCAST,
+    MTCL_SCATTER,
+    MTCL_FANIN,
+    MTCL_FANOUT,
     MTCL_GATHER,
+    MTCL_ALLGATHER,
+    MTCL_ALLTOALL,
     P2P,
     PROXY,
     INVALID_TYPE
@@ -80,13 +83,16 @@ public:
     virtual void close(bool close_wr=true, bool close_rd=true) = 0;
 
 
-    virtual ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize) {
+    virtual ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
         MTCL_PRINT(100, "[internal]:\t", "CommunicationHandle::sendrecv invalid operation.\n");
         errno = EINVAL;
         return -1;
     }
 
     virtual int getSize() {return 1;}
+	virtual int getTeamRank() { return -1; }
+    virtual int getTeamPartitionSize(size_t buffcount) { return -1; }
+	
     void setName(const std::string &name) { handleName = name; }
 	const std::string& getName() { return handleName; }
     HandleType getType() {return type;}
