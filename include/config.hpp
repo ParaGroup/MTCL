@@ -46,6 +46,6 @@ const unsigned UCX_POLL_TIMEOUT        = 10;
 // -------- COLLECTIVES ------
 const int CCONNECTION_RETRY            = 10;
 const unsigned CCONNECTION_TIMEOUT     = 100;     // milliseconds
-const int GATHER_THRESHOLD_MSG_SIZE    = 256000;  // 256 kB
+const int GATHER_THRESHOLD_MSG_SIZE    = (1<<18); // bytes
 
 #endif 

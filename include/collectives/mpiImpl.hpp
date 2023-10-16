@@ -294,7 +294,7 @@ public:
         int recvcount = (datacount / nparticipants) * datasize;
         int rcount = datacount % nparticipants;
 
-        if ((rcount == 0) && (recvsize >= GATHER_THRESHOLD_MSG_SIZE)) {
+        if ((rcount == 0) && (recvcount >= GATHER_THRESHOLD_MSG_SIZE)) {
             if ((size_t)recvcount > sendsize) {
                 MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, recvcount);
                 errno = EINVAL;
