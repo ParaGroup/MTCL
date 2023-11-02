@@ -874,37 +874,41 @@ $(function() {
 <div class="line"><a name="l00832"></a><span class="lineno">  832</span>&#160;                        errno = ECONNRESET;</div>
 <div class="line"><a name="l00833"></a><span class="lineno">  833</span>&#160;                        <span class="keywordflow">return</span> -1;</div>
 <div class="line"><a name="l00834"></a><span class="lineno">  834</span>&#160;                    }</div>
-<div class="line"><a name="l00835"></a><span class="lineno">  835</span>&#160;                }</div>
-<div class="line"><a name="l00836"></a><span class="lineno">  836</span>&#160;            }</div>
-<div class="line"><a name="l00837"></a><span class="lineno">  837</span>&#160;            </div>
-<div class="line"><a name="l00838"></a><span class="lineno">  838</span>&#160;            <span class="keywordflow">return</span> selfrecvcount;</div>
-<div class="line"><a name="l00839"></a><span class="lineno">  839</span>&#160;        } <span class="keywordflow">else</span> {</div>
-<div class="line"><a name="l00840"></a><span class="lineno">  840</span>&#160;            <span class="keyword">auto</span> h = participants.at(0);</div>
-<div class="line"><a name="l00841"></a><span class="lineno">  841</span>&#160; </div>
-<div class="line"><a name="l00842"></a><span class="lineno">  842</span>&#160;            <span class="keywordflow">if</span>(h-&gt;send(sendbuff, sendsize) &lt; 0) {</div>
-<div class="line"><a name="l00843"></a><span class="lineno">  843</span>&#160;                errno = ECONNRESET;</div>
-<div class="line"><a name="l00844"></a><span class="lineno">  844</span>&#160;                <span class="keywordflow">return</span> -1;</div>
-<div class="line"><a name="l00845"></a><span class="lineno">  845</span>&#160;            }</div>
-<div class="line"><a name="l00846"></a><span class="lineno">  846</span>&#160; </div>
-<div class="line"><a name="l00847"></a><span class="lineno">  847</span>&#160;            <span class="keywordflow">if</span> (receiveFromHandle(h, (<span class="keywordtype">char</span>*)recvbuff, recvsize) == 0)</div>
-<div class="line"><a name="l00848"></a><span class="lineno">  848</span>&#160;                h-&gt;close(<span class="keyword">true</span>, <span class="keyword">false</span>);</div>
-<div class="line"><a name="l00849"></a><span class="lineno">  849</span>&#160; </div>
-<div class="line"><a name="l00850"></a><span class="lineno">  850</span>&#160;            <span class="keywordflow">return</span> selfrecvcount;</div>
-<div class="line"><a name="l00851"></a><span class="lineno">  851</span>&#160;        }</div>
-<div class="line"><a name="l00852"></a><span class="lineno">  852</span>&#160;    }</div>
+<div class="line"><a name="l00835"></a><span class="lineno">  835</span>&#160; </div>
+<div class="line"><a name="l00836"></a><span class="lineno">  836</span>&#160;                    <span class="keyword">delete</span> [] chunkbuff;</div>
+<div class="line"><a name="l00837"></a><span class="lineno">  837</span>&#160;                }</div>
+<div class="line"><a name="l00838"></a><span class="lineno">  838</span>&#160;            }</div>
+<div class="line"><a name="l00839"></a><span class="lineno">  839</span>&#160; </div>
+<div class="line"><a name="l00840"></a><span class="lineno">  840</span>&#160;            <span class="keyword">delete</span> [] allsendbuff;</div>
+<div class="line"><a name="l00841"></a><span class="lineno">  841</span>&#160;            </div>
+<div class="line"><a name="l00842"></a><span class="lineno">  842</span>&#160;            <span class="keywordflow">return</span> selfrecvcount;</div>
+<div class="line"><a name="l00843"></a><span class="lineno">  843</span>&#160;        } <span class="keywordflow">else</span> {</div>
+<div class="line"><a name="l00844"></a><span class="lineno">  844</span>&#160;            <span class="keyword">auto</span> h = participants.at(0);</div>
+<div class="line"><a name="l00845"></a><span class="lineno">  845</span>&#160; </div>
+<div class="line"><a name="l00846"></a><span class="lineno">  846</span>&#160;            <span class="keywordflow">if</span>(h-&gt;send(sendbuff, sendsize) &lt; 0) {</div>
+<div class="line"><a name="l00847"></a><span class="lineno">  847</span>&#160;                errno = ECONNRESET;</div>
+<div class="line"><a name="l00848"></a><span class="lineno">  848</span>&#160;                <span class="keywordflow">return</span> -1;</div>
+<div class="line"><a name="l00849"></a><span class="lineno">  849</span>&#160;            }</div>
+<div class="line"><a name="l00850"></a><span class="lineno">  850</span>&#160; </div>
+<div class="line"><a name="l00851"></a><span class="lineno">  851</span>&#160;            <span class="keywordflow">if</span> (receiveFromHandle(h, (<span class="keywordtype">char</span>*)recvbuff, recvsize) == 0)</div>
+<div class="line"><a name="l00852"></a><span class="lineno">  852</span>&#160;                h-&gt;close(<span class="keyword">true</span>, <span class="keyword">false</span>);</div>
 <div class="line"><a name="l00853"></a><span class="lineno">  853</span>&#160; </div>
-<div class="line"><a name="l00854"></a><span class="lineno">  854</span>&#160;    <span class="keywordtype">void</span> close(<span class="keywordtype">bool</span> close_wr=<span class="keyword">true</span>, <span class="keywordtype">bool</span> close_rd=<span class="keyword">true</span>) {        </div>
-<div class="line"><a name="l00855"></a><span class="lineno">  855</span>&#160;        <span class="keywordflow">for</span>(<span class="keyword">auto</span>&amp; h : participants) {</div>
-<div class="line"><a name="l00856"></a><span class="lineno">  856</span>&#160;            h-&gt;close(<span class="keyword">true</span>, <span class="keyword">false</span>);</div>
-<div class="line"><a name="l00857"></a><span class="lineno">  857</span>&#160;        }</div>
-<div class="line"><a name="l00858"></a><span class="lineno">  858</span>&#160; </div>
-<div class="line"><a name="l00859"></a><span class="lineno">  859</span>&#160;        <span class="keywordflow">return</span>;</div>
-<div class="line"><a name="l00860"></a><span class="lineno">  860</span>&#160;    }</div>
-<div class="line"><a name="l00861"></a><span class="lineno">  861</span>&#160;    </div>
-<div class="line"><a name="l00862"></a><span class="lineno">  862</span>&#160;    ~<a class="code" href="classAlltoallGeneric.html">AlltoallGeneric</a> () {}</div>
-<div class="line"><a name="l00863"></a><span class="lineno">  863</span>&#160;};</div>
-<div class="line"><a name="l00864"></a><span class="lineno">  864</span>&#160; </div>
-<div class="line"><a name="l00865"></a><span class="lineno">  865</span>&#160;<span class="preprocessor">#endif </span><span class="comment">//COLLECTIVEIMPL_HPP</span></div>
+<div class="line"><a name="l00854"></a><span class="lineno">  854</span>&#160;            <span class="keywordflow">return</span> selfrecvcount;</div>
+<div class="line"><a name="l00855"></a><span class="lineno">  855</span>&#160;        }</div>
+<div class="line"><a name="l00856"></a><span class="lineno">  856</span>&#160;    }</div>
+<div class="line"><a name="l00857"></a><span class="lineno">  857</span>&#160; </div>
+<div class="line"><a name="l00858"></a><span class="lineno">  858</span>&#160;    <span class="keywordtype">void</span> close(<span class="keywordtype">bool</span> close_wr=<span class="keyword">true</span>, <span class="keywordtype">bool</span> close_rd=<span class="keyword">true</span>) {        </div>
+<div class="line"><a name="l00859"></a><span class="lineno">  859</span>&#160;        <span class="keywordflow">for</span>(<span class="keyword">auto</span>&amp; h : participants) {</div>
+<div class="line"><a name="l00860"></a><span class="lineno">  860</span>&#160;            h-&gt;close(<span class="keyword">true</span>, <span class="keyword">false</span>);</div>
+<div class="line"><a name="l00861"></a><span class="lineno">  861</span>&#160;        }</div>
+<div class="line"><a name="l00862"></a><span class="lineno">  862</span>&#160; </div>
+<div class="line"><a name="l00863"></a><span class="lineno">  863</span>&#160;        <span class="keywordflow">return</span>;</div>
+<div class="line"><a name="l00864"></a><span class="lineno">  864</span>&#160;    }</div>
+<div class="line"><a name="l00865"></a><span class="lineno">  865</span>&#160;    </div>
+<div class="line"><a name="l00866"></a><span class="lineno">  866</span>&#160;    ~<a class="code" href="classAlltoallGeneric.html">AlltoallGeneric</a> () {}</div>
+<div class="line"><a name="l00867"></a><span class="lineno">  867</span>&#160;};</div>
+<div class="line"><a name="l00868"></a><span class="lineno">  868</span>&#160; </div>
+<div class="line"><a name="l00869"></a><span class="lineno">  869</span>&#160;<span class="preprocessor">#endif </span><span class="comment">//COLLECTIVEIMPL_HPP</span></div>
 <div class="ttc" id="aclassAllGatherGeneric_html"><div class="ttname"><a href="classAllGatherGeneric.html">AllGatherGeneric</a></div><div class="ttdef"><b>Definition:</b> collectiveImpl.hpp:604</div></div>
 <div class="ttc" id="aclassAlltoallGeneric_html"><div class="ttname"><a href="classAlltoallGeneric.html">AlltoallGeneric</a></div><div class="ttdef"><b>Definition:</b> collectiveImpl.hpp:735</div></div>
 <div class="ttc" id="aclassBroadcastGeneric_html"><div class="ttname"><a href="classBroadcastGeneric.html">BroadcastGeneric</a></div><div class="ttdoc">Generic implementation of Broadcast collective using low-level handles. This implementation is intend...</div><div class="ttdef"><b>Definition:</b> collectiveImpl.hpp:162</div></div>
