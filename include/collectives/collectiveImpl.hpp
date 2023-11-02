@@ -832,8 +832,12 @@ public:
                         errno = ECONNRESET;
                         return -1;
                     }
+
+                    delete [] chunkbuff;
                 }
             }
+
+            delete [] allsendbuff;
             
             return selfrecvcount;
         } else {

@@ -2,6 +2,7 @@
 #define MPICOLLIMPL_HPP
 
 #include "collectiveImpl.hpp"
+#include "../config.hpp"
 #include <mpi.h>
 #include <cassert>
 
@@ -289,14 +290,29 @@ public:
         }
 
         size_t datacount = recvsize / datasize;
+        
+        int recvcount = (datacount / nparticipants) * datasize;
+        int rcount = datacount % nparticipants;
+
+        if ((rcount == 0) && (recvcount >= GATHER_THRESHOLD_MSG_SIZE)) {
+            if ((size_t)recvcount > sendsize) {
+                MTCL_ERROR("[internal]:\t","sending buffer too small %ld instead of %ld\n", sendsize, recvcount);
+                errno = EINVAL;
+                return -1;
+            }
+
+            if (MPI_Gather(sendbuff, recvcount, MPI_BYTE, recvbuff, recvcount, MPI_BYTE, 0, comm) != MPI_SUCCESS) {
+                errno = ECOMM;
+                return -1;
+            }
+
+            return recvcount;
+        }
 
         int *recvcounts = new int[nparticipants]();
         int *displs = new int[nparticipants]();
         
         int displ = 0;
-
-        int recvcount = (datacount / nparticipants) * datasize;
-        int rcount = datacount % nparticipants;
             
         for (int i = 0; i < nparticipants; i++) {
             recvcounts[i] = recvcount;
