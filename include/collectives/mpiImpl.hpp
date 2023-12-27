@@ -6,6 +6,7 @@
 #include <mpi.h>
 #include <cassert>
 
+namespace MTCL {
 /**
  * @brief MPI implementation of collective operations. Abstract class, only provides
  * generic functionalities for collectives using the MPI transport. Subclasses must
@@ -537,5 +538,7 @@ class AlltoallMPI : public MPICollective {
         MPI_Comm_free(&comm);
     }
 };
+
+} // namespace
 
 #endif //MPICOLLIMPL_HPP

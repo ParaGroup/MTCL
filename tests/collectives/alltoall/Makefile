@@ -23,9 +23,13 @@ $(error RAPIDJSON_HOME env variable not defined!);
 endif
 endif
 
+ifeq ($(findstring SHM,$(TPROTOCOL)),SHM)
+	CXXFLAGS += -DENABLE_SHM
+endif
+
 ifeq ($(findstring MPI,$(TPROTOCOL)),MPI)
 	CXX 	  = mpicxx
-	CXXFLAGS += -DENABLE_$(TPROTOCOL)
+	CXXFLAGS += -DENABLE_MPI
 	TARGET    = $(MTCL_DIR)/include/protocols/stop_accept
 ifdef MPI_HOME
 	INCS   += `pkg-config --cflags-only-I $(MPI_HOME)/lib/pkgconfig/ompi-cxx.pc`

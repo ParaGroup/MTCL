@@ -7,6 +7,8 @@
 #include "protocolInterface.hpp"
 #include "utils.hpp"
 
+namespace MTCL {
+
 enum HandleType {
     MTCL_BROADCAST,
     MTCL_SCATTER,
@@ -207,4 +209,5 @@ void ConnType::setAsClosed(Handle* h, bool blockflag){
 
 }
 
+} // namespace
 #endif

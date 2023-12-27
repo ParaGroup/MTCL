@@ -27,6 +27,7 @@
 #include "../utils.hpp"
 #include "../config.hpp"
 
+namespace MTCL {
 
 class HandleMPIP2P : public Handle {
 
@@ -364,5 +365,7 @@ public:
     }
 
 };
+
+} // namespace
 
 #endif

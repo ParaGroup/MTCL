@@ -8,6 +8,7 @@
 #include "../handle.hpp"
 #include "../utils.hpp"
 
+namespace MTCL {
 
 enum ImplementationType {
     GENERIC,
@@ -865,5 +866,7 @@ public:
     
     ~AlltoallGeneric () {}
 };
+
+} // namespace
 
 #endif //COLLECTIVEIMPL_HPP

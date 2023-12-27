@@ -52,6 +52,7 @@
 #include "mtcl.hpp"
 
 using namespace std::chrono_literals;
+using namespace MTCL;
 
 const std::string welcome{"Hello!"}; // welcome message
 const std::string bye{"Bye!"};       // bye bye message

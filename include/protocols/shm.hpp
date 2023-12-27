@@ -8,6 +8,7 @@
 #include "../protocolInterface.hpp"
 #include "shm_buffer.hpp"
 
+namespace MTCL {
 
 class HandleSHM : public Handle {
 public:	
@@ -213,5 +214,6 @@ public:
 
 };
 
+} // namespace
 
 #endif

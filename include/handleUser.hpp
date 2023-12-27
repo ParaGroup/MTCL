@@ -7,6 +7,8 @@
 #include "handle.hpp"
 #include "errno.h"
 
+namespace MTCL {
+
 class HandleUser {
     friend class ConnType;
     friend class Manager;
@@ -203,5 +205,6 @@ public:
 
 };
 
+} // namespace
 #endif
 

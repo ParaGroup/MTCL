@@ -25,6 +25,7 @@
 #include "../config.hpp"
 #include "../utils.hpp"
 
+namespace MTCL {
 
 class HandleMQTT : public Handle {
 
@@ -388,5 +389,7 @@ public:
     }
 
 };
+
+} // namespace
 
 #endif

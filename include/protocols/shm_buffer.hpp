@@ -12,9 +12,12 @@
 
 #include <pthread.h>
 
+namespace MTCL {
+
 /*
  * shared-memory buffer, one single slot of SHM_SMAL_MSG_SIZE size
  */
+
 class shmBuffer {
 protected:
 	struct buffer_element_t {
@@ -280,5 +283,7 @@ public:
 		return val;
 	}
 };
+
+} // namespace
 
 #endif

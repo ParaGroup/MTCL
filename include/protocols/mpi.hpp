@@ -15,7 +15,7 @@
 #include "../utils.hpp"
 #include "../config.hpp"
 
-
+namespace MTCL {
 
 class HandleMPI : public Handle {
 	
@@ -321,6 +321,6 @@ public:
     }
 };
 
-
+} // namespace
 
 #endif

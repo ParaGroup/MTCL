@@ -6,6 +6,8 @@
 #include <functional>
 #include <errno.h>
 
+namespace MTCL {
+
 class Handle;
 class ConnType {
 
@@ -83,5 +85,7 @@ public:
      */
     virtual void end(bool blockflag=false) = 0;
 };
+
+} // namespace
 
 #endif

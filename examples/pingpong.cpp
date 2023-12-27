@@ -93,16 +93,16 @@ int main(int argc, char** argv){
 #endif
 
     int rank = atoi(argv[1]);
-	Manager::init(argv[1]);
+	MTCL::Manager::init(argv[1]);
 
     // Listening for new connections, expecting "ping", sending "pong"
     if(rank == 0) {
-        Manager::listen(listen_str);
+        MTCL::Manager::listen(listen_str);
 
         int count = 0;
         while(count < MAX_NUM_CLIENTS) {
 
-            auto handle = Manager::getNext();
+            auto handle = MTCL::Manager::getNext();
 
             if(handle.isNewConnection()) {             
                 char buff[5];
@@ -134,7 +134,7 @@ int main(int argc, char** argv){
     else {
 		bool connected=false;
 		for(int i=0;i<10;++i) {
-			auto h = Manager::connect(connect_str);
+			auto h = MTCL::Manager::connect(connect_str);
 			if(h.isValid()) {
 				char buff[5]{'p','i','n','g','\0'};
 				if (h.send(buff, sizeof(buff)) != 5) {
@@ -152,11 +152,11 @@ int main(int argc, char** argv){
 		}
 		if (!connected) {
 			MTCL_PRINT(0, "[Client]:\t", "unable to connect to the server, exit!\n");
-			Manager::finalize();
+			MTCL::Manager::finalize();
 			return -1;
 		}
 
-        auto handle = Manager::getNext();
+        auto handle = MTCL::Manager::getNext();
         char buff[5];
 		size_t r;
         
@@ -173,7 +173,7 @@ int main(int argc, char** argv){
         }
     }
 
-    Manager::finalize();
+    MTCL::Manager::finalize();
 
     return 0;
 }

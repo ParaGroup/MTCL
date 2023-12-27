@@ -1,5 +1,5 @@
-#ifndef MANAGER_HPP
-#define MANAGER_HPP
+#ifndef MTCL_MANAGER_HPP
+#define MTCL_MANAGER_HPP
 
 #include <csignal>
 #include <cstdlib>
@@ -11,12 +11,12 @@
 #include <thread>
 #include <condition_variable>
 #include <sstream>
+#include <cassert>
 
 #include "handle.hpp"
 #include "handleUser.hpp"
 #include "protocolInterface.hpp"
 #include "protocols/tcp.hpp"
-#include "protocols/shm.hpp"
 
 #ifdef ENABLE_CONFIGFILE
 #include <fstream>
@@ -43,6 +43,11 @@
 #ifdef ENABLE_UCX
 #include "protocols/ucx.hpp"
 #endif
+
+#ifdef ENABLE_SHM
+#include "protocols/shm.hpp"
+#endif
+namespace MTCL {
 
 int  mtcl_verbose = -1;
 
@@ -216,7 +221,7 @@ private:
             for(auto& [prot, conn] : protocolsMap) {
                 conn->update();
             }			
-			if constexpr (IO_THREAD_POLL_TIMEOUT)
+			if constexpr (IO_THREAD_POLL_TIMEOUT > 0)
 				std::this_thread::sleep_for(std::chrono::microseconds(IO_THREAD_POLL_TIMEOUT));
 
 #ifndef MTCL_DISABLE_COLLECTIVES
@@ -335,7 +340,9 @@ public:
 		// default transports protocol
         registerType<ConnTcp>("TCP");
 
+#ifdef ENABLE_SHM
 		registerType<ConnSHM>("SHM");
+#endif
 
 #ifdef ENABLE_MPI
         registerType<ConnMPI>("MPI");
@@ -947,4 +954,5 @@ void CollectiveContext::yield() {
 }
 #endif
 
+} //namespace
 #endif

@@ -9,6 +9,7 @@
 #include <rapidjson/document.h>
 
 #include "mtcl.hpp"
+using namespace MTCL;
 
 //#define PROXYPROXYMQTT
 

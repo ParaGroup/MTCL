@@ -1,6 +1,7 @@
 #ifndef COMMLIB_HPP
 #define COMMLIB_HPP
 
+namespace MTCL {
 
 #if defined(ENABLE_MPI)
 const bool MPI_ENABLED     = true;
@@ -19,6 +20,8 @@ const bool UCC_ENABLED     = true;
 const bool UCX_ENABLED     = false;
 const bool UCC_ENABLED     = false;
 #endif
+
+} // namespace
 
 
 #include "config.hpp"

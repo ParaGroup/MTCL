@@ -4,6 +4,8 @@
 #include "collectiveImpl.hpp"
 #include <ucc/api/ucc.h>
 
+namespace MTCL {
+
 #define STR(x) #x
 #define UCC_CHECK(_call)                                                \
     if (UCC_OK != (_call)) {                                            \
@@ -688,5 +690,7 @@ public:
 			this->close(true, true);
     }
 };
+
+} // namespace
 
 #endif //UCCCOLLIMPL_HPP

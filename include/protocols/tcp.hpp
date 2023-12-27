@@ -23,7 +23,7 @@
 #include "../handle.hpp"
 #include "../protocolInterface.hpp"
 
-
+namespace MTCL {
 
 class HandleTCP : public Handle {
 
@@ -425,5 +425,7 @@ public:
     }
 
 };
+
+} // namespace
 
 #endif

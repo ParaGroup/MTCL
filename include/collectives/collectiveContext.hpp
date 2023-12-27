@@ -16,6 +16,7 @@
 #include "uccImpl.hpp"
 #endif
 
+namespace MTCL {
 
 class CollectiveContext : public CommunicationHandle {
     friend class Manager;
@@ -323,5 +324,7 @@ CollectiveContext *createContext(HandleType type, int size, bool root, int rank)
         return nullptr;
     }
 }
+
+} // namespace
 
 #endif //COLLECTIVECONTEXT_HPP

@@ -16,9 +16,14 @@ ifdef SINGLE_IO_THREAD
 	CXXFLAGS +=-DSINGLE_IO_THREAD
 endif
 
+ifeq ($(findstring SHM,$(TPROTOCOL)),SHM)
+	CXXFLAGS += -DENABLE_SHM
+	LIBS += -lrt
+endif
+
 ifeq ($(findstring MPI,$(TPROTOCOL)),MPI)
 	CXX 	  = mpicxx
-	CXXFLAGS += -DENABLE_$(TPROTOCOL)
+	CXXFLAGS += -DENABLE_MPI
 	TARGET    = ../include/protocols/stop_accept
 ifdef MPI_HOME
 	INCS   += `pkg-config --cflags-only-I $(MPI_HOME)/lib/pkgconfig/ompi-cxx.pc`
@@ -48,7 +53,7 @@ endif
 endif
 
 CXXFLAGS         += -Wall
-LIBS             += -pthread -lrt
+LIBS             += -pthread 
 INCLUDES          = $(INCS)
 
 SOURCES           = $(wildcard *.cpp)

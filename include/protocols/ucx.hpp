@@ -19,6 +19,7 @@
 #include "../utils.hpp" 
 #include "../config.hpp"
 
+namespace MTCL {
 
 class HandleUCX : public Handle {
 
@@ -711,5 +712,7 @@ public:
     }
 
 };
+
+} // namespace
 
 #endif //UCX_HPP
