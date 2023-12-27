@@ -94,9 +94,9 @@ $(function() {
 <div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;<span class="preprocessor">#include &quot;../handle.hpp&quot;</span></div>
 <div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;<span class="preprocessor">#include &quot;../protocolInterface.hpp&quot;</span></div>
 <div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160; </div>
-<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160; </div>
+<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;<span class="keyword">namespace </span>MTCL {</div>
 <div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160; </div>
-<div class="line"><a name="l00028"></a><span class="lineno"><a class="line" href="classHandleTCP.html">   28</a></span>&#160;<span class="keyword">class </span><a class="code" href="classHandleTCP.html">HandleTCP</a> : <span class="keyword">public</span> <a class="code" href="classHandle.html">Handle</a> {</div>
+<div class="line"><a name="l00028"></a><span class="lineno"><a class="line" href="classMTCL_1_1HandleTCP.html">   28</a></span>&#160;<span class="keyword">class </span><a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a> : <span class="keyword">public</span> <a class="code" href="classMTCL_1_1Handle.html">Handle</a> {</div>
 <div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160; </div>
 <div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;    ssize_t readn(<span class="keywordtype">int</span> fd, <span class="keywordtype">char</span> *ptr, <span class="keywordtype">size_t</span> n) {  </div>
 <div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;        <span class="keywordtype">size_t</span>   nleft = n;</div>
@@ -158,14 +158,14 @@ $(function() {
 <div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160;    </div>
 <div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;<span class="keyword">public</span>:</div>
 <div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;    <span class="keywordtype">int</span> fd; <span class="comment">// File descriptor of the connection represented by this Handle</span></div>
-<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;    <a class="code" href="classHandleTCP.html">HandleTCP</a>(<a class="code" href="classConnType.html">ConnType</a>* parent, <span class="keywordtype">int</span> fd) : <a class="code" href="classHandle.html">Handle</a>(parent), fd(fd) {}</div>
+<div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;    <a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a>(<a class="code" href="classMTCL_1_1ConnType.html">ConnType</a>* parent, <span class="keywordtype">int</span> fd) : <a class="code" href="classMTCL_1_1Handle.html">Handle</a>(parent), fd(fd) {}</div>
 <div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160; </div>
 <div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;    ssize_t sendEOS() {</div>
 <div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160;        <span class="keywordtype">size_t</span> sz = 0;</div>
 <div class="line"><a name="l00094"></a><span class="lineno">   94</span>&#160;        <span class="keywordflow">return</span> writen(fd, (<span class="keywordtype">char</span>*)&amp;sz, <span class="keyword">sizeof</span>(<span class="keywordtype">size_t</span>)); </div>
 <div class="line"><a name="l00095"></a><span class="lineno">   95</span>&#160;    }</div>
 <div class="line"><a name="l00096"></a><span class="lineno">   96</span>&#160;    </div>
-<div class="line"><a name="l00097"></a><span class="lineno"><a class="line" href="classHandleTCP.html#a553bae775bc0545f41bc6badfecf5c11">   97</a></span>&#160;    ssize_t <a class="code" href="classHandleTCP.html#a553bae775bc0545f41bc6badfecf5c11">send</a>(<span class="keyword">const</span> <span class="keywordtype">void</span>* buff, <span class="keywordtype">size_t</span> size) {</div>
+<div class="line"><a name="l00097"></a><span class="lineno"><a class="line" href="classMTCL_1_1HandleTCP.html#a02fec60ff0fee7dc1a31d8eb34fe7ff6">   97</a></span>&#160;    ssize_t <a class="code" href="classMTCL_1_1HandleTCP.html#a02fec60ff0fee7dc1a31d8eb34fe7ff6">send</a>(<span class="keyword">const</span> <span class="keywordtype">void</span>* buff, <span class="keywordtype">size_t</span> size) {</div>
 <div class="line"><a name="l00098"></a><span class="lineno">   98</span>&#160;        <span class="keywordtype">size_t</span> sz = htobe64(size);</div>
 <div class="line"><a name="l00099"></a><span class="lineno">   99</span>&#160;        <span class="keyword">struct </span>iovec iov[2];</div>
 <div class="line"><a name="l00100"></a><span class="lineno">  100</span>&#160;        iov[0].iov_base = &amp;sz;</div>
@@ -179,7 +179,7 @@ $(function() {
 <div class="line"><a name="l00108"></a><span class="lineno">  108</span>&#160;    }</div>
 <div class="line"><a name="l00109"></a><span class="lineno">  109</span>&#160; </div>
 <div class="line"><a name="l00110"></a><span class="lineno">  110</span>&#160;    <span class="comment">// receives the header containing the size (sizeof(size_t) bytes)</span></div>
-<div class="line"><a name="l00111"></a><span class="lineno"><a class="line" href="classHandleTCP.html#a1e80b08cb7ed59f5e5bb05d8c82a998e">  111</a></span>&#160;    ssize_t <a class="code" href="classHandleTCP.html#a1e80b08cb7ed59f5e5bb05d8c82a998e">probe</a>(<span class="keywordtype">size_t</span>&amp; size, <span class="keyword">const</span> <span class="keywordtype">bool</span> blocking=<span class="keyword">true</span>) {</div>
+<div class="line"><a name="l00111"></a><span class="lineno"><a class="line" href="classMTCL_1_1HandleTCP.html#ad9dead1b8c880d35cfdbad888373a23f">  111</a></span>&#160;    ssize_t <a class="code" href="classMTCL_1_1HandleTCP.html#ad9dead1b8c880d35cfdbad888373a23f">probe</a>(<span class="keywordtype">size_t</span>&amp; size, <span class="keyword">const</span> <span class="keywordtype">bool</span> blocking=<span class="keyword">true</span>) {</div>
 <div class="line"><a name="l00112"></a><span class="lineno">  112</span>&#160;        <span class="keywordtype">size_t</span> sz;</div>
 <div class="line"><a name="l00113"></a><span class="lineno">  113</span>&#160;        ssize_t r;</div>
 <div class="line"><a name="l00114"></a><span class="lineno">  114</span>&#160;        <span class="keywordflow">if</span> (blocking) {</div>
@@ -193,24 +193,24 @@ $(function() {
 <div class="line"><a name="l00122"></a><span class="lineno">  122</span>&#160;        <span class="keywordflow">return</span> <span class="keyword">sizeof</span>(size_t);</div>
 <div class="line"><a name="l00123"></a><span class="lineno">  123</span>&#160;    }</div>
 <div class="line"><a name="l00124"></a><span class="lineno">  124</span>&#160; </div>
-<div class="line"><a name="l00125"></a><span class="lineno"><a class="line" href="classHandleTCP.html#ae7d3a1fa9c0eb4b091d37e1c4e1fa520">  125</a></span>&#160;    <span class="keywordtype">bool</span> <a class="code" href="classHandleTCP.html#ae7d3a1fa9c0eb4b091d37e1c4e1fa520">peek</a>() {</div>
+<div class="line"><a name="l00125"></a><span class="lineno"><a class="line" href="classMTCL_1_1HandleTCP.html#a330f7d7148eb7a3383ffb4f8461af4de">  125</a></span>&#160;    <span class="keywordtype">bool</span> <a class="code" href="classMTCL_1_1HandleTCP.html#a330f7d7148eb7a3383ffb4f8461af4de">peek</a>() {</div>
 <div class="line"><a name="l00126"></a><span class="lineno">  126</span>&#160;        <span class="keywordtype">size_t</span> sz;</div>
 <div class="line"><a name="l00127"></a><span class="lineno">  127</span>&#160;        ssize_t r = recv(fd, &amp;sz, <span class="keyword">sizeof</span>(<span class="keywordtype">size_t</span>), MSG_PEEK | MSG_DONTWAIT);</div>
 <div class="line"><a name="l00128"></a><span class="lineno">  128</span>&#160;    </div>
 <div class="line"><a name="l00129"></a><span class="lineno">  129</span>&#160;        <span class="keywordflow">return</span> r;</div>
 <div class="line"><a name="l00130"></a><span class="lineno">  130</span>&#160;    }</div>
 <div class="line"><a name="l00131"></a><span class="lineno">  131</span>&#160;    </div>
-<div class="line"><a name="l00132"></a><span class="lineno"><a class="line" href="classHandleTCP.html#a780d4e7b349e37963c815bd2ae3de56a">  132</a></span>&#160;    ssize_t <a class="code" href="classHandleTCP.html#a780d4e7b349e37963c815bd2ae3de56a">receive</a>(<span class="keywordtype">void</span>* buff, <span class="keywordtype">size_t</span> size) {</div>
+<div class="line"><a name="l00132"></a><span class="lineno"><a class="line" href="classMTCL_1_1HandleTCP.html#a7413786d3d32cfa393841bea29fe414d">  132</a></span>&#160;    ssize_t <a class="code" href="classMTCL_1_1HandleTCP.html#a7413786d3d32cfa393841bea29fe414d">receive</a>(<span class="keywordtype">void</span>* buff, <span class="keywordtype">size_t</span> size) {</div>
 <div class="line"><a name="l00133"></a><span class="lineno">  133</span>&#160;        <span class="keywordflow">return</span> readn(fd, (<span class="keywordtype">char</span>*)buff, size); </div>
 <div class="line"><a name="l00134"></a><span class="lineno">  134</span>&#160;    }</div>
 <div class="line"><a name="l00135"></a><span class="lineno">  135</span>&#160; </div>
 <div class="line"><a name="l00136"></a><span class="lineno">  136</span>&#160; </div>
-<div class="line"><a name="l00137"></a><span class="lineno">  137</span>&#160;    ~<a class="code" href="classHandleTCP.html">HandleTCP</a>() {}</div>
+<div class="line"><a name="l00137"></a><span class="lineno">  137</span>&#160;    ~<a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a>() {}</div>
 <div class="line"><a name="l00138"></a><span class="lineno">  138</span>&#160; </div>
 <div class="line"><a name="l00139"></a><span class="lineno">  139</span>&#160;};</div>
 <div class="line"><a name="l00140"></a><span class="lineno">  140</span>&#160; </div>
 <div class="line"><a name="l00141"></a><span class="lineno">  141</span>&#160; </div>
-<div class="line"><a name="l00142"></a><span class="lineno"><a class="line" href="classConnTcp.html">  142</a></span>&#160;<span class="keyword">class </span><a class="code" href="classConnTcp.html">ConnTcp</a> : <span class="keyword">public</span> <a class="code" href="classConnType.html">ConnType</a> {</div>
+<div class="line"><a name="l00142"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnTcp.html">  142</a></span>&#160;<span class="keyword">class </span><a class="code" href="classMTCL_1_1ConnTcp.html">ConnTcp</a> : <span class="keyword">public</span> <a class="code" href="classMTCL_1_1ConnType.html">ConnType</a> {</div>
 <div class="line"><a name="l00143"></a><span class="lineno">  143</span>&#160;<span class="keyword">private</span>:</div>
 <div class="line"><a name="l00144"></a><span class="lineno">  144</span>&#160;    <span class="comment">// enum class ConnEvent {close, yield};</span></div>
 <div class="line"><a name="l00145"></a><span class="lineno">  145</span>&#160; </div>
@@ -270,7 +270,7 @@ $(function() {
 <div class="line"><a name="l00204"></a><span class="lineno">  204</span>&#160;            MTCL_TCP_PRINT(100, <span class="stringliteral">&quot;ConnTcp::_init bind loop exit with errno=%d\n&quot;</span>, errno);</div>
 <div class="line"><a name="l00205"></a><span class="lineno">  205</span>&#160;            <span class="keywordflow">return</span> -1;</div>
 <div class="line"><a name="l00206"></a><span class="lineno">  206</span>&#160;        }</div>
-<div class="line"><a name="l00207"></a><span class="lineno">  207</span>&#160;        <span class="keywordflow">if</span> (::<a class="code" href="classConnTcp.html#a346df6ff43f37e2d80d9eabcee0d38e5">listen</a>(listen_sck, TCP_BACKLOG) &lt; 0){</div>
+<div class="line"><a name="l00207"></a><span class="lineno">  207</span>&#160;        <span class="keywordflow">if</span> (::<a class="code" href="classMTCL_1_1ConnTcp.html#a441e6cca4bc0a4c93cff4ced819b6784">listen</a>(listen_sck, TCP_BACKLOG) &lt; 0){</div>
 <div class="line"><a name="l00208"></a><span class="lineno">  208</span>&#160;            MTCL_TCP_PRINT(100, <span class="stringliteral">&quot;ConnTcp::_init listen errno=%d\n&quot;</span>, errno);</div>
 <div class="line"><a name="l00209"></a><span class="lineno">  209</span>&#160;            <span class="keywordflow">return</span> -1;</div>
 <div class="line"><a name="l00210"></a><span class="lineno">  210</span>&#160;        }</div>
@@ -281,10 +281,10 @@ $(function() {
 <div class="line"><a name="l00215"></a><span class="lineno">  215</span>&#160; </div>
 <div class="line"><a name="l00216"></a><span class="lineno">  216</span>&#160;<span class="keyword">public</span>:</div>
 <div class="line"><a name="l00217"></a><span class="lineno">  217</span>&#160; </div>
-<div class="line"><a name="l00218"></a><span class="lineno">  218</span>&#160;   <a class="code" href="classConnTcp.html">ConnTcp</a>(){};</div>
-<div class="line"><a name="l00219"></a><span class="lineno">  219</span>&#160;   ~<a class="code" href="classConnTcp.html">ConnTcp</a>(){};</div>
+<div class="line"><a name="l00218"></a><span class="lineno">  218</span>&#160;   <a class="code" href="classMTCL_1_1ConnTcp.html">ConnTcp</a>(){};</div>
+<div class="line"><a name="l00219"></a><span class="lineno">  219</span>&#160;   ~<a class="code" href="classMTCL_1_1ConnTcp.html">ConnTcp</a>(){};</div>
 <div class="line"><a name="l00220"></a><span class="lineno">  220</span>&#160; </div>
-<div class="line"><a name="l00221"></a><span class="lineno"><a class="line" href="classConnTcp.html#a7ba3a6df1197edf7ab85791b0cdd4c4c">  221</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="classConnTcp.html#a7ba3a6df1197edf7ab85791b0cdd4c4c">init</a>(std::string) {</div>
+<div class="line"><a name="l00221"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnTcp.html#a3066b6b6efc80298ffe6b7acb70e4b01">  221</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="classMTCL_1_1ConnTcp.html#a3066b6b6efc80298ffe6b7acb70e4b01">init</a>(std::string) {</div>
 <div class="line"><a name="l00222"></a><span class="lineno">  222</span>&#160;        <span class="comment">// For clients who do just connect, the communication thread anyway calls</span></div>
 <div class="line"><a name="l00223"></a><span class="lineno">  223</span>&#160;        <span class="comment">// the update method, and we do not want to call the select function with</span></div>
 <div class="line"><a name="l00224"></a><span class="lineno">  224</span>&#160;        <span class="comment">// invalid fields.</span></div>
@@ -295,7 +295,7 @@ $(function() {
 <div class="line"><a name="l00229"></a><span class="lineno">  229</span>&#160;        <span class="keywordflow">return</span> 0;</div>
 <div class="line"><a name="l00230"></a><span class="lineno">  230</span>&#160;    }</div>
 <div class="line"><a name="l00231"></a><span class="lineno">  231</span>&#160; </div>
-<div class="line"><a name="l00232"></a><span class="lineno"><a class="line" href="classConnTcp.html#a346df6ff43f37e2d80d9eabcee0d38e5">  232</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="classConnTcp.html#a346df6ff43f37e2d80d9eabcee0d38e5">listen</a>(std::string s) {</div>
+<div class="line"><a name="l00232"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnTcp.html#a441e6cca4bc0a4c93cff4ced819b6784">  232</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="classMTCL_1_1ConnTcp.html#a441e6cca4bc0a4c93cff4ced819b6784">listen</a>(std::string s) {</div>
 <div class="line"><a name="l00233"></a><span class="lineno">  233</span>&#160;        address = s.substr(0, s.find(<span class="stringliteral">&quot;:&quot;</span>));</div>
 <div class="line"><a name="l00234"></a><span class="lineno">  234</span>&#160;        port = stoi(s.substr(address.length()+1));</div>
 <div class="line"><a name="l00235"></a><span class="lineno">  235</span>&#160; </div>
@@ -318,7 +318,7 @@ $(function() {
 <div class="line"><a name="l00252"></a><span class="lineno">  252</span>&#160;        <span class="keywordflow">return</span> 0;</div>
 <div class="line"><a name="l00253"></a><span class="lineno">  253</span>&#160;    }</div>
 <div class="line"><a name="l00254"></a><span class="lineno">  254</span>&#160; </div>
-<div class="line"><a name="l00255"></a><span class="lineno"><a class="line" href="classConnTcp.html#ae003a9c8a10c2b54aa34f0fa0165077f">  255</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classConnTcp.html#ae003a9c8a10c2b54aa34f0fa0165077f">update</a>() {</div>
+<div class="line"><a name="l00255"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnTcp.html#ae2e98df6240c023a55111ecc7e0f9ac1">  255</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classMTCL_1_1ConnTcp.html#ae2e98df6240c023a55111ecc7e0f9ac1">update</a>() {</div>
 <div class="line"><a name="l00256"></a><span class="lineno">  256</span>&#160;        <span class="comment">// copy the master set to the temporary</span></div>
 <div class="line"><a name="l00257"></a><span class="lineno">  257</span>&#160; </div>
 <div class="line"><a name="l00258"></a><span class="lineno">  258</span>&#160;        REMOVE_CODE_IF(std::unique_lock ulock(shm, std::defer_lock));</div>
@@ -363,7 +363,7 @@ $(function() {
 <div class="line"><a name="l00297"></a><span class="lineno">  297</span>&#160;                    <span class="comment">// if(connfd &gt; fdmax) {</span></div>
 <div class="line"><a name="l00298"></a><span class="lineno">  298</span>&#160;                    <span class="comment">//  fdmax = connfd;</span></div>
 <div class="line"><a name="l00299"></a><span class="lineno">  299</span>&#160;                    <span class="comment">// }</span></div>
-<div class="line"><a name="l00300"></a><span class="lineno">  300</span>&#160;                    connections[connfd] = <span class="keyword">new</span> <a class="code" href="classHandleTCP.html">HandleTCP</a>(<span class="keyword">this</span>, connfd);</div>
+<div class="line"><a name="l00300"></a><span class="lineno">  300</span>&#160;                    connections[connfd] = <span class="keyword">new</span> <a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a>(<span class="keyword">this</span>, connfd);</div>
 <div class="line"><a name="l00301"></a><span class="lineno">  301</span>&#160;                    addinQ(<span class="keyword">true</span>, connections[connfd]);</div>
 <div class="line"><a name="l00302"></a><span class="lineno">  302</span>&#160;                    REMOVE_CODE_IF(ulock.unlock());                    </div>
 <div class="line"><a name="l00303"></a><span class="lineno">  303</span>&#160;                } <span class="keywordflow">else</span> {</div>
@@ -396,7 +396,7 @@ $(function() {
 <div class="line"><a name="l00330"></a><span class="lineno">  330</span>&#160;    }</div>
 <div class="line"><a name="l00331"></a><span class="lineno">  331</span>&#160; </div>
 <div class="line"><a name="l00332"></a><span class="lineno">  332</span>&#160;    <span class="comment">// URL: host:prot || label: stringa utente</span></div>
-<div class="line"><a name="l00333"></a><span class="lineno"><a class="line" href="classConnTcp.html#a021c85d3162ab15363758386e9219a61">  333</a></span>&#160;    <a class="code" href="classHandle.html">Handle</a>* <a class="code" href="classConnTcp.html#a021c85d3162ab15363758386e9219a61">connect</a>(<span class="keyword">const</span> std::string&amp; address, <span class="keywordtype">int</span> retry, <span class="keywordtype">unsigned</span> timeout_ms) {</div>
+<div class="line"><a name="l00333"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnTcp.html#aa74b03c9e180e6ec84ba743086012888">  333</a></span>&#160;    <a class="code" href="classMTCL_1_1Handle.html">Handle</a>* <a class="code" href="classMTCL_1_1ConnTcp.html#aa74b03c9e180e6ec84ba743086012888">connect</a>(<span class="keyword">const</span> std::string&amp; address, <span class="keywordtype">int</span> retry, <span class="keywordtype">unsigned</span> timeout_ms) {</div>
 <div class="line"><a name="l00334"></a><span class="lineno">  334</span>&#160; </div>
 <div class="line"><a name="l00335"></a><span class="lineno">  335</span>&#160;        <span class="keywordtype">int</span> fd=internal_connect(address, retry, timeout_ms);</div>
 <div class="line"><a name="l00336"></a><span class="lineno">  336</span>&#160;        <span class="keywordflow">if</span> (fd == -1) {</div>
@@ -411,7 +411,7 @@ $(function() {
 <div class="line"><a name="l00345"></a><span class="lineno">  345</span>&#160;        }</div>
 <div class="line"><a name="l00346"></a><span class="lineno">  346</span>&#160;<span class="preprocessor">#endif      </span></div>
 <div class="line"><a name="l00347"></a><span class="lineno">  347</span>&#160; </div>
-<div class="line"><a name="l00348"></a><span class="lineno">  348</span>&#160;        <a class="code" href="classHandleTCP.html">HandleTCP</a> *handle = <span class="keyword">new</span> <a class="code" href="classHandleTCP.html">HandleTCP</a>(<span class="keyword">this</span>, fd);</div>
+<div class="line"><a name="l00348"></a><span class="lineno">  348</span>&#160;        <a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a> *handle = <span class="keyword">new</span> <a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a>(<span class="keyword">this</span>, fd);</div>
 <div class="line"><a name="l00349"></a><span class="lineno">  349</span>&#160;        {</div>
 <div class="line"><a name="l00350"></a><span class="lineno">  350</span>&#160;            REMOVE_CODE_IF(std::unique_lock lock(shm));</div>
 <div class="line"><a name="l00351"></a><span class="lineno">  351</span>&#160;            connections[fd] = handle;</div>
@@ -419,8 +419,8 @@ $(function() {
 <div class="line"><a name="l00353"></a><span class="lineno">  353</span>&#160;        <span class="keywordflow">return</span> handle;</div>
 <div class="line"><a name="l00354"></a><span class="lineno">  354</span>&#160;    }</div>
 <div class="line"><a name="l00355"></a><span class="lineno">  355</span>&#160; </div>
-<div class="line"><a name="l00356"></a><span class="lineno"><a class="line" href="classConnTcp.html#aa9abf503e09e6f32d132bbdf3fcbb5b5">  356</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classConnTcp.html#aa9abf503e09e6f32d132bbdf3fcbb5b5">notify_close</a>(<a class="code" href="classHandle.html">Handle</a>* h, <span class="keywordtype">bool</span> close_wr=<span class="keyword">true</span>, <span class="keywordtype">bool</span> close_rd=<span class="keyword">true</span>) {</div>
-<div class="line"><a name="l00357"></a><span class="lineno">  357</span>&#160;        <a class="code" href="classHandleTCP.html">HandleTCP</a> *handle = <span class="keyword">reinterpret_cast&lt;</span><a class="code" href="classHandleTCP.html">HandleTCP</a>*<span class="keyword">&gt;</span>(h);</div>
+<div class="line"><a name="l00356"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnTcp.html#aeff95e95be4dd5e93dd83cd77ce7ee9a">  356</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classMTCL_1_1ConnTcp.html#aeff95e95be4dd5e93dd83cd77ce7ee9a">notify_close</a>(<a class="code" href="classMTCL_1_1Handle.html">Handle</a>* h, <span class="keywordtype">bool</span> close_wr=<span class="keyword">true</span>, <span class="keywordtype">bool</span> close_rd=<span class="keyword">true</span>) {</div>
+<div class="line"><a name="l00357"></a><span class="lineno">  357</span>&#160;        <a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a> *handle = <span class="keyword">reinterpret_cast&lt;</span><a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a>*<span class="keyword">&gt;</span>(h);</div>
 <div class="line"><a name="l00358"></a><span class="lineno">  358</span>&#160;        <span class="keywordflow">if</span> (close_wr) {</div>
 <div class="line"><a name="l00359"></a><span class="lineno">  359</span>&#160;            <span class="keywordflow">if</span> (handle-&gt;fd != -1) {</div>
 <div class="line"><a name="l00360"></a><span class="lineno">  360</span>&#160;                shutdown(handle-&gt;fd, SHUT_WR);</div>
@@ -436,7 +436,7 @@ $(function() {
 <div class="line"><a name="l00370"></a><span class="lineno">  370</span>&#160;            }</div>
 <div class="line"><a name="l00371"></a><span class="lineno">  371</span>&#160;        }</div>
 <div class="line"><a name="l00372"></a><span class="lineno">  372</span>&#160;        <span class="keywordflow">if</span> (close_rd) { </div>
-<div class="line"><a name="l00373"></a><span class="lineno">  373</span>&#160;            <a class="code" href="classHandleTCP.html">HandleTCP</a> *handle = <span class="keyword">reinterpret_cast&lt;</span><a class="code" href="classHandleTCP.html">HandleTCP</a>*<span class="keyword">&gt;</span>(h);</div>
+<div class="line"><a name="l00373"></a><span class="lineno">  373</span>&#160;            <a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a> *handle = <span class="keyword">reinterpret_cast&lt;</span><a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a>*<span class="keyword">&gt;</span>(h);</div>
 <div class="line"><a name="l00374"></a><span class="lineno">  374</span>&#160;            <span class="keywordtype">int</span> fd = handle-&gt;fd;</div>
 <div class="line"><a name="l00375"></a><span class="lineno">  375</span>&#160;            <span class="keywordflow">if</span> (fd==-1) <span class="keywordflow">return</span>;</div>
 <div class="line"><a name="l00376"></a><span class="lineno">  376</span>&#160;            shutdown(handle-&gt;fd, SHUT_RD);</div>
@@ -467,8 +467,8 @@ $(function() {
 <div class="line"><a name="l00401"></a><span class="lineno">  401</span>&#160;    }</div>
 <div class="line"><a name="l00402"></a><span class="lineno">  402</span>&#160; </div>
 <div class="line"><a name="l00403"></a><span class="lineno">  403</span>&#160; </div>
-<div class="line"><a name="l00404"></a><span class="lineno"><a class="line" href="classConnTcp.html#a4105a0a028d2b64c1a78759fec042164">  404</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classConnTcp.html#a4105a0a028d2b64c1a78759fec042164">notify_yield</a>(<a class="code" href="classHandle.html">Handle</a>* h)<span class="keyword"> override </span>{</div>
-<div class="line"><a name="l00405"></a><span class="lineno">  405</span>&#160;        <span class="keywordtype">int</span> fd = <span class="keyword">reinterpret_cast&lt;</span><a class="code" href="classHandleTCP.html">HandleTCP</a>*<span class="keyword">&gt;</span>(h)-&gt;fd;</div>
+<div class="line"><a name="l00404"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnTcp.html#a47beb9a7cf97094379c5873014e10603">  404</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classMTCL_1_1ConnTcp.html#a47beb9a7cf97094379c5873014e10603">notify_yield</a>(<a class="code" href="classMTCL_1_1Handle.html">Handle</a>* h)<span class="keyword"> override </span>{</div>
+<div class="line"><a name="l00405"></a><span class="lineno">  405</span>&#160;        <span class="keywordtype">int</span> fd = <span class="keyword">reinterpret_cast&lt;</span><a class="code" href="classMTCL_1_1HandleTCP.html">HandleTCP</a>*<span class="keyword">&gt;</span>(h)-&gt;fd;</div>
 <div class="line"><a name="l00406"></a><span class="lineno">  406</span>&#160;        <span class="keywordflow">if</span> (fd==-1) <span class="keywordflow">return</span>;</div>
 <div class="line"><a name="l00407"></a><span class="lineno">  407</span>&#160;        REMOVE_CODE_IF(std::unique_lock l(shm));</div>
 <div class="line"><a name="l00408"></a><span class="lineno">  408</span>&#160;        <span class="keywordflow">if</span> (h-&gt;isClosed()) <span class="keywordflow">return</span>;</div>
@@ -478,7 +478,7 @@ $(function() {
 <div class="line"><a name="l00412"></a><span class="lineno">  412</span>&#160;        }</div>
 <div class="line"><a name="l00413"></a><span class="lineno">  413</span>&#160;    }</div>
 <div class="line"><a name="l00414"></a><span class="lineno">  414</span>&#160; </div>
-<div class="line"><a name="l00415"></a><span class="lineno"><a class="line" href="classConnTcp.html#a60265fe07fe059acfb764237c52b9446">  415</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classConnTcp.html#a60265fe07fe059acfb764237c52b9446">end</a>(<span class="keywordtype">bool</span> blockflag=<span class="keyword">false</span>) {</div>
+<div class="line"><a name="l00415"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnTcp.html#a833d67756b89d09e24be8eb26f879948">  415</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classMTCL_1_1ConnTcp.html#a833d67756b89d09e24be8eb26f879948">end</a>(<span class="keywordtype">bool</span> blockflag=<span class="keyword">false</span>) {</div>
 <div class="line"><a name="l00416"></a><span class="lineno">  416</span>&#160;        <span class="keyword">auto</span> modified_connections = connections;</div>
 <div class="line"><a name="l00417"></a><span class="lineno">  417</span>&#160;        <span class="keywordflow">for</span>(<span class="keyword">auto</span>&amp; [fd, h] : modified_connections) {</div>
 <div class="line"><a name="l00418"></a><span class="lineno">  418</span>&#160;            setAsClosed(h, blockflag);</div>
@@ -492,22 +492,24 @@ $(function() {
 <div class="line"><a name="l00426"></a><span class="lineno">  426</span>&#160; </div>
 <div class="line"><a name="l00427"></a><span class="lineno">  427</span>&#160;};</div>
 <div class="line"><a name="l00428"></a><span class="lineno">  428</span>&#160; </div>
-<div class="line"><a name="l00429"></a><span class="lineno">  429</span>&#160;<span class="preprocessor">#endif</span></div>
-<div class="ttc" id="aclassConnTcp_html"><div class="ttname"><a href="classConnTcp.html">ConnTcp</a></div><div class="ttdef"><b>Definition:</b> tcp.hpp:142</div></div>
-<div class="ttc" id="aclassConnTcp_html_a021c85d3162ab15363758386e9219a61"><div class="ttname"><a href="classConnTcp.html#a021c85d3162ab15363758386e9219a61">ConnTcp::connect</a></div><div class="ttdeci">Handle * connect(const std::string &amp;address, int retry, unsigned timeout_ms)</div><div class="ttdoc">Create a new Handle object establishing a connection to the remote peer specified by string s.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:333</div></div>
-<div class="ttc" id="aclassConnTcp_html_a346df6ff43f37e2d80d9eabcee0d38e5"><div class="ttname"><a href="classConnTcp.html#a346df6ff43f37e2d80d9eabcee0d38e5">ConnTcp::listen</a></div><div class="ttdeci">int listen(std::string s)</div><div class="ttdoc">Start listening for new connections at the specified address s.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:232</div></div>
-<div class="ttc" id="aclassConnTcp_html_a4105a0a028d2b64c1a78759fec042164"><div class="ttname"><a href="classConnTcp.html#a4105a0a028d2b64c1a78759fec042164">ConnTcp::notify_yield</a></div><div class="ttdeci">void notify_yield(Handle *h) override</div><div class="ttdoc">Manage the notification of an Handle object h issuing a yield operation. After this method is complet...</div><div class="ttdef"><b>Definition:</b> tcp.hpp:404</div></div>
-<div class="ttc" id="aclassConnTcp_html_a60265fe07fe059acfb764237c52b9446"><div class="ttname"><a href="classConnTcp.html#a60265fe07fe059acfb764237c52b9446">ConnTcp::end</a></div><div class="ttdeci">void end(bool blockflag=false)</div><div class="ttdoc">Stop listening for new connections and terminate existing Handles.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:415</div></div>
-<div class="ttc" id="aclassConnTcp_html_a7ba3a6df1197edf7ab85791b0cdd4c4c"><div class="ttname"><a href="classConnTcp.html#a7ba3a6df1197edf7ab85791b0cdd4c4c">ConnTcp::init</a></div><div class="ttdeci">int init(std::string)</div><div class="ttdoc">Initialize the ConnType object.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:221</div></div>
-<div class="ttc" id="aclassConnTcp_html_aa9abf503e09e6f32d132bbdf3fcbb5b5"><div class="ttname"><a href="classConnTcp.html#aa9abf503e09e6f32d132bbdf3fcbb5b5">ConnTcp::notify_close</a></div><div class="ttdeci">void notify_close(Handle *h, bool close_wr=true, bool close_rd=true)</div><div class="ttdoc">Manage the notification of an Handle object h issuing a close operation. The Handle is invalidated an...</div><div class="ttdef"><b>Definition:</b> tcp.hpp:356</div></div>
-<div class="ttc" id="aclassConnTcp_html_ae003a9c8a10c2b54aa34f0fa0165077f"><div class="ttname"><a href="classConnTcp.html#ae003a9c8a10c2b54aa34f0fa0165077f">ConnTcp::update</a></div><div class="ttdeci">void update()</div><div class="ttdoc">Non-blocking polling over the managed set of Handle objects. It should be used to check whether Handl...</div><div class="ttdef"><b>Definition:</b> tcp.hpp:255</div></div>
-<div class="ttc" id="aclassConnType_html"><div class="ttname"><a href="classConnType.html">ConnType</a></div><div class="ttdef"><b>Definition:</b> protocolInterface.hpp:10</div></div>
-<div class="ttc" id="aclassHandleTCP_html"><div class="ttname"><a href="classHandleTCP.html">HandleTCP</a></div><div class="ttdef"><b>Definition:</b> tcp.hpp:28</div></div>
-<div class="ttc" id="aclassHandleTCP_html_a1e80b08cb7ed59f5e5bb05d8c82a998e"><div class="ttname"><a href="classHandleTCP.html#a1e80b08cb7ed59f5e5bb05d8c82a998e">HandleTCP::probe</a></div><div class="ttdeci">ssize_t probe(size_t &amp;size, const bool blocking=true)</div><div class="ttdoc">Check for incoming message and write in size the amount of data present in the message.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:111</div></div>
-<div class="ttc" id="aclassHandleTCP_html_a553bae775bc0545f41bc6badfecf5c11"><div class="ttname"><a href="classHandleTCP.html#a553bae775bc0545f41bc6badfecf5c11">HandleTCP::send</a></div><div class="ttdeci">ssize_t send(const void *buff, size_t size)</div><div class="ttdoc">Send size byte of buff to the remote end connected to this Handle. Wait until all data has been sent ...</div><div class="ttdef"><b>Definition:</b> tcp.hpp:97</div></div>
-<div class="ttc" id="aclassHandleTCP_html_a780d4e7b349e37963c815bd2ae3de56a"><div class="ttname"><a href="classHandleTCP.html#a780d4e7b349e37963c815bd2ae3de56a">HandleTCP::receive</a></div><div class="ttdeci">ssize_t receive(void *buff, size_t size)</div><div class="ttdoc">Read at most size byte into buff from the remote end connected to this Handle. Wait until all size da...</div><div class="ttdef"><b>Definition:</b> tcp.hpp:132</div></div>
-<div class="ttc" id="aclassHandleTCP_html_ae7d3a1fa9c0eb4b091d37e1c4e1fa520"><div class="ttname"><a href="classHandleTCP.html#ae7d3a1fa9c0eb4b091d37e1c4e1fa520">HandleTCP::peek</a></div><div class="ttdeci">bool peek()</div><div class="ttdoc">Checks if there is something ready to be read on this handle.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:125</div></div>
-<div class="ttc" id="aclassHandle_html"><div class="ttname"><a href="classHandle.html">Handle</a></div><div class="ttdef"><b>Definition:</b> handle.hpp:105</div></div>
+<div class="line"><a name="l00429"></a><span class="lineno">  429</span>&#160;} <span class="comment">// namespace</span></div>
+<div class="line"><a name="l00430"></a><span class="lineno">  430</span>&#160; </div>
+<div class="line"><a name="l00431"></a><span class="lineno">  431</span>&#160;<span class="preprocessor">#endif</span></div>
+<div class="ttc" id="aclassMTCL_1_1ConnTcp_html"><div class="ttname"><a href="classMTCL_1_1ConnTcp.html">MTCL::ConnTcp</a></div><div class="ttdef"><b>Definition:</b> tcp.hpp:142</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnTcp_html_a3066b6b6efc80298ffe6b7acb70e4b01"><div class="ttname"><a href="classMTCL_1_1ConnTcp.html#a3066b6b6efc80298ffe6b7acb70e4b01">MTCL::ConnTcp::init</a></div><div class="ttdeci">int init(std::string)</div><div class="ttdoc">Initialize the ConnType object.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:221</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnTcp_html_a441e6cca4bc0a4c93cff4ced819b6784"><div class="ttname"><a href="classMTCL_1_1ConnTcp.html#a441e6cca4bc0a4c93cff4ced819b6784">MTCL::ConnTcp::listen</a></div><div class="ttdeci">int listen(std::string s)</div><div class="ttdoc">Start listening for new connections at the specified address s.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:232</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnTcp_html_a47beb9a7cf97094379c5873014e10603"><div class="ttname"><a href="classMTCL_1_1ConnTcp.html#a47beb9a7cf97094379c5873014e10603">MTCL::ConnTcp::notify_yield</a></div><div class="ttdeci">void notify_yield(Handle *h) override</div><div class="ttdoc">Manage the notification of an Handle object h issuing a yield operation. After this method is complet...</div><div class="ttdef"><b>Definition:</b> tcp.hpp:404</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnTcp_html_a833d67756b89d09e24be8eb26f879948"><div class="ttname"><a href="classMTCL_1_1ConnTcp.html#a833d67756b89d09e24be8eb26f879948">MTCL::ConnTcp::end</a></div><div class="ttdeci">void end(bool blockflag=false)</div><div class="ttdoc">Stop listening for new connections and terminate existing Handles.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:415</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnTcp_html_aa74b03c9e180e6ec84ba743086012888"><div class="ttname"><a href="classMTCL_1_1ConnTcp.html#aa74b03c9e180e6ec84ba743086012888">MTCL::ConnTcp::connect</a></div><div class="ttdeci">Handle * connect(const std::string &amp;address, int retry, unsigned timeout_ms)</div><div class="ttdoc">Create a new Handle object establishing a connection to the remote peer specified by string s.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:333</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnTcp_html_ae2e98df6240c023a55111ecc7e0f9ac1"><div class="ttname"><a href="classMTCL_1_1ConnTcp.html#ae2e98df6240c023a55111ecc7e0f9ac1">MTCL::ConnTcp::update</a></div><div class="ttdeci">void update()</div><div class="ttdoc">Non-blocking polling over the managed set of Handle objects. It should be used to check whether Handl...</div><div class="ttdef"><b>Definition:</b> tcp.hpp:255</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnTcp_html_aeff95e95be4dd5e93dd83cd77ce7ee9a"><div class="ttname"><a href="classMTCL_1_1ConnTcp.html#aeff95e95be4dd5e93dd83cd77ce7ee9a">MTCL::ConnTcp::notify_close</a></div><div class="ttdeci">void notify_close(Handle *h, bool close_wr=true, bool close_rd=true)</div><div class="ttdoc">Manage the notification of an Handle object h issuing a close operation. The Handle is invalidated an...</div><div class="ttdef"><b>Definition:</b> tcp.hpp:356</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnType_html"><div class="ttname"><a href="classMTCL_1_1ConnType.html">MTCL::ConnType</a></div><div class="ttdef"><b>Definition:</b> protocolInterface.hpp:12</div></div>
+<div class="ttc" id="aclassMTCL_1_1HandleTCP_html"><div class="ttname"><a href="classMTCL_1_1HandleTCP.html">MTCL::HandleTCP</a></div><div class="ttdef"><b>Definition:</b> tcp.hpp:28</div></div>
+<div class="ttc" id="aclassMTCL_1_1HandleTCP_html_a02fec60ff0fee7dc1a31d8eb34fe7ff6"><div class="ttname"><a href="classMTCL_1_1HandleTCP.html#a02fec60ff0fee7dc1a31d8eb34fe7ff6">MTCL::HandleTCP::send</a></div><div class="ttdeci">ssize_t send(const void *buff, size_t size)</div><div class="ttdoc">Send size byte of buff to the remote end connected to this Handle. Wait until all data has been sent ...</div><div class="ttdef"><b>Definition:</b> tcp.hpp:97</div></div>
+<div class="ttc" id="aclassMTCL_1_1HandleTCP_html_a330f7d7148eb7a3383ffb4f8461af4de"><div class="ttname"><a href="classMTCL_1_1HandleTCP.html#a330f7d7148eb7a3383ffb4f8461af4de">MTCL::HandleTCP::peek</a></div><div class="ttdeci">bool peek()</div><div class="ttdoc">Checks if there is something ready to be read on this handle.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:125</div></div>
+<div class="ttc" id="aclassMTCL_1_1HandleTCP_html_a7413786d3d32cfa393841bea29fe414d"><div class="ttname"><a href="classMTCL_1_1HandleTCP.html#a7413786d3d32cfa393841bea29fe414d">MTCL::HandleTCP::receive</a></div><div class="ttdeci">ssize_t receive(void *buff, size_t size)</div><div class="ttdoc">Read at most size byte into buff from the remote end connected to this Handle. Wait until all size da...</div><div class="ttdef"><b>Definition:</b> tcp.hpp:132</div></div>
+<div class="ttc" id="aclassMTCL_1_1HandleTCP_html_ad9dead1b8c880d35cfdbad888373a23f"><div class="ttname"><a href="classMTCL_1_1HandleTCP.html#ad9dead1b8c880d35cfdbad888373a23f">MTCL::HandleTCP::probe</a></div><div class="ttdeci">ssize_t probe(size_t &amp;size, const bool blocking=true)</div><div class="ttdoc">Check for incoming message and write in size the amount of data present in the message.</div><div class="ttdef"><b>Definition:</b> tcp.hpp:111</div></div>
+<div class="ttc" id="aclassMTCL_1_1Handle_html"><div class="ttname"><a href="classMTCL_1_1Handle.html">MTCL::Handle</a></div><div class="ttdef"><b>Definition:</b> handle.hpp:107</div></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

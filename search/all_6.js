@@ -1,8 +1,8 @@
 var searchData=
 [
-  ['gathergeneric_26',['GatherGeneric',['../classGatherGeneric.html',1,'']]],
-  ['gathermpi_27',['GatherMPI',['../classGatherMPI.html',1,'']]],
-  ['gatherucc_28',['GatherUCC',['../classGatherUCC.html',1,'']]],
-  ['getnext_29',['getNext',['../classManager.html#a13ef8962565fa814360e541e2aaa0d21',1,'Manager']]],
-  ['gettypeofhandle_30',['getTypeOfHandle',['../classManager.html#a52731c2088e57556428ec505b44e1839',1,'Manager']]]
+  ['gathergeneric_26',['GatherGeneric',['../classMTCL_1_1GatherGeneric.html',1,'MTCL']]],
+  ['gathermpi_27',['GatherMPI',['../classMTCL_1_1GatherMPI.html',1,'MTCL']]],
+  ['gatherucc_28',['GatherUCC',['../classMTCL_1_1GatherUCC.html',1,'MTCL']]],
+  ['getnext_29',['getNext',['../classMTCL_1_1Manager.html#a5936b605cd8cfc43860061c1a09c06fb',1,'MTCL::Manager']]],
+  ['gettypeofhandle_30',['getTypeOfHandle',['../classMTCL_1_1Manager.html#a89d721c04e97b7e3fd19f838c2960707',1,'MTCL::Manager']]]
 ];

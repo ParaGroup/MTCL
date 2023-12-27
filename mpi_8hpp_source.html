@@ -86,15 +86,15 @@ $(function() {
 <div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;<span class="preprocessor">#include &quot;../utils.hpp&quot;</span></div>
 <div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;<span class="preprocessor">#include &quot;../config.hpp&quot;</span></div>
 <div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160; </div>
-<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160; </div>
+<div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;<span class="keyword">namespace </span>MTCL {</div>
 <div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160; </div>
-<div class="line"><a name="l00020"></a><span class="lineno"><a class="line" href="classHandleMPI.html">   20</a></span>&#160;<span class="keyword">class </span><a class="code" href="classHandleMPI.html">HandleMPI</a> : <span class="keyword">public</span> <a class="code" href="classHandle.html">Handle</a> {</div>
+<div class="line"><a name="l00020"></a><span class="lineno"><a class="line" href="classMTCL_1_1HandleMPI.html">   20</a></span>&#160;<span class="keyword">class </span><a class="code" href="classMTCL_1_1HandleMPI.html">HandleMPI</a> : <span class="keyword">public</span> <a class="code" href="classMTCL_1_1Handle.html">Handle</a> {</div>
 <div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;    </div>
 <div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;<span class="keyword">public</span>:</div>
 <div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;    <span class="keywordtype">bool</span> closing = <span class="keyword">false</span>;</div>
 <div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;    <span class="keywordtype">int</span> rank;</div>
 <div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;    <span class="keywordtype">int</span> tag;</div>
-<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;    <a class="code" href="classHandleMPI.html">HandleMPI</a>(<a class="code" href="classConnType.html">ConnType</a>* parent, <span class="keywordtype">int</span> rank, <span class="keywordtype">int</span> tag): <a class="code" href="classHandle.html">Handle</a>(parent), rank(rank), tag(tag){}</div>
+<div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;    <a class="code" href="classMTCL_1_1HandleMPI.html">HandleMPI</a>(<a class="code" href="classMTCL_1_1ConnType.html">ConnType</a>* parent, <span class="keywordtype">int</span> rank, <span class="keywordtype">int</span> tag): <a class="code" href="classMTCL_1_1Handle.html">Handle</a>(parent), rank(rank), tag(tag){}</div>
 <div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;    </div>
 <div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;    <span class="comment">/*ssize_t send(const void* buff, size_t size) {</span></div>
 <div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;<span class="comment">        MPI_Request request;</span></div>
@@ -119,7 +119,7 @@ $(function() {
 <div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;<span class="comment">        return size;</span></div>
 <div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;<span class="comment">    }*/</span></div>
 <div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160; </div>
-<div class="line"><a name="l00051"></a><span class="lineno"><a class="line" href="classHandleMPI.html#a528e2453243e9cb95e546cf4063aa8b1">   51</a></span>&#160;    ssize_t <a class="code" href="classHandleMPI.html#a528e2453243e9cb95e546cf4063aa8b1">send</a>(<span class="keyword">const</span> <span class="keywordtype">void</span>* buff, <span class="keywordtype">size_t</span> size) {</div>
+<div class="line"><a name="l00051"></a><span class="lineno"><a class="line" href="classMTCL_1_1HandleMPI.html#a7fed8fbeedd4ace55c869469672802bb">   51</a></span>&#160;    ssize_t <a class="code" href="classMTCL_1_1HandleMPI.html#a7fed8fbeedd4ace55c869469672802bb">send</a>(<span class="keyword">const</span> <span class="keywordtype">void</span>* buff, <span class="keywordtype">size_t</span> size) {</div>
 <div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;        <span class="keywordflow">if</span> (MPI_Send(&amp;size, 1, MPI_UNSIGNED_LONG, this-&gt;rank, this-&gt;tag, MPI_COMM_WORLD) != MPI_SUCCESS){</div>
 <div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;            MTCL_MPI_PRINT(100, <span class="stringliteral">&quot;HandleMPI::send MPI_Send Header ERROR\n&quot;</span>);</div>
 <div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;            errno = ECOMM;</div>
@@ -166,7 +166,7 @@ $(function() {
 <div class="line"><a name="l00095"></a><span class="lineno">   95</span>&#160;<span class="comment">        return count;</span></div>
 <div class="line"><a name="l00096"></a><span class="lineno">   96</span>&#160;<span class="comment">    }*/</span></div>
 <div class="line"><a name="l00097"></a><span class="lineno">   97</span>&#160; </div>
-<div class="line"><a name="l00098"></a><span class="lineno"><a class="line" href="classHandleMPI.html#a4f418644d25dde36202814fc7dec1598">   98</a></span>&#160;    ssize_t <a class="code" href="classHandleMPI.html#a4f418644d25dde36202814fc7dec1598">receive</a>(<span class="keywordtype">void</span>* buff, <span class="keywordtype">size_t</span> size){</div>
+<div class="line"><a name="l00098"></a><span class="lineno"><a class="line" href="classMTCL_1_1HandleMPI.html#a5499eb4a86cffcfe54e39c3ba49abf6c">   98</a></span>&#160;    ssize_t <a class="code" href="classMTCL_1_1HandleMPI.html#a5499eb4a86cffcfe54e39c3ba49abf6c">receive</a>(<span class="keywordtype">void</span>* buff, <span class="keywordtype">size_t</span> size){</div>
 <div class="line"><a name="l00099"></a><span class="lineno">   99</span>&#160;        <span class="keywordtype">int</span> r;</div>
 <div class="line"><a name="l00100"></a><span class="lineno">  100</span>&#160;        MPI_Status s;</div>
 <div class="line"><a name="l00101"></a><span class="lineno">  101</span>&#160;        <span class="keywordflow">if</span> (MPI_Recv(buff, size, MPI_BYTE, this-&gt;rank, this-&gt;tag, MPI_COMM_WORLD, &amp;s) != MPI_SUCCESS){</div>
@@ -178,7 +178,7 @@ $(function() {
 <div class="line"><a name="l00107"></a><span class="lineno">  107</span>&#160;        <span class="keywordflow">return</span> r;</div>
 <div class="line"><a name="l00108"></a><span class="lineno">  108</span>&#160;    }</div>
 <div class="line"><a name="l00109"></a><span class="lineno">  109</span>&#160; </div>
-<div class="line"><a name="l00110"></a><span class="lineno"><a class="line" href="classHandleMPI.html#aaf262a6da4ccf2ca57ca37191837a63d">  110</a></span>&#160;    ssize_t <a class="code" href="classHandleMPI.html#aaf262a6da4ccf2ca57ca37191837a63d">probe</a>(<span class="keywordtype">size_t</span>&amp; size, <span class="keyword">const</span> <span class="keywordtype">bool</span> blocking=<span class="keyword">true</span>){</div>
+<div class="line"><a name="l00110"></a><span class="lineno"><a class="line" href="classMTCL_1_1HandleMPI.html#af2ad43de6dad903d2026cfe853e9f11e">  110</a></span>&#160;    ssize_t <a class="code" href="classMTCL_1_1HandleMPI.html#af2ad43de6dad903d2026cfe853e9f11e">probe</a>(<span class="keywordtype">size_t</span>&amp; size, <span class="keyword">const</span> <span class="keywordtype">bool</span> blocking=<span class="keyword">true</span>){</div>
 <div class="line"><a name="l00111"></a><span class="lineno">  111</span>&#160;        <span class="keywordtype">int</span> f = 0;</div>
 <div class="line"><a name="l00112"></a><span class="lineno">  112</span>&#160;        <span class="keywordflow">if</span> (!blocking){</div>
 <div class="line"><a name="l00113"></a><span class="lineno">  113</span>&#160;            <span class="keywordflow">if</span> (MPI_Iprobe(this-&gt;rank, this-&gt;tag, MPI_COMM_WORLD,&amp;f, MPI_STATUS_IGNORE) != MPI_SUCCESS){</div>
@@ -202,7 +202,7 @@ $(function() {
 <div class="line"><a name="l00131"></a><span class="lineno">  131</span>&#160;        <span class="keywordflow">return</span> <span class="keyword">sizeof</span>(size_t);</div>
 <div class="line"><a name="l00132"></a><span class="lineno">  132</span>&#160;    }</div>
 <div class="line"><a name="l00133"></a><span class="lineno">  133</span>&#160; </div>
-<div class="line"><a name="l00134"></a><span class="lineno"><a class="line" href="classHandleMPI.html#a6908bf57f4820bb28f7ecd19224e45e2">  134</a></span>&#160;    <span class="keywordtype">bool</span> <a class="code" href="classHandleMPI.html#a6908bf57f4820bb28f7ecd19224e45e2">peek</a>() {</div>
+<div class="line"><a name="l00134"></a><span class="lineno"><a class="line" href="classMTCL_1_1HandleMPI.html#aad4a67eb4da41bed5cf76c264d06ce67">  134</a></span>&#160;    <span class="keywordtype">bool</span> <a class="code" href="classMTCL_1_1HandleMPI.html#aad4a67eb4da41bed5cf76c264d06ce67">peek</a>() {</div>
 <div class="line"><a name="l00135"></a><span class="lineno">  135</span>&#160;        <span class="keywordtype">int</span> f = 0;</div>
 <div class="line"><a name="l00136"></a><span class="lineno">  136</span>&#160;        <span class="keywordflow">if</span> (MPI_Iprobe(this-&gt;rank, this-&gt;tag, MPI_COMM_WORLD, &amp;f, MPI_STATUS_IGNORE) != MPI_SUCCESS){</div>
 <div class="line"><a name="l00137"></a><span class="lineno">  137</span>&#160;            MTCL_MPI_PRINT(100, <span class="stringliteral">&quot;HandleMPI::peek MPI_Iprobe ERROR\n&quot;</span>);</div>
@@ -221,7 +221,7 @@ $(function() {
 <div class="line"><a name="l00150"></a><span class="lineno">  150</span>&#160; </div>
 <div class="line"><a name="l00151"></a><span class="lineno">  151</span>&#160; </div>
 <div class="line"><a name="l00152"></a><span class="lineno">  152</span>&#160; </div>
-<div class="line"><a name="l00153"></a><span class="lineno"><a class="line" href="classConnMPI.html">  153</a></span>&#160;<span class="keyword">class </span><a class="code" href="classConnMPI.html">ConnMPI</a> : <span class="keyword">public</span> <a class="code" href="classConnType.html">ConnType</a> {</div>
+<div class="line"><a name="l00153"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnMPI.html">  153</a></span>&#160;<span class="keyword">class </span><a class="code" href="classMTCL_1_1ConnMPI.html">ConnMPI</a> : <span class="keyword">public</span> <a class="code" href="classMTCL_1_1ConnType.html">ConnType</a> {</div>
 <div class="line"><a name="l00154"></a><span class="lineno">  154</span>&#160;<span class="keyword">protected</span>:</div>
 <div class="line"><a name="l00155"></a><span class="lineno">  155</span>&#160;    <span class="keywordtype">int</span> rank;</div>
 <div class="line"><a name="l00156"></a><span class="lineno">  156</span>&#160; </div>
@@ -231,7 +231,7 @@ $(function() {
 <div class="line"><a name="l00160"></a><span class="lineno">  160</span>&#160; </div>
 <div class="line"><a name="l00161"></a><span class="lineno">  161</span>&#160;<span class="keyword">public</span>:</div>
 <div class="line"><a name="l00162"></a><span class="lineno">  162</span>&#160; </div>
-<div class="line"><a name="l00163"></a><span class="lineno"><a class="line" href="classConnMPI.html#a9e4bb43c76fd34acacdc6c12283c6de9">  163</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="classConnMPI.html#a9e4bb43c76fd34acacdc6c12283c6de9">init</a>(std::string) {</div>
+<div class="line"><a name="l00163"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnMPI.html#a152c717e71a0ab90c61b05b36361ad58">  163</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="classMTCL_1_1ConnMPI.html#a152c717e71a0ab90c61b05b36361ad58">init</a>(std::string) {</div>
 <div class="line"><a name="l00164"></a><span class="lineno">  164</span>&#160;        <span class="keywordtype">int</span> provided;</div>
 <div class="line"><a name="l00165"></a><span class="lineno">  165</span>&#160;        <span class="keywordflow">if</span> (MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &amp;provided) != MPI_SUCCESS) {</div>
 <div class="line"><a name="l00166"></a><span class="lineno">  166</span>&#160;            MTCL_MPI_PRINT(100, <span class="stringliteral">&quot;ConnMPI::init: MPI_Init_thread ERROR\n&quot;</span>);</div>
@@ -250,13 +250,13 @@ $(function() {
 <div class="line"><a name="l00179"></a><span class="lineno">  179</span>&#160;        <span class="keywordflow">return</span> 0;</div>
 <div class="line"><a name="l00180"></a><span class="lineno">  180</span>&#160;    }</div>
 <div class="line"><a name="l00181"></a><span class="lineno">  181</span>&#160; </div>
-<div class="line"><a name="l00182"></a><span class="lineno"><a class="line" href="classConnMPI.html#a0618295732b20bcdc2aceb44c5bc719b">  182</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="classConnMPI.html#a0618295732b20bcdc2aceb44c5bc719b">listen</a>(std::string s) {</div>
+<div class="line"><a name="l00182"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnMPI.html#ad40acc78dd64290b3408ce04e65a6ea8">  182</a></span>&#160;    <span class="keywordtype">int</span> <a class="code" href="classMTCL_1_1ConnMPI.html#ad40acc78dd64290b3408ce04e65a6ea8">listen</a>(std::string s) {</div>
 <div class="line"><a name="l00183"></a><span class="lineno">  183</span>&#160;        MTCL_MPI_PRINT(1, <span class="stringliteral">&quot;listening on: %s\n&quot;</span>, s.c_str());</div>
 <div class="line"><a name="l00184"></a><span class="lineno">  184</span>&#160;        <span class="keywordflow">return</span> 0;</div>
 <div class="line"><a name="l00185"></a><span class="lineno">  185</span>&#160;    }</div>
 <div class="line"><a name="l00186"></a><span class="lineno">  186</span>&#160; </div>
 <div class="line"><a name="l00187"></a><span class="lineno">  187</span>&#160; </div>
-<div class="line"><a name="l00188"></a><span class="lineno"><a class="line" href="classConnMPI.html#a75e8ecc1c358a3a54fe2bd9aef2702fa">  188</a></span>&#160;    <a class="code" href="classHandle.html">Handle</a>* <a class="code" href="classConnMPI.html#a75e8ecc1c358a3a54fe2bd9aef2702fa">connect</a>(<span class="keyword">const</span> std::string&amp; dest, <span class="keywordtype">int</span>, <span class="keywordtype">unsigned</span>) {</div>
+<div class="line"><a name="l00188"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnMPI.html#accaf410a28e3b331a3cf49f0591478cb">  188</a></span>&#160;    <a class="code" href="classMTCL_1_1Handle.html">Handle</a>* <a class="code" href="classMTCL_1_1ConnMPI.html#accaf410a28e3b331a3cf49f0591478cb">connect</a>(<span class="keyword">const</span> std::string&amp; dest, <span class="keywordtype">int</span>, <span class="keywordtype">unsigned</span>) {</div>
 <div class="line"><a name="l00189"></a><span class="lineno">  189</span>&#160;        <span class="comment">// in pratica questo specifica il tag utilizzato per le comunicazioni successive</span></div>
 <div class="line"><a name="l00190"></a><span class="lineno">  190</span>&#160;        <span class="comment">// per ora solo tag, poi si vede</span></div>
 <div class="line"><a name="l00191"></a><span class="lineno">  191</span>&#160; </div>
@@ -302,7 +302,7 @@ $(function() {
 <div class="line"><a name="l00231"></a><span class="lineno">  231</span>&#160;        }</div>
 <div class="line"><a name="l00232"></a><span class="lineno">  232</span>&#160; </div>
 <div class="line"><a name="l00233"></a><span class="lineno">  233</span>&#160;        <span class="comment">// creo l&#39;handle</span></div>
-<div class="line"><a name="l00234"></a><span class="lineno">  234</span>&#160;        <a class="code" href="classHandleMPI.html">HandleMPI</a>* handle = <span class="keyword">new</span> <a class="code" href="classHandleMPI.html">HandleMPI</a>(<span class="keyword">this</span>, rank, tag);</div>
+<div class="line"><a name="l00234"></a><span class="lineno">  234</span>&#160;        <a class="code" href="classMTCL_1_1HandleMPI.html">HandleMPI</a>* handle = <span class="keyword">new</span> <a class="code" href="classMTCL_1_1HandleMPI.html">HandleMPI</a>(<span class="keyword">this</span>, rank, tag);</div>
 <div class="line"><a name="l00235"></a><span class="lineno">  235</span>&#160;        {</div>
 <div class="line"><a name="l00236"></a><span class="lineno">  236</span>&#160;            REMOVE_CODE_IF(std::unique_lock lock(shm));</div>
 <div class="line"><a name="l00237"></a><span class="lineno">  237</span>&#160;            connections.insert({{rank, tag}, {handle, <span class="keyword">false</span>}});</div>
@@ -313,7 +313,7 @@ $(function() {
 <div class="line"><a name="l00242"></a><span class="lineno">  242</span>&#160;        <span class="keywordflow">return</span> handle;</div>
 <div class="line"><a name="l00243"></a><span class="lineno">  243</span>&#160;    }</div>
 <div class="line"><a name="l00244"></a><span class="lineno">  244</span>&#160; </div>
-<div class="line"><a name="l00245"></a><span class="lineno"><a class="line" href="classConnMPI.html#ace8c27fcc5650e34a44c7b97b3bda56e">  245</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classConnMPI.html#ace8c27fcc5650e34a44c7b97b3bda56e">update</a>() {</div>
+<div class="line"><a name="l00245"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnMPI.html#a65bd1248706176fbf8591645ab05add8">  245</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classMTCL_1_1ConnMPI.html#a65bd1248706176fbf8591645ab05add8">update</a>() {</div>
 <div class="line"><a name="l00246"></a><span class="lineno">  246</span>&#160; </div>
 <div class="line"><a name="l00247"></a><span class="lineno">  247</span>&#160;        REMOVE_CODE_IF(std::unique_lock ulock(shm, std::defer_lock));</div>
 <div class="line"><a name="l00248"></a><span class="lineno">  248</span>&#160; </div>
@@ -337,7 +337,7 @@ $(function() {
 <div class="line"><a name="l00266"></a><span class="lineno">  266</span>&#160;            </div>
 <div class="line"><a name="l00267"></a><span class="lineno">  267</span>&#160;            <span class="keywordtype">int</span> source = status.MPI_SOURCE;</div>
 <div class="line"><a name="l00268"></a><span class="lineno">  268</span>&#160;            <span class="keywordtype">int</span> source_tag = header[0];</div>
-<div class="line"><a name="l00269"></a><span class="lineno">  269</span>&#160;            <a class="code" href="classHandleMPI.html">HandleMPI</a>* handle = <span class="keyword">new</span> <a class="code" href="classHandleMPI.html">HandleMPI</a>(<span class="keyword">this</span>, source, source_tag);</div>
+<div class="line"><a name="l00269"></a><span class="lineno">  269</span>&#160;            <a class="code" href="classMTCL_1_1HandleMPI.html">HandleMPI</a>* handle = <span class="keyword">new</span> <a class="code" href="classMTCL_1_1HandleMPI.html">HandleMPI</a>(<span class="keyword">this</span>, source, source_tag);</div>
 <div class="line"><a name="l00270"></a><span class="lineno">  270</span>&#160;            REMOVE_CODE_IF(ulock.lock());           </div>
 <div class="line"><a name="l00271"></a><span class="lineno">  271</span>&#160;            connections.insert({{source, source_tag},{handle, <span class="keyword">false</span>}});</div>
 <div class="line"><a name="l00272"></a><span class="lineno">  272</span>&#160;            addinQ(<span class="keyword">true</span>, handle);</div>
@@ -363,8 +363,8 @@ $(function() {
 <div class="line"><a name="l00292"></a><span class="lineno">  292</span>&#160;    }</div>
 <div class="line"><a name="l00293"></a><span class="lineno">  293</span>&#160; </div>
 <div class="line"><a name="l00294"></a><span class="lineno">  294</span>&#160; </div>
-<div class="line"><a name="l00295"></a><span class="lineno"><a class="line" href="classConnMPI.html#ad01e31cb5ae66c7a4fc750ea97b5af1f">  295</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classConnMPI.html#ad01e31cb5ae66c7a4fc750ea97b5af1f">notify_close</a>(<a class="code" href="classHandle.html">Handle</a>* h, <span class="keywordtype">bool</span> close_wr=<span class="keyword">true</span>, <span class="keywordtype">bool</span> close_rd=<span class="keyword">true</span>) {</div>
-<div class="line"><a name="l00296"></a><span class="lineno">  296</span>&#160;        <a class="code" href="classHandleMPI.html">HandleMPI</a>* hMPI = <span class="keyword">reinterpret_cast&lt;</span><a class="code" href="classHandleMPI.html">HandleMPI</a>*<span class="keyword">&gt;</span>(h);</div>
+<div class="line"><a name="l00295"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnMPI.html#a85d59a39090c3ce7d82d3d2d5eff3b0c">  295</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classMTCL_1_1ConnMPI.html#a85d59a39090c3ce7d82d3d2d5eff3b0c">notify_close</a>(<a class="code" href="classMTCL_1_1Handle.html">Handle</a>* h, <span class="keywordtype">bool</span> close_wr=<span class="keyword">true</span>, <span class="keywordtype">bool</span> close_rd=<span class="keyword">true</span>) {</div>
+<div class="line"><a name="l00296"></a><span class="lineno">  296</span>&#160;        <a class="code" href="classMTCL_1_1HandleMPI.html">HandleMPI</a>* hMPI = <span class="keyword">reinterpret_cast&lt;</span><a class="code" href="classMTCL_1_1HandleMPI.html">HandleMPI</a>*<span class="keyword">&gt;</span>(h);</div>
 <div class="line"><a name="l00297"></a><span class="lineno">  297</span>&#160;                    </div>
 <div class="line"><a name="l00298"></a><span class="lineno">  298</span>&#160;        REMOVE_CODE_IF(std::unique_lock l(shm));</div>
 <div class="line"><a name="l00299"></a><span class="lineno">  299</span>&#160; </div>
@@ -373,8 +373,8 @@ $(function() {
 <div class="line"><a name="l00302"></a><span class="lineno">  302</span>&#160;    }</div>
 <div class="line"><a name="l00303"></a><span class="lineno">  303</span>&#160;    </div>
 <div class="line"><a name="l00304"></a><span class="lineno">  304</span>&#160; </div>
-<div class="line"><a name="l00305"></a><span class="lineno"><a class="line" href="classConnMPI.html#aaa0610139e3a821cb44d2b82e6b642ff">  305</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classConnMPI.html#aaa0610139e3a821cb44d2b82e6b642ff">notify_yield</a>(<a class="code" href="classHandle.html">Handle</a>* h) {</div>
-<div class="line"><a name="l00306"></a><span class="lineno">  306</span>&#160;        <a class="code" href="classHandleMPI.html">HandleMPI</a>* hMPI = <span class="keyword">reinterpret_cast&lt;</span><a class="code" href="classHandleMPI.html">HandleMPI</a>*<span class="keyword">&gt;</span>(h);</div>
+<div class="line"><a name="l00305"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnMPI.html#a5675db8d435db6947e4607bc0f951ff4">  305</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classMTCL_1_1ConnMPI.html#a5675db8d435db6947e4607bc0f951ff4">notify_yield</a>(<a class="code" href="classMTCL_1_1Handle.html">Handle</a>* h) {</div>
+<div class="line"><a name="l00306"></a><span class="lineno">  306</span>&#160;        <a class="code" href="classMTCL_1_1HandleMPI.html">HandleMPI</a>* hMPI = <span class="keyword">reinterpret_cast&lt;</span><a class="code" href="classMTCL_1_1HandleMPI.html">HandleMPI</a>*<span class="keyword">&gt;</span>(h);</div>
 <div class="line"><a name="l00307"></a><span class="lineno">  307</span>&#160;        </div>
 <div class="line"><a name="l00308"></a><span class="lineno">  308</span>&#160;        {</div>
 <div class="line"><a name="l00309"></a><span class="lineno">  309</span>&#160;            REMOVE_CODE_IF(std::unique_lock l(shm));</div>
@@ -384,7 +384,7 @@ $(function() {
 <div class="line"><a name="l00313"></a><span class="lineno">  313</span>&#160;        }</div>
 <div class="line"><a name="l00314"></a><span class="lineno">  314</span>&#160;    }</div>
 <div class="line"><a name="l00315"></a><span class="lineno">  315</span>&#160; </div>
-<div class="line"><a name="l00316"></a><span class="lineno"><a class="line" href="classConnMPI.html#ad355372560506e7922c8ad33b255e9d1">  316</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classConnMPI.html#ad355372560506e7922c8ad33b255e9d1">end</a>(<span class="keywordtype">bool</span> blockflag=<span class="keyword">false</span>) {</div>
+<div class="line"><a name="l00316"></a><span class="lineno"><a class="line" href="classMTCL_1_1ConnMPI.html#a95842dc0e87e1eeb24f9c0f784ed125a">  316</a></span>&#160;    <span class="keywordtype">void</span> <a class="code" href="classMTCL_1_1ConnMPI.html#a95842dc0e87e1eeb24f9c0f784ed125a">end</a>(<span class="keywordtype">bool</span> blockflag=<span class="keyword">false</span>) {</div>
 <div class="line"><a name="l00317"></a><span class="lineno">  317</span>&#160;        <span class="keyword">auto</span> modified_connections = connections;</div>
 <div class="line"><a name="l00318"></a><span class="lineno">  318</span>&#160;        <span class="keywordflow">for</span>(<span class="keyword">auto</span>&amp; [_, handlePair] : modified_connections)</div>
 <div class="line"><a name="l00319"></a><span class="lineno">  319</span>&#160;            setAsClosed(handlePair.first, <span class="keyword">true</span>);</div>
@@ -392,24 +392,24 @@ $(function() {
 <div class="line"><a name="l00321"></a><span class="lineno">  321</span>&#160;    }</div>
 <div class="line"><a name="l00322"></a><span class="lineno">  322</span>&#160;};</div>
 <div class="line"><a name="l00323"></a><span class="lineno">  323</span>&#160; </div>
-<div class="line"><a name="l00324"></a><span class="lineno">  324</span>&#160; </div>
+<div class="line"><a name="l00324"></a><span class="lineno">  324</span>&#160;} <span class="comment">// namespace</span></div>
 <div class="line"><a name="l00325"></a><span class="lineno">  325</span>&#160; </div>
 <div class="line"><a name="l00326"></a><span class="lineno">  326</span>&#160;<span class="preprocessor">#endif</span></div>
-<div class="ttc" id="aclassConnMPI_html"><div class="ttname"><a href="classConnMPI.html">ConnMPI</a></div><div class="ttdef"><b>Definition:</b> mpi.hpp:153</div></div>
-<div class="ttc" id="aclassConnMPI_html_a0618295732b20bcdc2aceb44c5bc719b"><div class="ttname"><a href="classConnMPI.html#a0618295732b20bcdc2aceb44c5bc719b">ConnMPI::listen</a></div><div class="ttdeci">int listen(std::string s)</div><div class="ttdoc">Start listening for new connections at the specified address s.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:182</div></div>
-<div class="ttc" id="aclassConnMPI_html_a75e8ecc1c358a3a54fe2bd9aef2702fa"><div class="ttname"><a href="classConnMPI.html#a75e8ecc1c358a3a54fe2bd9aef2702fa">ConnMPI::connect</a></div><div class="ttdeci">Handle * connect(const std::string &amp;dest, int, unsigned)</div><div class="ttdoc">Create a new Handle object establishing a connection to the remote peer specified by string s.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:188</div></div>
-<div class="ttc" id="aclassConnMPI_html_a9e4bb43c76fd34acacdc6c12283c6de9"><div class="ttname"><a href="classConnMPI.html#a9e4bb43c76fd34acacdc6c12283c6de9">ConnMPI::init</a></div><div class="ttdeci">int init(std::string)</div><div class="ttdoc">Initialize the ConnType object.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:163</div></div>
-<div class="ttc" id="aclassConnMPI_html_aaa0610139e3a821cb44d2b82e6b642ff"><div class="ttname"><a href="classConnMPI.html#aaa0610139e3a821cb44d2b82e6b642ff">ConnMPI::notify_yield</a></div><div class="ttdeci">void notify_yield(Handle *h)</div><div class="ttdoc">Manage the notification of an Handle object h issuing a yield operation. After this method is complet...</div><div class="ttdef"><b>Definition:</b> mpi.hpp:305</div></div>
-<div class="ttc" id="aclassConnMPI_html_ace8c27fcc5650e34a44c7b97b3bda56e"><div class="ttname"><a href="classConnMPI.html#ace8c27fcc5650e34a44c7b97b3bda56e">ConnMPI::update</a></div><div class="ttdeci">void update()</div><div class="ttdoc">Non-blocking polling over the managed set of Handle objects. It should be used to check whether Handl...</div><div class="ttdef"><b>Definition:</b> mpi.hpp:245</div></div>
-<div class="ttc" id="aclassConnMPI_html_ad01e31cb5ae66c7a4fc750ea97b5af1f"><div class="ttname"><a href="classConnMPI.html#ad01e31cb5ae66c7a4fc750ea97b5af1f">ConnMPI::notify_close</a></div><div class="ttdeci">void notify_close(Handle *h, bool close_wr=true, bool close_rd=true)</div><div class="ttdoc">Manage the notification of an Handle object h issuing a close operation. The Handle is invalidated an...</div><div class="ttdef"><b>Definition:</b> mpi.hpp:295</div></div>
-<div class="ttc" id="aclassConnMPI_html_ad355372560506e7922c8ad33b255e9d1"><div class="ttname"><a href="classConnMPI.html#ad355372560506e7922c8ad33b255e9d1">ConnMPI::end</a></div><div class="ttdeci">void end(bool blockflag=false)</div><div class="ttdoc">Stop listening for new connections and terminate existing Handles.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:316</div></div>
-<div class="ttc" id="aclassConnType_html"><div class="ttname"><a href="classConnType.html">ConnType</a></div><div class="ttdef"><b>Definition:</b> protocolInterface.hpp:10</div></div>
-<div class="ttc" id="aclassHandleMPI_html"><div class="ttname"><a href="classHandleMPI.html">HandleMPI</a></div><div class="ttdef"><b>Definition:</b> mpi.hpp:20</div></div>
-<div class="ttc" id="aclassHandleMPI_html_a4f418644d25dde36202814fc7dec1598"><div class="ttname"><a href="classHandleMPI.html#a4f418644d25dde36202814fc7dec1598">HandleMPI::receive</a></div><div class="ttdeci">ssize_t receive(void *buff, size_t size)</div><div class="ttdoc">Read at most size byte into buff from the remote end connected to this Handle. Wait until all size da...</div><div class="ttdef"><b>Definition:</b> mpi.hpp:98</div></div>
-<div class="ttc" id="aclassHandleMPI_html_a528e2453243e9cb95e546cf4063aa8b1"><div class="ttname"><a href="classHandleMPI.html#a528e2453243e9cb95e546cf4063aa8b1">HandleMPI::send</a></div><div class="ttdeci">ssize_t send(const void *buff, size_t size)</div><div class="ttdoc">Send size byte of buff to the remote end connected to this Handle. Wait until all data has been sent ...</div><div class="ttdef"><b>Definition:</b> mpi.hpp:51</div></div>
-<div class="ttc" id="aclassHandleMPI_html_a6908bf57f4820bb28f7ecd19224e45e2"><div class="ttname"><a href="classHandleMPI.html#a6908bf57f4820bb28f7ecd19224e45e2">HandleMPI::peek</a></div><div class="ttdeci">bool peek()</div><div class="ttdoc">Checks if there is something ready to be read on this handle.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:134</div></div>
-<div class="ttc" id="aclassHandleMPI_html_aaf262a6da4ccf2ca57ca37191837a63d"><div class="ttname"><a href="classHandleMPI.html#aaf262a6da4ccf2ca57ca37191837a63d">HandleMPI::probe</a></div><div class="ttdeci">ssize_t probe(size_t &amp;size, const bool blocking=true)</div><div class="ttdoc">Check for incoming message and write in size the amount of data present in the message.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:110</div></div>
-<div class="ttc" id="aclassHandle_html"><div class="ttname"><a href="classHandle.html">Handle</a></div><div class="ttdef"><b>Definition:</b> handle.hpp:105</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnMPI_html"><div class="ttname"><a href="classMTCL_1_1ConnMPI.html">MTCL::ConnMPI</a></div><div class="ttdef"><b>Definition:</b> mpi.hpp:153</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnMPI_html_a152c717e71a0ab90c61b05b36361ad58"><div class="ttname"><a href="classMTCL_1_1ConnMPI.html#a152c717e71a0ab90c61b05b36361ad58">MTCL::ConnMPI::init</a></div><div class="ttdeci">int init(std::string)</div><div class="ttdoc">Initialize the ConnType object.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:163</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnMPI_html_a5675db8d435db6947e4607bc0f951ff4"><div class="ttname"><a href="classMTCL_1_1ConnMPI.html#a5675db8d435db6947e4607bc0f951ff4">MTCL::ConnMPI::notify_yield</a></div><div class="ttdeci">void notify_yield(Handle *h)</div><div class="ttdoc">Manage the notification of an Handle object h issuing a yield operation. After this method is complet...</div><div class="ttdef"><b>Definition:</b> mpi.hpp:305</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnMPI_html_a65bd1248706176fbf8591645ab05add8"><div class="ttname"><a href="classMTCL_1_1ConnMPI.html#a65bd1248706176fbf8591645ab05add8">MTCL::ConnMPI::update</a></div><div class="ttdeci">void update()</div><div class="ttdoc">Non-blocking polling over the managed set of Handle objects. It should be used to check whether Handl...</div><div class="ttdef"><b>Definition:</b> mpi.hpp:245</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnMPI_html_a85d59a39090c3ce7d82d3d2d5eff3b0c"><div class="ttname"><a href="classMTCL_1_1ConnMPI.html#a85d59a39090c3ce7d82d3d2d5eff3b0c">MTCL::ConnMPI::notify_close</a></div><div class="ttdeci">void notify_close(Handle *h, bool close_wr=true, bool close_rd=true)</div><div class="ttdoc">Manage the notification of an Handle object h issuing a close operation. The Handle is invalidated an...</div><div class="ttdef"><b>Definition:</b> mpi.hpp:295</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnMPI_html_a95842dc0e87e1eeb24f9c0f784ed125a"><div class="ttname"><a href="classMTCL_1_1ConnMPI.html#a95842dc0e87e1eeb24f9c0f784ed125a">MTCL::ConnMPI::end</a></div><div class="ttdeci">void end(bool blockflag=false)</div><div class="ttdoc">Stop listening for new connections and terminate existing Handles.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:316</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnMPI_html_accaf410a28e3b331a3cf49f0591478cb"><div class="ttname"><a href="classMTCL_1_1ConnMPI.html#accaf410a28e3b331a3cf49f0591478cb">MTCL::ConnMPI::connect</a></div><div class="ttdeci">Handle * connect(const std::string &amp;dest, int, unsigned)</div><div class="ttdoc">Create a new Handle object establishing a connection to the remote peer specified by string s.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:188</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnMPI_html_ad40acc78dd64290b3408ce04e65a6ea8"><div class="ttname"><a href="classMTCL_1_1ConnMPI.html#ad40acc78dd64290b3408ce04e65a6ea8">MTCL::ConnMPI::listen</a></div><div class="ttdeci">int listen(std::string s)</div><div class="ttdoc">Start listening for new connections at the specified address s.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:182</div></div>
+<div class="ttc" id="aclassMTCL_1_1ConnType_html"><div class="ttname"><a href="classMTCL_1_1ConnType.html">MTCL::ConnType</a></div><div class="ttdef"><b>Definition:</b> protocolInterface.hpp:12</div></div>
+<div class="ttc" id="aclassMTCL_1_1HandleMPI_html"><div class="ttname"><a href="classMTCL_1_1HandleMPI.html">MTCL::HandleMPI</a></div><div class="ttdef"><b>Definition:</b> mpi.hpp:20</div></div>
+<div class="ttc" id="aclassMTCL_1_1HandleMPI_html_a5499eb4a86cffcfe54e39c3ba49abf6c"><div class="ttname"><a href="classMTCL_1_1HandleMPI.html#a5499eb4a86cffcfe54e39c3ba49abf6c">MTCL::HandleMPI::receive</a></div><div class="ttdeci">ssize_t receive(void *buff, size_t size)</div><div class="ttdoc">Read at most size byte into buff from the remote end connected to this Handle. Wait until all size da...</div><div class="ttdef"><b>Definition:</b> mpi.hpp:98</div></div>
+<div class="ttc" id="aclassMTCL_1_1HandleMPI_html_a7fed8fbeedd4ace55c869469672802bb"><div class="ttname"><a href="classMTCL_1_1HandleMPI.html#a7fed8fbeedd4ace55c869469672802bb">MTCL::HandleMPI::send</a></div><div class="ttdeci">ssize_t send(const void *buff, size_t size)</div><div class="ttdoc">Send size byte of buff to the remote end connected to this Handle. Wait until all data has been sent ...</div><div class="ttdef"><b>Definition:</b> mpi.hpp:51</div></div>
+<div class="ttc" id="aclassMTCL_1_1HandleMPI_html_aad4a67eb4da41bed5cf76c264d06ce67"><div class="ttname"><a href="classMTCL_1_1HandleMPI.html#aad4a67eb4da41bed5cf76c264d06ce67">MTCL::HandleMPI::peek</a></div><div class="ttdeci">bool peek()</div><div class="ttdoc">Checks if there is something ready to be read on this handle.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:134</div></div>
+<div class="ttc" id="aclassMTCL_1_1HandleMPI_html_af2ad43de6dad903d2026cfe853e9f11e"><div class="ttname"><a href="classMTCL_1_1HandleMPI.html#af2ad43de6dad903d2026cfe853e9f11e">MTCL::HandleMPI::probe</a></div><div class="ttdeci">ssize_t probe(size_t &amp;size, const bool blocking=true)</div><div class="ttdoc">Check for incoming message and write in size the amount of data present in the message.</div><div class="ttdef"><b>Definition:</b> mpi.hpp:110</div></div>
+<div class="ttc" id="aclassMTCL_1_1Handle_html"><div class="ttname"><a href="classMTCL_1_1Handle.html">MTCL::Handle</a></div><div class="ttdef"><b>Definition:</b> handle.hpp:107</div></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
