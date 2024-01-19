@@ -26,8 +26,8 @@
  * */
 
 #include <iostream>
-#include "../mtcl.hpp"
-
+#include "mtcl.hpp"
+using namespace MTCL;
 const int max_msg_size=100;          // max message size
 const std::string bye{"Bye!"};       // bye bye message
 const std::string welcome{"Hello!"}; // welcome message
@@ -53,7 +53,7 @@ int main(int argc, char** argv){
     Manager::init(argv[2]);
 
     if (rank == 0){
-        Manager::listen("MPI:0:10");
+        Manager::listen("MPI:0"); // can be omitted
         Manager::listen("UCX:0.0.0.0:21000");
         
         char *buff = new char[maxsize];
@@ -78,7 +78,7 @@ int main(int argc, char** argv){
     else {
         
         auto handle = []() {
-            auto h = Manager::connect("MPI:0:10");
+            auto h = Manager::connect("MPI:0");
             if (!h.isValid()) {
                 auto h = Manager::connect("UCX:0.0.0.0:21000");
                 assert(h.isValid());

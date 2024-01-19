@@ -56,7 +56,7 @@ protected:
     shmBuffer connbuff;    
     std::map<HandleSHM*, bool> connections;  // Active connections for this Connector
 
-#if !defined(SINGLE_IO_THREAD)
+#if defined(NO_MTCL_MULTITHREADED)
     std::shared_mutex shm;
 #endif
 

@@ -227,11 +227,9 @@ public:
             for(int i=0; i<remote_size; i++) {
 
                 HandleMPIP2P* handle = new HandleMPIP2P(this, i, client, false);
-                {
-                    connections.insert({handle, false});
-                    ADD_CODE_IF(addinQ(true, handle));  
-                }
-                REMOVE_CODE_IF(addinQ(true, handle));
+                connections.insert({handle, false});
+                addinQ(true, handle);  
+    
             }
         }
 		MTCL_MPIP2P_PRINT(100, "Accept thread finalized.\n");        

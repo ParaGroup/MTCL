@@ -22,7 +22,7 @@
 #include <iomanip>
 #include <vector>
 #include "mtcl.hpp"
-
+using namespace MTCL;
 const int     NROUND = 100;
 const int          N = 24;
 const size_t minsize = 16;              // bytes

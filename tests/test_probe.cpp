@@ -3,7 +3,7 @@
 #include <sys/wait.h>
 #include <iostream>
 #include "mtcl.hpp"
-
+using namespace MTCL;
 int main(int argc, char** argv){
 
 	pid_t pid = fork();

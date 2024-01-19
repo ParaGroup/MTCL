@@ -8,11 +8,11 @@
 #include "collectiveImpl.hpp"
 #include "../handle.hpp"
 
-#ifdef ENABLE_MPI
+#ifdef MTCL_ENABLE_MPI
 #include "mpiImpl.hpp"
 #endif
 
-#ifdef ENABLE_UCX
+#ifdef MTCL_ENABLE_UCX
 #include "uccImpl.hpp"
 #endif
 
@@ -57,7 +57,7 @@ public:
                             coll = new BroadcastGeneric(participants, size, root, rank, uniqtag);
                             break;
                         case MPI:
-                            #ifdef ENABLE_MPI
+                            #ifdef MTCL_ENABLE_MPI
                             void *max_tag;
                             int flag;
                             MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
@@ -65,7 +65,7 @@ public:
                             #endif
                             break;
                         case UCC:
-                            #ifdef ENABLE_UCX
+                            #ifdef MTCL_ENABLE_UCX
                             coll = new BroadcastUCC(participants, size, root, rank,  uniqtag);
                             #endif
                             break;
@@ -83,7 +83,7 @@ public:
                             coll = new ScatterGeneric(participants, size, root, rank, uniqtag);
                             break;
                         case MPI:
-                            #ifdef ENABLE_MPI
+                            #ifdef MTCL_ENABLE_MPI
                             void *max_tag;
                             int flag;
                             MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
@@ -91,7 +91,7 @@ public:
                             #endif
                             break;
                         case UCC:
-                            #ifdef ENABLE_UCX
+                            #ifdef MTCL_ENABLE_UCX
                             coll = new ScatterUCC(participants, size, root, rank, uniqtag);
                             #endif
                             break;
@@ -111,7 +111,7 @@ public:
                             coll = new GatherGeneric(participants, size, root, rank, uniqtag);
                             break;
                         case MPI:
-                            #ifdef ENABLE_MPI
+                            #ifdef MTCL_ENABLE_MPI
                             void *max_tag;
                             int flag;
                             MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
@@ -119,7 +119,7 @@ public:
                             #endif
                             break;
                         case UCC:
-                            #ifdef ENABLE_UCX
+                            #ifdef MTCL_ENABLE_UCX
                             coll = new GatherUCC(participants, size, root, rank, uniqtag);
                             #endif
                             break;
@@ -137,7 +137,7 @@ public:
                             coll = new AllGatherGeneric(participants, size, root, rank, uniqtag);
                             break;
                         case MPI:
-                            #ifdef ENABLE_MPI
+                            #ifdef MTCL_ENABLE_MPI
                             void *max_tag;
                             int flag;
                             MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
@@ -145,7 +145,7 @@ public:
                             #endif
                             break;
                         case UCC:
-                            #ifdef ENABLE_UCX
+                            #ifdef MTCL_ENABLE_UCX
                             coll = new AllGatherUCC(participants, size, root, rank, uniqtag);
                             #endif
                             break;
@@ -163,7 +163,7 @@ public:
                             coll = new AlltoallGeneric(participants, size, root, rank, uniqtag);
                             break;
                         case MPI:
-                            #ifdef ENABLE_MPI
+                            #ifdef MTCL_ENABLE_MPI
                             void *max_tag;
                             int flag;
                             MPI_Comm_get_attr( MPI_COMM_WORLD, MPI_TAG_UB, &max_tag, &flag);
@@ -171,7 +171,7 @@ public:
                             #endif
                             break;
                         case UCC:
-                            #ifdef ENABLE_UCX
+                            #ifdef MTCL_ENABLE_UCX
                             coll = new AlltoallUCC(participants, size, root, rank, uniqtag);
                             #endif
                             break;

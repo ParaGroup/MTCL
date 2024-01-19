@@ -67,7 +67,7 @@ void Server() {
 	// Some of the following calls might fail, but at least one will succeed
 	Manager::listen("SHM:/MTCA-server");
 	Manager::listen("TCP:0.0.0.0:42000");
-	Manager::listen("MPI:0:10");
+	Manager::listen("MPI:0"); // can be omitted 
 	Manager::listen("MPIP2P:test");
     Manager::listen("MQTT:label");
     Manager::listen("UCX:0.0.0.0:21000");
@@ -132,7 +132,7 @@ void Client() {
 	auto handle = []() {
 					  auto h = Manager::connect("MPIP2P:test");
 					  if (!h.isValid()) {
-						  auto h = Manager::connect("MPI:0:10");
+						  auto h = Manager::connect("MPI:0");
 						  if (!h.isValid()) {
 							  auto h = Manager::connect("MQTT:label");
                               if(!h.isValid()) {

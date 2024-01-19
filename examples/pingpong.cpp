@@ -76,8 +76,8 @@ int main(int argc, char** argv){
         to make the Manager happy in this "protocol-agnostic" example.
 */
 #ifdef ENABLE_MPI
-    listen_str = {"MPI:"};
-    connect_str = {"MPI:0:5"};
+    listen_str = {"MPI:0"};
+    connect_str = {"MPI:0"};
 #endif
 
 

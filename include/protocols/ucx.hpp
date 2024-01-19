@@ -270,7 +270,7 @@ protected:
     fd_set      set, tmpset;
     int         listen_sck;
 
-#if defined(SINGLE_IO_THREAD)
+#if defined(NO_MTCL_MULTITHREADED)
         int fdmax;
 #else	
     std::atomic<int> fdmax;

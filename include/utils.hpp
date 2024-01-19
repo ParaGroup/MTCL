@@ -179,10 +179,11 @@ static inline int internal_connect(const std::string& address, int retry, unsign
 } // namespace
 
 
-// if SINGLE_IO_THREAD is defined, we do not use locking for accessing
+// if NO_MTCL_MULTITHREADED is defined, we do not use locking for accessing
 // internal data structures, thus some code can be removed.
 // A different case is for the MPIP2P transport protocol.
-#if defined(SINGLE_IO_THREAD)
+#if defined(NO_MTCL_MULTITHREADED)
+#define SINGLE_IO_THREAD
 #define REMOVE_CODE_IF(X)
 #define ADD_CODE_IF(X)    X
 #else

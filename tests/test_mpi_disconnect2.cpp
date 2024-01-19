@@ -1,12 +1,12 @@
 #include <iostream>
-#include "../commlib.hpp"
-
+#include "mtcl.hpp"
+using namespace MTCL;
 int main(int argc, char** argv){
 #ifdef EXCLUDE_MPI
     std::cerr << "You must compile with MPI support this test\n";
     return 1;
 #endif
-    Manager::init();
+    Manager::init("");
 
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -16,7 +16,7 @@ int main(int argc, char** argv){
         std::cout << "0: handle received!\n";
         while(true){
             char tmp;
-            if (h.read(&tmp, 1) == 0){
+            if (h.receive(&tmp, 1) == 0){
                 std::cout << "0: Peer closed connection\n";
                 h.close();
                 break;

@@ -28,23 +28,23 @@
 #endif
 #endif
 
-#ifdef ENABLE_MPI
+#ifdef MTCL_ENABLE_MPI
 #include "protocols/mpi.hpp"
 #endif
 
-#ifdef ENABLE_MPIP2P
+#ifdef MTCL_ENABLE_MPIP2P
 #include "protocols/mpip2p.hpp"
 #endif
 
-#ifdef ENABLE_MQTT
+#ifdef MTCL_ENABLE_MQTT
 #include "protocols/mqtt.hpp"
 #endif
 
-#ifdef ENABLE_UCX
+#ifdef MTCL_ENABLE_UCX
 #include "protocols/ucx.hpp"
 #endif
 
-#ifdef ENABLE_SHM
+#ifdef MTCL_ENABLE_SHM
 #include "protocols/shm.hpp"
 #endif
 namespace MTCL {
@@ -75,7 +75,9 @@ class Manager {
     inline static std::map<std::string, std::tuple<std::string, std::vector<std::string>, std::vector<std::string>>> components;
 #endif
 
-    REMOVE_CODE_IF(inline static std::thread t1);
+#ifndef SINGLE_IO_THREAD
+    inline static std::thread t1;
+#endif
     inline static bool end;
     inline static bool initialized = false;
 
@@ -340,23 +342,23 @@ public:
 		// default transports protocol
         registerType<ConnTcp>("TCP");
 
-#ifdef ENABLE_SHM
+#ifdef MTCL_ENABLE_SHM
 		registerType<ConnSHM>("SHM");
 #endif
 
-#ifdef ENABLE_MPI
+#ifdef MTCL_ENABLE_MPI
         registerType<ConnMPI>("MPI");
 #endif
 
-#ifdef ENABLE_MPIP2P
+#ifdef MTCL_ENABLE_MQTT
         registerType<ConnMPIP2P>("MPIP2P");
 #endif
 
-#ifdef ENABLE_MQTT
+#ifdef MTCL_ENABLE_MQTT
         registerType<ConnMQTT>("MQTT");
 #endif
 
-#ifdef ENABLE_UCX
+#ifdef MTCL_ENABLE_UCX
         registerType<ConnUCX>("UCX");
 #endif
 
@@ -389,8 +391,9 @@ public:
         }
 #endif
 
-        REMOVE_CODE_IF(t1 = std::thread([&](){Manager::getReadyBackend();}));
-
+#ifndef SINGLE_IO_THREAD
+        t1 = std::thread([&](){Manager::getReadyBackend();});
+#endif
         initialized = true;
 		return 0;
     }
@@ -406,8 +409,9 @@ public:
 	 */
     static void finalize(bool blockflag=false) {
 		end = true;
-        REMOVE_CODE_IF(t1.join());
-
+#ifndef SINGLE_IO_THREAD
+        t1.join();
+#endif
         //while(!handleReady.empty()) handleReady.pop();
 #ifndef MTCL_DISABLE_COLLECTIVES
         for(auto& [ctx, _] : contexts) {
@@ -438,8 +442,8 @@ public:
 		// if us is not multiple of the IO_THREAD_POLL_TIMEOUT we wait a bit less....
 		// if the poll timeout is 0, we just iterate us times
 		size_t niter = us.count(); // in case IO_THREAD_POLL_TIMEOUT is set to 0
-		if constexpr (IO_THREAD_POLL_TIMEOUT)
-			niter = us/std::chrono::milliseconds(IO_THREAD_POLL_TIMEOUT);
+		if constexpr (!!IO_THREAD_POLL_TIMEOUT)
+			niter = us/std::chrono::microseconds(IO_THREAD_POLL_TIMEOUT);
 		if (niter==0) niter++;
 		size_t i=0;
 		do { 
@@ -465,7 +469,7 @@ public:
 			}
 			if (i >= niter) break;
 			++i;
-			if constexpr (IO_THREAD_POLL_TIMEOUT)
+			if constexpr (!!IO_THREAD_POLL_TIMEOUT)
 				std::this_thread::sleep_for(std::chrono::microseconds(IO_THREAD_POLL_TIMEOUT));	
 		} while(true);
 		return HandleUser(nullptr, true, true);

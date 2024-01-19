@@ -7,6 +7,7 @@
 #include <shared_mutex>
 #include <thread>
 #include <errno.h>
+#include <atomic>
 
 #include <mpi.h>
 
@@ -157,6 +158,7 @@ protected:
     // <rank, tag> => <HandleMPI, busy>
     std::map<std::pair<int, int>, std::pair<HandleMPI*, bool>> connections;
     std::shared_mutex shm;
+    std::atomic<unsigned int> tag_counter_even = 100, tag_counter_odd = 101;
 
 public:
 
@@ -201,14 +203,14 @@ public:
         }
         
         int tag;
-        try {
+       /* try {
             tag = stoi(dest.substr(dest.find(":") + 1, dest.length()));
         }
         catch(std::invalid_argument&) {
             MTCL_MPI_PRINT(100, "ConnMPI::connect rank must be an integer greater than 0\n");
             errno = EINVAL;
             return nullptr;
-        }
+        }*/
 
         if(rank < 0) {
 			MTCL_MPI_PRINT(100, "ConnMPI::connect the connection rank must be greater or equal than 0\n");
@@ -216,12 +218,23 @@ public:
             return nullptr;
         }
 
-        if (tag <= (int)MPI_CONNECTION_TAG){
+        /*if (tag <= (int)MPI_CONNECTION_TAG){
 			MTCL_MPI_PRINT(100, "ConnMPI::connect the connection tag must be greater than 0\n");
 			errno = EINVAL;
             return nullptr;
         }
-        
+
+        if (connections.count({rank, tag})){
+            MTCL_MPI_PRINT(100, "ConnMPI::connect: connection already done use the previous handler!\n");
+			errno = EINVAL;
+            return nullptr;
+        }*/
+
+        if (this->rank < rank)
+            tag = tag_counter_even.fetch_add(2); 
+        else
+            tag = tag_counter_odd.fetch_add(2);
+
         int header[1];
         header[0] = tag;
         if (MPI_Send(header, 1, MPI_INT, rank, MPI_CONNECTION_TAG, MPI_COMM_WORLD) != MPI_SUCCESS) {
