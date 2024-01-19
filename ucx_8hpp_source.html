@@ -333,7 +333,7 @@ $(function() {
 <div class="line"><a name="l00270"></a><span class="lineno">  270</span>&#160;    fd_set      set, tmpset;</div>
 <div class="line"><a name="l00271"></a><span class="lineno">  271</span>&#160;    <span class="keywordtype">int</span>         listen_sck;</div>
 <div class="line"><a name="l00272"></a><span class="lineno">  272</span>&#160; </div>
-<div class="line"><a name="l00273"></a><span class="lineno">  273</span>&#160;<span class="preprocessor">#if defined(SINGLE_IO_THREAD)</span></div>
+<div class="line"><a name="l00273"></a><span class="lineno">  273</span>&#160;<span class="preprocessor">#if defined(NO_MTCL_MULTITHREADED)</span></div>
 <div class="line"><a name="l00274"></a><span class="lineno">  274</span>&#160;        <span class="keywordtype">int</span> fdmax;</div>
 <div class="line"><a name="l00275"></a><span class="lineno">  275</span>&#160;<span class="preprocessor">#else   </span></div>
 <div class="line"><a name="l00276"></a><span class="lineno">  276</span>&#160;    std::atomic&lt;int&gt; fdmax;</div>
