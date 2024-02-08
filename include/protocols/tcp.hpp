@@ -341,7 +341,7 @@ public:
 		int flag = 1;
 		if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int)) < 0){
 			MTCL_TCP_ERROR("ConnTcp::connect setsockopt ERROR: errno=%d -- %s\n", errno, strerror(errno));
-            return;
+            return nullptr;
 		}
 #endif		
 
