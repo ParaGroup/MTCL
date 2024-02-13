@@ -218,24 +218,25 @@ static inline int internal_connect(const std::string& address, int retry, unsign
 
 
 #if defined(__i386__) || defined(__x86_64__)
-#define PAUSE()  __asm__ __volatile__ ("rep; nop" ::: "memory")
+#define MTCL_PAUSE()  __asm__ __volatile__ ("rep; nop" ::: "memory")
 #endif // __i386
 
 #if defined (__riscv)
-#define PAUSE()  /* ?? */
+#define MTCL_PAUSE()  /* ?? */
 #endif  // __riscv
 
 #if defined(__powerpc__) || defined(__ppc__)
 // yield   ==   or 27, 27, 27
-#define PAUSE()  asm volatile ("or 27,27,27" ::: "memory");
+#define MTCL_PAUSE()  asm volatile ("or 27,27,27" ::: "memory");
 #endif // __powerpc
 
 #if defined(__arm__) || defined(__aarch64__)
-#define PAUSE()  asm volatile("yield" ::: "memory")
+#define MTCL_PAUSE()  asm volatile("yield" ::: "memory")
 #endif //__arm
 
-static inline void cpu_relax(void) {
-	PAUSE();
+
+static inline void mtcl_cpu_relax(void) {
+	MTCL_PAUSE();
 }
 
 #endif

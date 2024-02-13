@@ -131,7 +131,7 @@ public:
 				pthread_spin_lock(&shmp->spinlock);
 				if (shmp->guard==0) break;
 				pthread_spin_unlock(&shmp->spinlock);
-				cpu_relax();
+				mtcl_cpu_relax();
 			} while(1);
 			shmp->data.size=sz;
 			shmp->guard=(void*)data;
@@ -144,7 +144,7 @@ public:
 				pthread_spin_lock(&shmp->spinlock);
 				if (shmp->guard==0) break;
 				pthread_spin_unlock(&shmp->spinlock);
-				cpu_relax();
+				mtcl_cpu_relax();
 			} while(1);
 			shmp->data.size=sz;
 			s = std::min(size, (size_t)SHM_SMALL_MSG_SIZE);
@@ -170,7 +170,7 @@ public:
 				break;
 			}
 			pthread_spin_unlock(&shmp->spinlock);
-			cpu_relax();
+			mtcl_cpu_relax();
 		} while(true);				
 
 		size_t size = shmp->data.size;
@@ -191,7 +191,7 @@ public:
 				pthread_spin_lock(&shmp->spinlock);
 				if (shmp->guard!=0) break;
 				pthread_spin_unlock(&shmp->spinlock);
-				cpu_relax();
+				mtcl_cpu_relax();
 			} while(true);
 		}
 		posix_madvise(data, sz, POSIX_MADV_NORMAL);
@@ -211,7 +211,7 @@ public:
 				break;
 			}
 			pthread_spin_unlock(&shmp->spinlock);
-			cpu_relax();
+			mtcl_cpu_relax();
 		} while(true);				
 		size_t size = shmp->data.size;
 		pthread_spin_unlock(&shmp->spinlock);
@@ -250,7 +250,7 @@ public:
 				pthread_spin_lock(&shmp->spinlock);
 				if (shmp->guard!=0) break;
 				pthread_spin_unlock(&shmp->spinlock);
-				cpu_relax();
+				mtcl_cpu_relax();
 			} while(true);
 		}
 		posix_madvise(data, sz, POSIX_MADV_NORMAL);

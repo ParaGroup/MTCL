@@ -3,7 +3,6 @@
 
 namespace MTCL {
 
-
 #if defined(ENABLE_MPI)
 const bool MPI_ENABLED     = true;
 #define MTCL_ENABLE_MPI
