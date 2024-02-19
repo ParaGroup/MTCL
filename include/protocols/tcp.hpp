@@ -107,6 +107,11 @@ public:
 		return size;
     }
 
+	Request isend(const void* buff, size_t size){
+		this->send(buff, size);
+		return Request(nullptr); // FIX ME
+	}
+
 	// receives the header containing the size (sizeof(size_t) bytes)
 	ssize_t probe(size_t& size, const bool blocking=true) {
 		size_t sz;

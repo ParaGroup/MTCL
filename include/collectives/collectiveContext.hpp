@@ -248,6 +248,16 @@ public:
         return coll->send(buff, size);
     }
 
+     Request isend(const void* buff, size_t size) {
+        if(!canSend) {
+            MTCL_PRINT(100, "[internal]:\t", "CollectiveContext::send invalid operation for the collective\n");
+            errno = EINVAL;
+            abort(); // FIX MEE!
+        }
+
+        return Request(nullptr); // FIX MEE
+    }
+
 
     /**
      * @brief Check for incoming message and write in \b size the amount of data

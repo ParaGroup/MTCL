@@ -15,8 +15,20 @@
 #include "../protocolInterface.hpp"
 #include "../utils.hpp"
 #include "../config.hpp"
+#include "../async.hpp"
 
 namespace MTCL {
+
+class HandleMPI; // forward declaration for requestMPI class
+
+class requestMPI : public request_internal {
+    friend class HandleMPI;
+    MPI_Request requests[2];
+
+    int test(int& result){
+        return MPI_Testall(2, requests, &result, MPI_STATUSES_IGNORE);
+    }
+};
 
 class HandleMPI : public Handle {
 	
@@ -26,28 +38,21 @@ public:
     int tag;
     HandleMPI(ConnType* parent, int rank, int tag): Handle(parent), rank(rank), tag(tag){}
 	
-    /*ssize_t send(const void* buff, size_t size) {
-        MPI_Request request;
-        if (MPI_Isend(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &request) != MPI_SUCCESS){
+    Request isend(const void* buff, size_t size) {
+        requestMPI* requestPtr = new requestMPI;
+
+        if (MPI_Isend(&size, 1, MPI_UNSIGNED_LONG, this->rank, this->tag, MPI_COMM_WORLD, requestPtr->requests) != MPI_SUCCESS){
+           MTCL_MPI_PRINT(100, "HandleMPI::send MPI_ISEND ERROR\n");
+           errno = ECOMM;
+        }
+
+        if (MPI_Isend(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, requestPtr->requests+1) != MPI_SUCCESS){
 			MTCL_MPI_PRINT(100, "HandleMPI::send MPI_Isend ERROR\n");
             errno = ECOMM;
-            return -1;
         }
             
-        int flag = 0;
-        MPI_Status status;
-        while(!flag && !closing) {
-            MPI_Test(&request, &flag, &status);
-        }
-
-        if(!flag && closing) {
-			MTCL_MPI_PRINT(100, "HandleMPI::send MPI_Test ERROR\n");
-            errno = ECONNRESET;
-            return -1;
-        }
-
-        return size;
-    }*/
+        return Request(requestPtr);
+    }
 
     ssize_t send(const void* buff, size_t size) {
         if (MPI_Send(&size, 1, MPI_UNSIGNED_LONG, this->rank, this->tag, MPI_COMM_WORLD) != MPI_SUCCESS){

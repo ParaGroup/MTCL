@@ -6,6 +6,7 @@
 
 #include "protocolInterface.hpp"
 #include "utils.hpp"
+#include "async.hpp"
 
 namespace MTCL {
 
@@ -53,6 +54,16 @@ public:
      */
     virtual ssize_t send(const void* buff, size_t size) = 0; 
 
+    /**
+     * @brief Send \b size byte of \b buff to the remote end connected to this
+     * Handle. Wait until all data has been sent or until the peer close the
+     * connection.
+     * 
+     * @param buff data to be sent
+     * @param size amount of bytes to send
+     * @return an object of type request to get status of the send.
+     */
+    virtual Request isend(const void* buff, size_t size) = 0; 
 
     /**
      * @brief Check for incoming message and write in \b size the amount of data
