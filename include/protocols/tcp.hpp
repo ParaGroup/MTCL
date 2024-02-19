@@ -109,7 +109,7 @@ public:
 
 	Request isend(const void* buff, size_t size){
 		this->send(buff, size);
-		return Request(nullptr); // FIX ME
+		return Request(); // push the dummy always true request
 	}
 
 	// receives the header containing the size (sizeof(size_t) bytes)

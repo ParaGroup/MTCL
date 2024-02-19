@@ -14,6 +14,7 @@ class dummy_request_internal : public request_internal {
 };
 
 class Request {
+
     template <typename... R> friend bool testAll(const Request&...);
     template <typename... R> friend void waitAll(const Request&, const R&...);
     request_internal* r;
@@ -25,9 +26,14 @@ class Request {
 
 public:
     // allow just move constructor and move assignment
-    Request(Request&&);
-    Request& operator=(Request&&);
+    Request(Request&&) = default;
+    Request& operator=(Request&& i){
+        r = i.r;
+        i.r = nullptr;
+        return *this;
+    }
 
+    Request() : r(new dummy_request_internal) {}
     Request(request_internal* r) : r(r) {}
     ~Request(){
         if (r) delete r; // it should not be called after the object is moved
@@ -58,14 +64,6 @@ void waitAll(const Request& f, const Args&... fs){
         sleep(1);
     }
 }
-
-
-//template<typename... Args>
-//void myPrint(const myObject& f, const Args&... args){
-//    for(auto o : {&f, &args...}) std::cout << o->value << std::endl;
-//}
-
-
 
 
 

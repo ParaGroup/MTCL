@@ -24,6 +24,11 @@ public:
     ssize_t send(const void* buff, size_t size) {
 		return out.put(buff,size);
     }
+
+	Request isend(const void* buff, size_t size) {
+		out.put(buff,size);
+		return Request();
+	}
 	// receives the header containing the size (sizeof(size_t) bytes)
 	ssize_t probe(size_t& size, const bool blocking=true) {
 		ssize_t sz;
