@@ -22,7 +22,9 @@
 namespace MTCL {
 
 class HandleUCX;
-
+typedef struct test_req {
+    int complete;
+} test_req_t;
 class requestUCX : public request_internal {
     friend class HandleUCX;
     test_req_t* req;
@@ -36,7 +38,7 @@ class requestUCX : public request_internal {
         }
         
         ucp_worker_progress(*ucp_worker);
-        if(ctx->complete == 0) {
+        if(ctx.complete == 0) {
             result = 0;
             return 0;
         }
@@ -44,8 +46,7 @@ class requestUCX : public request_internal {
         ucs_status_t status = ucp_request_check_status(req);
         ucp_request_free(req);
         if(status != UCS_OK) {
-            MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_%s status error (%s)\n",
-                operation, ucs_status_string(status));
+            MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_asyncTest status error (%s)\n", ucs_status_string(status));
         }
         result = 1;
         return status;
@@ -54,9 +55,9 @@ class requestUCX : public request_internal {
 
 class HandleUCX : public Handle {
 
-    typedef struct test_req {
-        int complete;
-    } test_req_t;
+    //typedef struct test_req {
+    //    int complete;
+    //} test_req_t;
 
     ucs_status_ptr_t request = nullptr;
     test_req_t ctx;
@@ -258,7 +259,7 @@ public:
 
         ucp_request_param_t param;
         requestUCX* _request = new requestUCX;
-        _request->req = &ucp_worker;
+        _request->ucp_worker = &ucp_worker;
 
         fill_request_param(&_request->ctx, &param, true);
         param.cb.send = send_cb;
