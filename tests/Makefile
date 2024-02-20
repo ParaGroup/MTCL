@@ -25,10 +25,10 @@ ifeq ($(findstring MPI,$(TPROTOCOL)),MPI)
 	CXX 	  = mpicxx
 	CXXFLAGS += -DENABLE_MPI
 	TARGET    = $(MTCL_DIR)protocols/stop_accept
-ifdef MPI_HOME
-	INCS   += `pkg-config --cflags-only-I $(MPI_HOME)/lib/pkgconfig/ompi-cxx.pc`
-	LIBS   += `pkg-config --libs $(MPI_HOME)/lib/pkgconfig/ompi-cxx.pc`
-endif
+#ifdef MPI_HOME
+#	INCS   += `pkg-config --cflags-only-I $(MPI_HOME)/lib/pkgconfig/ompi-cxx.pc`
+#	LIBS   += `pkg-config --libs $(MPI_HOME)/lib/pkgconfig/ompi-cxx.pc`
+#endif
 endif
 
 ifeq ($(findstring MQTT, $(TPROTOCOL)),MQTT)
