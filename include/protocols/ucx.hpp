@@ -36,7 +36,7 @@ class requestUCX : public request_internal {
     test_req_t ctx;
     ucp_worker_h ucp_worker;
     
-    requestUCX(void* buff, size_t size, ucp_worker_h* w) : ucp_worker(w) {
+    requestUCX(void* buff, size_t size, ucp_worker_h w) : ucp_worker(w) {
         sz = htobe64(size);
         iov[0].buffer = &sz;
         iov[0].length = sizeof(sz);
@@ -54,14 +54,14 @@ class requestUCX : public request_internal {
         }
 
         if(UCS_PTR_IS_ERR(request)) {
-            status = UCS_PTR_STATUS(l_request);
+            status = UCS_PTR_STATUS(request);
             MTCL_UCX_PRINT(100, "HandleUCX::test UCX_isend request error (%s)\n", ucs_status_string(status));
             result = 0;
             return status;
         }
 
         ucp_worker_progress(ucp_worker);
-        if(ctx->complete == 0) {
+        if(ctx.complete == 0) {
             result = 0;
             return 0;
         }
