@@ -36,7 +36,7 @@ class requestUCX : public request_internal {
     test_req_t ctx;
     ucp_worker_h ucp_worker;
     
-    requestUCX(void* buff, size_t size, ucp_worker_h w) : ucp_worker(w) {
+    requestUCX(const void* buff, size_t size, ucp_worker_h w) : ucp_worker(w) {
         sz = htobe64(size);
         iov[0].buffer = &sz;
         iov[0].length = sizeof(sz);
