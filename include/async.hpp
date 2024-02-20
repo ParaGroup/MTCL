@@ -61,7 +61,6 @@ void waitAll(const Request& f, const Args&... fs){
             if (!outTest) allCompleted = false; 
         }
         if (allCompleted) return;
-        sleep(1);
     }
 }
 
