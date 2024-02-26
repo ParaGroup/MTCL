@@ -270,7 +270,7 @@ public:
         return size;
     }
 
-    Request isend(const void* buff, size_t size) {
+    ssize_t isend(const void* buff, size_t size, Request& r) {
         requestUCX* rq = new requestUCX(buff, size, ucp_worker);
 
         ucp_request_param_t param;
@@ -278,7 +278,8 @@ public:
         param.cb.send = send_cb;
         rq->request       = ucp_stream_send_nbx(endpoint, rq->iov, 2, &param);
 
-        return Request(rq);
+        r.__setInternalR(rq);
+        return size;
     }
 
     ssize_t receive(void* buff, size_t size) {

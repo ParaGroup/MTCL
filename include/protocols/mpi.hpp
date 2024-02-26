@@ -38,20 +38,23 @@ public:
     int tag;
     HandleMPI(ConnType* parent, int rank, int tag): Handle(parent), rank(rank), tag(tag){}
 	
-    Request isend(const void* buff, size_t size) {
+    ssize_t isend(const void* buff, size_t size, Request& r) {
         requestMPI* requestPtr = new requestMPI;
 
         if (MPI_Isend(&size, 1, MPI_UNSIGNED_LONG, this->rank, this->tag, MPI_COMM_WORLD, requestPtr->requests) != MPI_SUCCESS){
            MTCL_MPI_PRINT(100, "HandleMPI::send MPI_ISEND ERROR\n");
            errno = ECOMM;
+           return -1;
         }
 
         if (MPI_Isend(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, requestPtr->requests+1) != MPI_SUCCESS){
 			MTCL_MPI_PRINT(100, "HandleMPI::send MPI_Isend ERROR\n");
             errno = ECOMM;
+            return -1;
         }
-            
-        return Request(requestPtr);
+
+        r.__setInternalR(requestPtr);
+        return size;
     }
 
     ssize_t send(const void* buff, size_t size) {

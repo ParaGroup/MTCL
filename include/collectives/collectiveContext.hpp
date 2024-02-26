@@ -248,14 +248,14 @@ public:
         return coll->send(buff, size);
     }
 
-     Request isend(const void* buff, size_t size) {
+     ssize_t isend(const void* buff, size_t size, Request& r) {
         if(!canSend) {
             MTCL_PRINT(100, "[internal]:\t", "CollectiveContext::send invalid operation for the collective\n");
             errno = EINVAL;
             abort(); // FIX MEE!
         }
 
-        return Request(nullptr); // FIX MEE
+        return coll->send(buff, size);
     }
 
 

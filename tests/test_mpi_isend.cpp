@@ -19,7 +19,10 @@ int main(int argc, char** argv){
             std::cout << "0: get an handle!\n";
             auto h = Manager::getNext();
             size_t sz;
-            h.probe(sz, true);
+            if (h.probe(sz, true) == 0){
+                h.close();
+                break;
+            };
             char buff[sz+1];
             h.receive(buff, sz);
             buff[sz] = '\0';
@@ -34,13 +37,14 @@ int main(int argc, char** argv){
 
         {
             std::string payload = "THIS IS THE PAYLOAD OF THE MESSAGE!";
-            auto req = h.isend(payload.c_str(), payload.size());
+            MTCL::Request req;
+            h.isend(payload.c_str(), payload.size(), req);
 
 
-            MTCL::Request req2(nullptr);
+            MTCL::Request req2;
             if (true){
                 std::string payload2 = "THIS IS THE PAYLOAD TWOOOO OF THE MESSAGE!";
-                req2 = h.isend(payload2.c_str(), payload2.size());
+                h.isend(payload2.c_str(), payload2.size(), req2);
             }
             waitAll(req, req2);
         }

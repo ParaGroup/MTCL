@@ -23,6 +23,11 @@ class Request {
     Request(const Request&);
     Request& operator=(const Request&);
 
+    inline int test(int& result) const{
+        if (r) return r->test(result);
+        result = 1;
+        return 0;
+    }
 
 public:
     // allow just move constructor and move assignment
@@ -33,19 +38,21 @@ public:
         return *this;
     }
 
-    Request() : r(new dummy_request_internal) {}
+    Request() : r(nullptr) {}
     Request(request_internal* r) : r(r) {}
     ~Request(){
         if (r) delete r; // it should not be called after the object is moved
     }
+
+    void __setInternalR(request_internal* _r){ this->r = _r;}
 };
 
 
 template <typename... Request>
 bool testAll(const Request&... requests) {
     int outTest = false;
-    for(const auto& p : {requests...}) {
-        p.r->test(&outTest);
+    for(const auto& p : {&requests...}) {
+        p->test(&outTest);
         if (!outTest) return false; 
     }
     return true;
@@ -57,7 +64,7 @@ void waitAll(const Request& f, const Args&... fs){
     while(true){
         bool allCompleted = true;
         for(auto p : {&f, &fs...}) {
-            p->r->test(outTest);
+            p->test(outTest);
             if (!outTest) allCompleted = false; 
         }
         if (allCompleted) return;

@@ -63,7 +63,7 @@ public:
      * @param size amount of bytes to send
      * @return an object of type request to get status of the send.
      */
-    virtual Request isend(const void* buff, size_t size) = 0; 
+    virtual ssize_t isend(const void* buff, size_t size, Request& r) = 0; 
 
     /**
      * @brief Check for incoming message and write in \b size the amount of data

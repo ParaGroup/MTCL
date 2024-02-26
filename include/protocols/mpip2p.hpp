@@ -29,6 +29,17 @@
 
 namespace MTCL {
 
+class HandleMPIP2P;
+
+class requestMPIP2P : public request_internal {
+    friend class HandleMPIP2P;
+    MPI_Request requests[2];
+
+    int test(int& result){
+        return MPI_Testall(2, requests, &result, MPI_STATUSES_IGNORE);
+    }
+};
+
 class HandleMPIP2P : public Handle {
 
 public:
@@ -70,6 +81,25 @@ public:
             return -1;
         }
 
+        return size;
+    }
+
+    ssize_t isend(const void* buff, size_t size, Request& r) {
+        
+        requestMPIP2P* rq = new requestMPIP2P;
+
+        if (MPI_Isend(&size, 1, MPI_UNSIGNED_LONG, this->rank, 0, this->server_comm, rq->requests) != MPI_SUCCESS){
+            MTCL_MPI_PRINT(100, "HandleMPIP2P::send MPI_Send Header ERROR\n");
+            errno = ECOMM;
+            return -1;
+        }
+    
+        if (MPI_Isend(buff, size, MPI_BYTE, this->rank, 0, this->server_comm, rq->requests+1) != MPI_SUCCESS){
+            MTCL_MPI_PRINT(100, "HandleMPIP2P::send MPI_Send Payload ERROR\n");
+            errno = ECOMM;
+            return -1;
+        }
+        r.__setInternalR(rq);
         return size;
     }
 

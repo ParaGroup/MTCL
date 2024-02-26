@@ -79,19 +79,14 @@ public:
         return realHandle->send(buff, size);
     }
 
-	Request isend(const void* buff, size_t size){
-		/*if (!isWritable) {
-			MTCL_PRINT(100, "[internal]:\t", "HandleUser::send EBADF (1)\n");
-            errno = EBADF; // the "communicator" is not valid or closed
-			return -1;
-		}*/
+	ssize_t isend(const void* buff, size_t size, Request& r){
         newConnection = false;
         if (!realHandle || realHandle->closed_wr) {
 			MTCL_PRINT(100, "[internal]:\t", "HandleUser::send EBADF (2)\n");
             errno = EBADF; // the "communicator" is not valid or closed
-            abort(); /// TO FIX!!!! 
+			return -1;
         }
-        return realHandle->isend(buff, size);
+        return realHandle->isend(buff, size, r);
     }
 
 	ssize_t probe(size_t& size, const bool blocking=true) {
