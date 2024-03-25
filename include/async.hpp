@@ -60,12 +60,16 @@ bool testAll(const Request&... requests) {
 
 template <typename... Args>
 void waitAll(const Request& f, const Args&... fs){
-    int outTest = 0;
+    int outTest = 0; 
     while(true){
         bool allCompleted = true;
-        for(auto p : {&f, &fs...}) {
-            p->test(outTest);
-            if (!outTest) allCompleted = false; 
+        for(auto p : {&f, &fs...}) { 
+	    if (p->test(outTest) < 0) {
+	        MTCL_ERROR( "[waitAll]:\t", "ERROR\n");
+		return;
+ 	    }
+            if (!outTest)
+		 allCompleted = false;
         }
         if (allCompleted) return;
         if constexpr(WAIT_INTERNAL_TIMEOUT > 0)

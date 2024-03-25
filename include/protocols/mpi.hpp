@@ -26,7 +26,14 @@ class requestMPI : public request_internal {
     MPI_Request requests[2];
 
     int test(int& result){
-        return MPI_Testall(2, requests, &result, MPI_STATUSES_IGNORE);
+	if (MPI_Testall(2, this->requests, &result, MPI_STATUSES_IGNORE) != MPI_SUCCESS){
+            MTCL_MPI_PRINT(100, "requestMPI::test MPI_TestAll ERROR\n");
+            result=0;
+	    return -1;
+         }
+        return 0;       
+
+// return MPI_Testall(2, requests, &result, MPI_STATUSES_IGNORE);
     }
 };
 
