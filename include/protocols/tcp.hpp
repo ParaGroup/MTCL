@@ -302,8 +302,8 @@ public:
 					// 	fdmax = connfd;
 					// }
                     connections[connfd] = new HandleTCP(this, connfd);
-					addinQ(true, connections[connfd]);
-					REMOVE_CODE_IF(ulock.unlock());                    
+					REMOVE_CODE_IF(ulock.unlock());
+					addinQ(true, connections[connfd]);                    
                 } else {
                     REMOVE_CODE_IF(ulock.lock());
 

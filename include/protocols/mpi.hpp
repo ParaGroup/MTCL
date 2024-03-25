@@ -290,8 +290,8 @@ public:
             HandleMPI* handle = new HandleMPI(this, source, source_tag);
             REMOVE_CODE_IF(ulock.lock());			
             connections.insert({{source, source_tag},{handle, false}});
-            addinQ(true, handle);
             REMOVE_CODE_IF(ulock.unlock());
+            addinQ(true, handle);
         }
 		
         REMOVE_CODE_IF(ulock.lock());

@@ -6,7 +6,7 @@ namespace MTCL {
 // -------------- some configuration parameters ----------------
 
 // all timeouts are in microseconds unless otherwise stated
-const unsigned IO_THREAD_POLL_TIMEOUT  = 10; 
+const unsigned IO_THREAD_POLL_TIMEOUT  = 10;
 
 // ------ TCP ------
 const unsigned TCP_BACKLOG             = 128;
@@ -47,6 +47,9 @@ const unsigned UCX_POLL_TIMEOUT        = 10;
 const int CCONNECTION_RETRY            = 10;
 const unsigned CCONNECTION_TIMEOUT     = 100;     // milliseconds
 const int GATHER_THRESHOLD_MSG_SIZE    = (1<<18); // bytes
+
+// --------- ASYNC ----------
+const unsigned WAIT_INTERNAL_TIMEOUT   = 100;
 
 } //namespace
 #endif 

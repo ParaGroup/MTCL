@@ -252,12 +252,16 @@ public:
 
             /* Retrieve the remote size and create one handle for each of the
              * connecting rank */
+         
             REMOVE_CODE_IF(std::unique_lock ulock(shm));
             comm_sizes.insert({client, remote_size});
+            REMOVE_CODE_IF(ulock.unlock());
             for(int i=0; i<remote_size; i++) {
 
                 HandleMPIP2P* handle = new HandleMPIP2P(this, i, client, false);
+                REMOVE_CODE_IF(ulock.lock());
                 connections.insert({handle, false});
+                REMOVE_CODE_IF(ulock.unlock());
                 addinQ(true, handle);  
     
             }

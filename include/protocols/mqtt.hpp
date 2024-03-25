@@ -266,8 +266,8 @@ public:
 
                 REMOVE_CODE_IF(ulock.lock());
                 connections.insert({handle, false});
-                addinQ(true, handle);
                 REMOVE_CODE_IF(ulock.unlock());
+                addinQ(true, handle);
             }
         }
         else {

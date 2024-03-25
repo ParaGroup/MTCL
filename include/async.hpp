@@ -68,6 +68,9 @@ void waitAll(const Request& f, const Args&... fs){
             if (!outTest) allCompleted = false; 
         }
         if (allCompleted) return;
+        if constexpr(WAIT_INTERNAL_TIMEOUT > 0)
+            std::this_thread::sleep_for(std::chrono::microseconds(WAIT_INTERNAL_TIMEOUT));
+
     }
 }
 
