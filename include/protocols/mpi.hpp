@@ -35,6 +35,11 @@ class requestMPI : public request_internal {
 
 // return MPI_Testall(2, requests, &result, MPI_STATUSES_IGNORE);
     }
+
+    int make_progress(){
+        std::this_thread::sleep_for(std::chrono::microseconds(MPI_MAKE_PROGRESS_TIME));
+        return 0;
+    }
 };
 
 class HandleMPI : public Handle {

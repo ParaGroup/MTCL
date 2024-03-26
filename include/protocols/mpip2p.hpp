@@ -38,6 +38,11 @@ class requestMPIP2P : public request_internal {
     int test(int& result){
         return MPI_Testall(2, requests, &result, MPI_STATUSES_IGNORE);
     }
+
+    int make_progress(){
+        std::this_thread::sleep_for(std::chrono::microseconds(MPI_MAKE_PROGRESS_TIME));
+        return 0;
+    }
 };
 
 class HandleMPIP2P : public Handle {

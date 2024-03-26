@@ -77,6 +77,20 @@ class requestUCX : public request_internal {
         request = NULL;
         return status;
     }
+
+    int make_progress(){
+        auto start = std::chrono::steady_clock::now();
+        if (!request) return 0;
+        if (UCS_PTR_IS_ERR(request)) return UCS_PTR_STATUS(request);
+        auto end = start + std::chrono::microseconds(UCX_MAKE_PROGRESS_TIME);
+    
+        while (std::chrono::steady_clock::now() < end) {
+            ucp_worker_progress(ucp_worker);
+            if(ctx.complete == 0) return 0;
+        }
+
+        return 0;
+    }
 };
 
 class HandleUCX : public Handle {

@@ -49,15 +49,14 @@ public:
     }
 
     ssize_t send(const void* buff, size_t size) {
-        // if(closing) {
-        //     MTCL_MQTT_PRINT(100, "HandleMQTT::send connection ERROR\n");
-        //     errno = ECONNRESET;
-        //     return -1;
-        // }
         size_t sz = htobe64(size);
         client->publish(out_topic, &sz, sizeof(size_t));
         client->publish(out_topic, buff, size);
         return size;
+    }
+
+    ssize_t isend(const void* buff, size_t size, Request& r){
+        return this->send(buff, size);
     }
 
     ssize_t receive(void* buff, size_t size){

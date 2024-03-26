@@ -26,7 +26,7 @@ int main(int argc, char** argv){
             char buff[sz+1];
             h.receive(buff, sz);
             buff[sz] = '\0';
-            std::cout << "Received: " << buff << std::endl;
+            std::cout << "Received a string of size: " << sz << std::endl;
         }
 
 
@@ -42,10 +42,8 @@ int main(int argc, char** argv){
 
 
             MTCL::Request req2;
-            if (true){
-                std::string payload2 = "THIS IS THE PAYLOAD TWOOOO OF THE MESSAGE!";
+                std::string payload2(8000000, 'P');
                 h.isend(payload2.c_str(), payload2.size(), req2);
-            }
             waitAll(req, req2);
         }
 

@@ -6,6 +6,7 @@ namespace MTCL {
 class request_internal {
 public:
     virtual int test(int& result) = 0;
+    virtual int make_progress() { return 0; }
     virtual ~request_internal() {} // make sure to delete the whole inherited object
 };
 
@@ -26,6 +27,11 @@ class Request {
     inline int test(int& result) const{
         if (r) return r->test(result);
         result = 1;
+        return 0;
+    }
+
+    inline int make_progress() const{
+        if (r) return r->make_progress();
         return 0;
     }
 
@@ -72,6 +78,8 @@ void waitAll(const Request& f, const Args&... fs){
 		 allCompleted = false;
         }
         if (allCompleted) return;
+        for(auto p : {&f, &fs...}) p->make_progress();
+        
         if constexpr(WAIT_INTERNAL_TIMEOUT > 0)
             std::this_thread::sleep_for(std::chrono::microseconds(WAIT_INTERNAL_TIMEOUT));
 

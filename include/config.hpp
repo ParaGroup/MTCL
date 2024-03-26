@@ -21,6 +21,7 @@ const unsigned SHM_MAX_CONCURRENT_CONN = 1024;
 const unsigned MPI_POLL_TIMEOUT        = 10; 
 const unsigned MPI_CONNECTION_TAG      = 0;
 const unsigned MPI_DISCONNECT_TAG      = 1;
+const unsigned MPI_MAKE_PROGRESS_TIME  = 10; // uS
 
 // ------ MPIP2P ------
 const unsigned MPIP2P_POLL_TIMEOUT     = 10; 
@@ -41,7 +42,10 @@ const std::string MQTT_SERVER_ADDRESS{ "tcp://localhost:1883" };
 
 // ------- UCX ------
 const unsigned UCX_BACKLOG             = 128;
-const unsigned UCX_POLL_TIMEOUT        = 10; 
+const unsigned UCX_POLL_TIMEOUT        = 10;
+
+// amount of time we call continously make_progress 
+const unsigned UCX_MAKE_PROGRESS_TIME  = 100; // uS
 
 // -------- COLLECTIVES ------
 const int CCONNECTION_RETRY            = 10;
