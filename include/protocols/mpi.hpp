@@ -23,10 +23,11 @@ class HandleMPI; // forward declaration for requestMPI class
 
 class requestMPI : public request_internal {
     friend class HandleMPI;
-    MPI_Request requests[2];
+    MPI_Request requests[2] = {MPI_REQUEST_NULL, MPI_REQUEST_NULL};
+    size_t size;
 
     int test(int& result){
-        if (MPI_Testall(2, this->requests, &result, MPI_STATUSES_IGNORE) != MPI_SUCCESS){
+        if (MPI_Testall(2, this->requests, &result, MPI_STATUS_IGNORE) != MPI_SUCCESS){
             MTCL_MPI_PRINT(100, "requestMPI::test MPI_TestAll ERROR\n");
             result=0;
             return -1;
@@ -35,7 +36,8 @@ class requestMPI : public request_internal {
     }
 
     int make_progress(){
-        std::this_thread::sleep_for(std::chrono::microseconds(MPI_MAKE_PROGRESS_TIME));
+        if constexpr (MPI_MAKE_PROGRESS_TIME > 0)
+            std::this_thread::sleep_for(std::chrono::microseconds(MPI_MAKE_PROGRESS_TIME));
         return 0;
     }
 };
@@ -50,21 +52,22 @@ public:
 	
     ssize_t isend(const void* buff, size_t size, Request& r) {
         requestMPI* requestPtr = new requestMPI;
+        requestPtr->size = size;
 
-        if (MPI_Isend(&size, 1, MPI_UNSIGNED_LONG, this->rank, this->tag, MPI_COMM_WORLD, requestPtr->requests) != MPI_SUCCESS){
+	    if (MPI_Isend(&requestPtr->size, 1, MPI_UNSIGNED_LONG, this->rank, this->tag, MPI_COMM_WORLD, requestPtr->requests) != MPI_SUCCESS){
            MTCL_MPI_PRINT(100, "HandleMPI::send MPI_ISEND ERROR\n");
            errno = ECOMM;
            return -1;
         }
 
-        if (MPI_Isend(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, requestPtr->requests+1) != MPI_SUCCESS){
-			MTCL_MPI_PRINT(100, "HandleMPI::send MPI_Isend ERROR\n");
+        if (MPI_Isend(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &requestPtr->requests[1]) != MPI_SUCCESS){
+	        MTCL_MPI_PRINT(100, "HandleMPI::send MPI_Isend ERROR\n");
             errno = ECOMM;
             return -1;
         }
 
         r.__setInternalR(requestPtr);
-        return size;
+	    return size;
     }
 
     ssize_t send(const void* buff, size_t size) {
@@ -82,37 +85,6 @@ public:
         return size;
     }
 
-    /*ssize_t receive(void* buff, size_t size){
-        MPI_Status status; 
-        int count;
-        int flag = 0;
-		if constexpr (MPI_POLL_TIMEOUT) {
-			while(true){
-				if (MPI_Iprobe(rank, tag, MPI_COMM_WORLD, &flag, &status) != MPI_SUCCESS) {
-					MTCL_MPI_PRINT(100, "HandleMPI::receive MPI_Iproble ERROR\n");
-					errno = ECOMM;
-					return -1;
-				}				
-				if (flag) {
-					if (MPI_Recv(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &status) != MPI_SUCCESS) {
-						MTCL_MPI_PRINT(100, "HandleMPI::receive MPI_Recv ERROR\n");
-						errno = ECOMM;
-						return -1;
-					}
-					MPI_Get_count(&status, MPI_BYTE, &count);
-					return count;
-				} else if (closing) return 0;
-				std::this_thread::sleep_for(std::chrono::microseconds(MPI_POLL_TIMEOUT));
-			}
-        }
-		if (MPI_Recv(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &status) != MPI_SUCCESS) {
-			MTCL_MPI_PRINT(100, "HandleMPI::receive MPI_Recv ERROR\n");
-			errno = ECOMM;
-			return -1;
-		}
-		MPI_Get_count(&status, MPI_BYTE, &count);
-		return count;
-    }*/
 
     ssize_t receive(void* buff, size_t size){
         int r;
@@ -206,10 +178,7 @@ public:
 
 
     Handle* connect(const std::string& dest, int, unsigned) {
-        // in pratica questo specifica il tag utilizzato per le comunicazioni successive
-        // per ora solo tag, poi si vede
-
-        //parse della stringa
+    
         int rank;
         try {
             rank = stoi(dest.substr(0, dest.find(":")));
@@ -221,14 +190,6 @@ public:
         }
         
         int tag;
-       /* try {
-            tag = stoi(dest.substr(dest.find(":") + 1, dest.length()));
-        }
-        catch(std::invalid_argument&) {
-            MTCL_MPI_PRINT(100, "ConnMPI::connect rank must be an integer greater than 0\n");
-            errno = EINVAL;
-            return nullptr;
-        }*/
 
         if(rank < 0) {
 			MTCL_MPI_PRINT(100, "ConnMPI::connect the connection rank must be greater or equal than 0\n");
@@ -236,17 +197,6 @@ public:
             return nullptr;
         }
 
-        /*if (tag <= (int)MPI_CONNECTION_TAG){
-			MTCL_MPI_PRINT(100, "ConnMPI::connect the connection tag must be greater than 0\n");
-			errno = EINVAL;
-            return nullptr;
-        }
-
-        if (connections.count({rank, tag})){
-            MTCL_MPI_PRINT(100, "ConnMPI::connect: connection already done use the previous handler!\n");
-			errno = EINVAL;
-            return nullptr;
-        }*/
 
         if (this->rank < rank)
             tag = tag_counter_even.fetch_add(2); 

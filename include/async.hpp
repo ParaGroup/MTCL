@@ -26,7 +26,7 @@ class Request {
 
     inline int test(int& result) const{
         if (r) return r->test(result);
-        result = 1;
+    	result = 1;
         return 0;
     }
 
@@ -37,7 +37,11 @@ class Request {
 
 public:
     // allow just move constructor and move assignment
-    Request(Request&&) = default;
+    Request(Request&& i) {
+	    this->r = i.r; 
+        i.r = nullptr;
+	}
+
     Request& operator=(Request&& i){
         r = i.r;
         i.r = nullptr;
@@ -70,13 +74,14 @@ void waitAll(const Request& f, const Args&... fs){
     while(true){
         bool allCompleted = true;
         for(auto p : {&f, &fs...}) { 
-	    if (p->test(outTest) < 0) {
-	        MTCL_ERROR( "[waitAll]:\t", "Test ERROR\n");
-		return;
- 	    }
+            if (p->test(outTest) < 0) {
+                MTCL_ERROR( "[waitAll]:\t", "Test ERROR\n");
+                return;
+            }
             if (!outTest)
-		 allCompleted = false;
+                allCompleted = false;
         }
+
         if (allCompleted) return;
         for(auto p : {&f, &fs...}) 
             if (p->make_progress() < 0)

@@ -21,7 +21,7 @@ const unsigned SHM_MAX_CONCURRENT_CONN = 1024;
 const unsigned MPI_POLL_TIMEOUT        = 10; 
 const unsigned MPI_CONNECTION_TAG      = 0;
 const unsigned MPI_DISCONNECT_TAG      = 1;
-const unsigned MPI_MAKE_PROGRESS_TIME  = 10; // uS
+const unsigned MPI_MAKE_PROGRESS_TIME  = 0; // uS: it should not be required
 
 // ------ MPIP2P ------
 const unsigned MPIP2P_POLL_TIMEOUT     = 10; 
