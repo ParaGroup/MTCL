@@ -34,13 +34,15 @@ class HandleMPIP2P;
 class requestMPIP2P : public request_internal {
     friend class HandleMPIP2P;
     MPI_Request requests[2];
+    size_t size;
 
     int test(int& result){
         return MPI_Testall(2, requests, &result, MPI_STATUSES_IGNORE);
     }
 
     int make_progress(){
-        std::this_thread::sleep_for(std::chrono::microseconds(MPI_MAKE_PROGRESS_TIME));
+        if constexpr (MPI_MAKE_PROGRESS_TIME > 0)
+            std::this_thread::sleep_for(std::chrono::microseconds(MPI_MAKE_PROGRESS_TIME));
         return 0;
     }
 };
@@ -54,26 +56,6 @@ public:
     HandleMPIP2P(ConnType* parent, int rank, MPI_Comm server_comm, bool busy=true) : Handle(parent), rank(rank), server_comm(server_comm) {}
 
     ssize_t send(const void* buff, size_t size) {
-        /*MPI_Request request;
-        if (MPI_Isend(buff, size, MPI_BYTE, rank, 0, server_comm, &request) != MPI_SUCCESS) {
-			MTCL_MPIP2P_PRINT(100, "HandleMPIP2P::send MPI_Isend ERROR\n");
-            errno = ECOMM;	
-            return -1;
-		}
-
-        int flag = 0;
-        MPI_Status status;
-        while(!flag && !closing) {
-            MPI_Test(&request, &flag, &status);
-            checkClosing();
-        }
-
-        if(!flag && closing) {
-			MTCL_MPIP2P_PRINT(100, "HandleMPIP2P::send MPI_Test ERROR\n");
-            errno = ECONNRESET;
-            return -1;
-        }*/
-
         if (MPI_Send(&size, 1, MPI_UNSIGNED_LONG, this->rank, 0, this->server_comm) != MPI_SUCCESS){
             MTCL_MPI_PRINT(100, "HandleMPIP2P::send MPI_Send Header ERROR\n");
             errno = ECOMM;
@@ -92,14 +74,15 @@ public:
     ssize_t isend(const void* buff, size_t size, Request& r) {
         
         requestMPIP2P* rq = new requestMPIP2P;
+        rq->size = size;
 
-        if (MPI_Isend(&size, 1, MPI_UNSIGNED_LONG, this->rank, 0, this->server_comm, rq->requests) != MPI_SUCCESS){
+        if (MPI_Isend(&rq->size, 1, MPI_UNSIGNED_LONG, this->rank, 0, this->server_comm, rq->requests) != MPI_SUCCESS){
             MTCL_MPI_PRINT(100, "HandleMPIP2P::send MPI_Send Header ERROR\n");
             errno = ECOMM;
             return -1;
         }
     
-        if (MPI_Isend(buff, size, MPI_BYTE, this->rank, 0, this->server_comm, rq->requests+1) != MPI_SUCCESS){
+        if (MPI_Isend(buff, size, MPI_BYTE, this->rank, 0, this->server_comm, &rq->requests[1]) != MPI_SUCCESS){
             MTCL_MPI_PRINT(100, "HandleMPIP2P::send MPI_Send Payload ERROR\n");
             errno = ECOMM;
             return -1;
@@ -109,34 +92,6 @@ public:
     }
 
     ssize_t receive(void* buff, size_t size){
-        /*MPI_Status status; 
-        int count, flag;
-        while(true) {
-            if(MPI_Iprobe(rank, 0, server_comm, &flag, &status)!=MPI_SUCCESS) {
-				MTCL_MPIP2P_PRINT(100, "HandleMPIP2P::receive MPI_Iprobe ERROR\n");
-				errno = ECOMM;
-                return -1;
-            }
-            if(flag) {
-                if (MPI_Recv(buff, size, MPI_BYTE, rank, MPI_ANY_TAG, server_comm, &status) != MPI_SUCCESS) {
-					MTCL_MPIP2P_PRINT(100, "HandleMPIP2P::receive: MPI_Recv ERROR\n");
-					errno = ECOMM;
-					return -1;
-				}
-                MPI_Get_count(&status, MPI_BYTE, &count);
-                return count;
-            }
-            else if(closing) {
-                // MPI_Comm_free(&server_comm);
-                return 0;
-            }
-			checkClosing();
-
-            if constexpr (MPIP2P_POLL_TIMEOUT)
-				std::this_thread::sleep_for(std::chrono::microseconds(MPIP2P_POLL_TIMEOUT));
-        }        
-        return -1;*/
-
         int r;
         MPI_Status s;
         if (MPI_Recv(buff, size, MPI_BYTE, this->rank, 0, this->server_comm, &s) != MPI_SUCCESS){
