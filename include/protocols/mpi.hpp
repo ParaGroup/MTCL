@@ -23,11 +23,11 @@ class HandleMPI; // forward declaration for requestMPI class
 
 class requestMPI : public request_internal {
     friend class HandleMPI;
-    MPI_Request requests[2] = {MPI_REQUEST_NULL, MPI_REQUEST_NULL};
+    MPI_Request requests = MPI_REQUEST_NULL;
     size_t size;
 
     int test(int& result){
-        if (MPI_Testall(2, this->requests, &result, MPI_STATUS_IGNORE) != MPI_SUCCESS){
+        if (MPI_Test(&this->requests, &result, MPI_STATUS_IGNORE) != MPI_SUCCESS){
             MTCL_MPI_PRINT(100, "requestMPI::test MPI_TestAll ERROR\n");
             result=0;
             return -1;
@@ -52,15 +52,8 @@ public:
 	
     ssize_t isend(const void* buff, size_t size, Request& r) {
         requestMPI* requestPtr = new requestMPI;
-        requestPtr->size = size;
 
-	    if (MPI_Isend(&requestPtr->size, 1, MPI_UNSIGNED_LONG, this->rank, this->tag, MPI_COMM_WORLD, requestPtr->requests) != MPI_SUCCESS){
-           MTCL_MPI_PRINT(100, "HandleMPI::send MPI_ISEND ERROR\n");
-           errno = ECOMM;
-           return -1;
-        }
-
-        if (MPI_Isend(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &requestPtr->requests[1]) != MPI_SUCCESS){
+        if (MPI_Isend(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &requestPtr->requests) != MPI_SUCCESS){
 	        MTCL_MPI_PRINT(100, "HandleMPI::send MPI_Isend ERROR\n");
             errno = ECOMM;
             return -1;
@@ -71,12 +64,7 @@ public:
     }
 
     ssize_t send(const void* buff, size_t size) {
-        if (MPI_Send(&size, 1, MPI_UNSIGNED_LONG, this->rank, this->tag, MPI_COMM_WORLD) != MPI_SUCCESS){
-            MTCL_MPI_PRINT(100, "HandleMPI::send MPI_Send Header ERROR\n");
-            errno = ECOMM;
-            return -1;
-        }
-    
+        
         if (MPI_Send(buff, size, MPI_BYTE, this->rank, this->tag, MPI_COMM_WORLD) != MPI_SUCCESS){
             MTCL_MPI_PRINT(100, "HandleMPI::send MPI_Send Payload ERROR\n");
             errno = ECOMM;
@@ -99,9 +87,10 @@ public:
     }
 
     ssize_t probe(size_t& size, const bool blocking=true){
-        int f = 0;
+        int f = 0, c;
+        MPI_Status s;
         if (!blocking){
-            if (MPI_Iprobe(this->rank, this->tag, MPI_COMM_WORLD,&f, MPI_STATUS_IGNORE) != MPI_SUCCESS){
+            if (MPI_Iprobe(this->rank, this->tag, MPI_COMM_WORLD,&f, &s) != MPI_SUCCESS){
                 MTCL_MPI_PRINT(100, "HandleMPI::probe MPI_Iprobe ERROR\n");
                 errno = ECOMM;
                 return -1;
@@ -109,16 +98,18 @@ public:
             if (!f){
                 errno = EWOULDBLOCK;
                 return -1;
-            } 
-        }
-        
-        if (f || blocking){
-            if (MPI_Recv(&size, 1, MPI_UNSIGNED_LONG, this->rank, this->tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE) != MPI_SUCCESS){
-                MTCL_MPI_PRINT(100, "HandleMPI::probe MPI_Recv ERROR\n");
+            }
+        } else 
+            if (MPI_Probe(this->rank, this->tag, MPI_COMM_WORLD, &s) != MPI_SUCCESS){
+                MTCL_MPI_PRINT(100, "HandleMPI::probe MPI_Probe ERROR\n");
                 errno = ECOMM;
                 return -1;
             }
-        }
+
+        MPI_Get_count(&s, MPI_BYTE, &c);
+        size = c;
+        if (!c) MPI_Recv(nullptr, 0, MPI_CHAR, this->rank, this->tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        
         return sizeof(size_t);
     }
 
@@ -134,8 +125,7 @@ public:
     }
 
     ssize_t sendEOS() {
-		size_t sz = 0;
-		return MPI_Send(&sz, 1, MPI_UNSIGNED_LONG, this->rank, this->tag, MPI_COMM_WORLD); 
+		return MPI_Send(nullptr, 0, MPI_BYTE, this->rank, this->tag, MPI_COMM_WORLD); 
 	}
 };
 
