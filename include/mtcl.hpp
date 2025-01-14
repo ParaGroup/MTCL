@@ -2,6 +2,9 @@
 #define COMMLIB_HPP
 
 namespace MTCL {
+#if defined(DISABLE_TCP)
+#define MTCL_DISABLE_TCP
+#endif
 
 #if defined(ENABLE_MPI)
 const bool MPI_ENABLED     = true;

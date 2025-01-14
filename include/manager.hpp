@@ -16,7 +16,10 @@
 #include "handle.hpp"
 #include "handleUser.hpp"
 #include "protocolInterface.hpp"
+
+#ifndef MTCL_DISABLE_TCP
 #include "protocols/tcp.hpp"
+#endif
 
 #ifdef ENABLE_CONFIGFILE
 #include <fstream>
@@ -339,8 +342,10 @@ public:
 		
         Manager::appName = appName;
 
+#ifndef MTCL_DISABLE_TCP
 		// default transports protocol
         registerType<ConnTcp>("TCP");
+#endif
 
 #ifdef MTCL_ENABLE_SHM
 		registerType<ConnSHM>("SHM");
@@ -412,7 +417,6 @@ public:
 #ifndef SINGLE_IO_THREAD
         t1.join();
 #endif
-        //while(!handleReady.empty()) handleReady.pop();
 #ifndef MTCL_DISABLE_COLLECTIVES
         for(auto& [ctx, _] : contexts) {
             ctx->finalize(blockflag, ctx->getName());
