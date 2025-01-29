@@ -132,6 +132,7 @@ public:
     }
 
     void reset(){
+        for(auto r : requests) delete r;
         requests.clear();
     }
 };
