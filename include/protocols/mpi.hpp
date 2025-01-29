@@ -21,6 +21,52 @@ namespace MTCL {
 
 class HandleMPI; // forward declaration for requestMPI class
 
+class ConnRequestVectorMPI : public ConnRequestVector {
+    MPI_Request* requestArray;
+    size_t arraySize = 0;
+    unsigned int currSize = 0;
+public:
+    ConnRequestVectorMPI(size_t sizeHint = 1) : arraySize(sizeHint){
+        requestArray = (MPI_Request*)calloc(sizeHint, sizeof(MPI_Request));
+    }
+
+    ~ConnRequestVectorMPI(){
+        free(requestArray);
+    }
+
+    bool testAll(){
+        int flag;
+        MPI_Testall(currSize, requestArray, &flag, MPI_STATUSES_IGNORE);
+        return flag;
+    }
+
+    void waitAll(){
+        std::cout << "Waiting " << currSize << " requests\n";
+        for(int i = 0; i < currSize; i++)
+            std::cout << "\t Req:" << requestArray[i] << std::endl;
+        MPI_Waitall(currSize, requestArray, MPI_STATUSES_IGNORE);
+    }
+
+    void reset(){
+        currSize = 0;
+    }
+
+    inline void grow(){
+        requestArray = (MPI_Request*)realloc(requestArray, 2*arraySize*sizeof(MPI_Request));
+        arraySize *= 2;
+    }
+
+    MPI_Request* getNextRequest(){
+        if (currSize == arraySize) grow();
+        return &requestArray[currSize++];
+    }
+
+    void pushRequest(MPI_Request&& r){
+         if (currSize == arraySize) grow();
+        requestArray[currSize++] = std::move(r);
+    }
+};
+
 class requestMPI : public request_internal {
     friend class HandleMPI;
     MPI_Request requests = MPI_REQUEST_NULL;
@@ -60,6 +106,20 @@ public:
         }
 
         r.__setInternalR(requestPtr);
+	    return size;
+    }
+
+    ssize_t isend(const void* buff, size_t size, RequestPool& r) {
+        MPI_Request* req = r._getInternalVector<ConnRequestVectorMPI>()->getNextRequest();
+        
+        if (MPI_Isend(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, req) != MPI_SUCCESS){
+	        MTCL_MPI_PRINT(100, "HandleMPI::send MPI_Isend ERROR\n");
+            errno = ECOMM;
+            return -1;
+        }
+
+        std::cout << "Isend req: " << *req << "("<< req << ")" << std::endl;
+
 	    return size;
     }
 

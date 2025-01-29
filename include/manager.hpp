@@ -510,6 +510,8 @@ public:
         protocolsMap[name]->addinQ = [&](bool b, Handle* h){ Manager::addinQ(b,h); };
 
         protocolsMap[name]->instanceName = name;
+
+        _registeredProtocols_++;
     }
 
     /**

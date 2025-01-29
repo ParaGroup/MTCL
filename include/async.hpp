@@ -93,6 +93,62 @@ void waitAll(const Request& f, const Args&... fs){
     }
 }
 
+class ConnRequestVector {
+public:
+    virtual bool testAll() = 0;
+    virtual void waitAll() = 0;
+    virtual void reset() = 0;
+};
+
+
+class RequestPool {
+    size_t sizeHint;
+    std::vector<ConnRequestVector*> vectors;
+
+    size_t generate_type_id() {
+        static size_t value = 0;
+        return value++;
+    }
+
+    template<class T>
+    size_t type_id() {
+        static size_t value = generate_type_id();
+        return value;
+    }
+
+public:
+    // disable copy constructor and assignment
+    RequestPool(const RequestPool&);
+    RequestPool& operator=(const RequestPool&);
+
+    RequestPool(size_t hint = 1) : sizeHint(hint) {
+        vectors = std::vector<ConnRequestVector*>(_registeredProtocols_, nullptr);
+    }
+
+    bool testAll(){
+        for(ConnRequestVector* crv : vectors)
+            if (crv && !crv->testAll())
+                return false;
+        return true;
+    }
+
+    void waitAll(){
+        for(ConnRequestVector* crv : vectors)
+            if (crv) crv->waitAll();
+    }
+
+    void reset(){
+        for(ConnRequestVector* crv : vectors)
+            if (crv) crv->reset();
+    }
+
+    template<typename T>
+    T* _getInternalVector(){
+        auto& v = vectors[type_id<T>()];
+        if (!v) v = new T(sizeHint);
+        return reinterpret_cast<T*>(v);
+    }
+};
 
 
 }

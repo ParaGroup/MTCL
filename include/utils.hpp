@@ -23,6 +23,8 @@
 
 namespace MTCL {
 
+size_t _registeredProtocols_ = 0;
+
 extern int mtcl_verbose;
 
 #define MTCL_PRINT(LEVEL, prefix, str, ...)								\

@@ -111,6 +111,10 @@ public:
 		return this->send(buff, size);
 	}
 
+	ssize_t isend(const void* buff, size_t size, RequestPool&){
+		return this->send(buff, size);
+	}
+
 	// receives the header containing the size (sizeof(size_t) bytes)
 	ssize_t probe(size_t& size, const bool blocking=true) {
 		size_t sz;

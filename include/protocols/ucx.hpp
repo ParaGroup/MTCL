@@ -29,6 +29,7 @@ typedef struct test_req {
 
 class requestUCX : public request_internal {
     friend class HandleUCX;
+    friend class ConnRequestVectorUCX;
     ucp_dt_iov_t iov[2]; // what to send
     size_t sz;
 
@@ -90,6 +91,42 @@ class requestUCX : public request_internal {
         }
 
         return 0;
+    }
+};
+
+class ConnRequestVectorUCX : public ConnRequestVector {
+    friend class HandleUCX;
+    std::vector<requestUCX> requests;
+public:
+    ConnRequestVectorUCX(size_t sizeHint = 1){
+        requests.reserve(sizeHint);
+    }
+
+    bool testAll(){
+        int res = 0;
+        for(auto& r : requests){
+            r.test(res);
+            if (!res) return false;
+        }
+        return true;
+    }
+
+    void waitAll(){
+        int res = 0;
+        while(true){
+            bool allCompleted = true;
+            for(auto& r : requests){
+                r.test(res);
+                if (!res) r.make_progress();
+                r.test(res);
+                if (!res) allCompleted = false;
+            }
+            if (allCompleted) return;
+        }
+    }
+
+    void reset(){
+        requests.clear();
     }
 };
 
@@ -293,6 +330,18 @@ public:
         rq->request       = ucp_stream_send_nbx(endpoint, rq->iov, 2, &param);
 
         r.__setInternalR(rq);
+        return size;
+    }
+
+    ssize_t isend(const void* buff, size_t size, RequestPool& r) {
+       requestUCX& rq = r._getInternalVector<ConnRequestVectorUCX>()->requests.emplace_back(buff, size, ucp_worker);
+        //requestUCX* rq = new requestUCX(buff, size, ucp_worker);
+
+        ucp_request_param_t param;
+        fill_request_param(&(rq.ctx), &param, true);
+        param.cb.send = send_cb;
+        rq.request       = ucp_stream_send_nbx(endpoint, rq.iov, 2, &param);
+
         return size;
     }
 
