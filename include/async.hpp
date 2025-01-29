@@ -105,13 +105,13 @@ class RequestPool {
     size_t sizeHint;
     std::vector<ConnRequestVector*> vectors;
 
-    size_t generate_type_id() {
+    inline size_t generate_type_id() {
         static size_t value = 0;
         return value++;
     }
 
     template<class T>
-    size_t type_id() {
+    inline size_t type_id() {
         static size_t value = generate_type_id();
         return value;
     }
@@ -122,31 +122,32 @@ public:
     RequestPool& operator=(const RequestPool&);
 
     RequestPool(size_t hint = 1) : sizeHint(hint) {
-        vectors = std::vector<ConnRequestVector*>(_registeredProtocols_, nullptr);
+        vectors.reserve(_registeredProtocols_);
     }
 
-    bool testAll(){
+    inline bool testAll(){
         for(ConnRequestVector* crv : vectors)
             if (crv && !crv->testAll())
                 return false;
         return true;
     }
 
-    void waitAll(){
+    inline void waitAll(){
         for(ConnRequestVector* crv : vectors)
             if (crv) crv->waitAll();
     }
 
-    void reset(){
+    inline void reset(){
         for(ConnRequestVector* crv : vectors)
             if (crv) crv->reset();
     }
 
     template<typename T>
-    T* _getInternalVector(){
-        auto& v = vectors[type_id<T>()];
-        if (!v) v = new T(sizeHint);
-        return reinterpret_cast<T*>(v);
+    inline T* _getInternalVector(){
+        size_t id = type_id<T>();
+        if (!vectors[id])
+                vectors.push_back(new T(sizeHint));
+        return reinterpret_cast<T*>(vectors[id]);
     }
 };
 
