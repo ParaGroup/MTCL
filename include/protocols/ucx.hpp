@@ -27,7 +27,7 @@ typedef struct test_req {
     int complete;
 } test_req_t;
 
-class requestUCX : public request_internal {
+struct requestUCX : public request_internal {
     friend class HandleUCX;
     friend class ConnRequestVectorUCX;
     ucp_dt_iov_t iov[2]; // what to send
@@ -92,6 +92,10 @@ class requestUCX : public request_internal {
 
         return 0;
     }
+
+    ~requestUCX(){
+        if (request) ucp_request_free(request);
+    }
 };
 
 class ConnRequestVectorUCX : public ConnRequestVector {
@@ -117,9 +121,11 @@ public:
             bool allCompleted = true;
             for(auto& r : requests){
                 r.test(res);
-                if (!res) r.make_progress();
-                r.test(res);
-                if (!res) allCompleted = false;
+                if (!res) {
+                    r.make_progress();
+                    r.test(res);
+                    if (!res) allCompleted = false;
+                }
             }
             if (allCompleted) return;
         }
@@ -384,7 +390,7 @@ public:
     }
 
     ~HandleUCX() {
-        
+        if (request) ucp_request_free(request);
     }
 
 };

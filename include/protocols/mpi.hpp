@@ -41,9 +41,6 @@ public:
     }
 
     void waitAll(){
-        std::cout << "Waiting " << currSize << " requests\n";
-        for(int i = 0; i < currSize; i++)
-            std::cout << "\t Req:" << requestArray[i] << std::endl;
         MPI_Waitall(currSize, requestArray, MPI_STATUSES_IGNORE);
     }
 
@@ -117,8 +114,6 @@ public:
             errno = ECOMM;
             return -1;
         }
-
-        std::cout << "Isend req: " << *req << "("<< req << ")" << std::endl;
 
 	    return size;
     }
