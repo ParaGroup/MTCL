@@ -134,10 +134,6 @@ public:
 
 class HandleUCX : public Handle {
 
-    ucs_status_ptr_t request = nullptr;
-    test_req_t ctx;
-    ucp_request_param_t param;
-
     /**
      * The callback on the sending side, which is invoked after finishing sending
      * the message.
@@ -157,7 +153,7 @@ class HandleUCX : public Handle {
 
 protected:
 
-    void fill_request_param(test_req_t* ctx, ucp_request_param_t* param, bool is_iov) {
+    static void fill_request_param(test_req_t* ctx, ucp_request_param_t* param, bool is_iov) {
         ctx->complete = 0;
         param->op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                               UCP_OP_ATTR_FIELD_DATATYPE |
@@ -203,15 +199,14 @@ protected:
 
     ssize_t receive_internal(void* buff, size_t size, bool blocking) {
         size_t res = 0;
-
-        if(request == nullptr) {
+        test_req_t ctx;
+        ucp_request_param_t param;
             fill_request_param(&ctx, &param, false);
             param.op_attr_mask |= UCP_OP_ATTR_FIELD_FLAGS;
             param.flags = UCP_STREAM_RECV_FLAG_WAITALL;
             param.cb.recv_stream = stream_recv_cb;
-            request              = ucp_stream_recv_nbx(endpoint, buff, size,
+            ucs_status_ptr_t request   = ucp_stream_recv_nbx(endpoint, buff, size,
 													   &res, &param);
-        }
 
         ucs_status_t status;
         if((status = request_wait(request, &ctx, (char*)"receive_internal", blocking)) != UCS_OK) {
@@ -286,7 +281,7 @@ public:
 
     ssize_t send(const void* buff, size_t size) {
         size_t sz = htobe64(size);
-        
+    
         ucp_dt_iov_t iov[2];
         iov[0].buffer = &sz;
         iov[0].length = sizeof(sz);
@@ -299,7 +294,7 @@ public:
 
         fill_request_param(&ctx, &param, true);
         param.cb.send = send_cb;
-        request       = (test_req_t*)ucp_stream_send_nbx(endpoint, iov, 2, &param);
+        ucs_status_ptr_t request = (test_req_t*)ucp_stream_send_nbx(endpoint, iov, 2, &param);
 
 		ucs_status_t status;
 		if((status = request_wait(request, &ctx, (char*)"send", true)) != UCS_OK) {
@@ -461,9 +456,7 @@ public:
         return res > 0;
     }
 
-    ~HandleUCX() {
-        if (request) ucp_request_free(request);
-    }
+    ~HandleUCX() { }
 
 };
 
