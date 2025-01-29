@@ -145,7 +145,7 @@ public:
     template<typename T>
     inline T* _getInternalVector(){
         size_t id = type_id<T>();
-        if (!vectors[id])
+        if (id >= vectors.size())
                 vectors.push_back(new T(sizeHint));
         return reinterpret_cast<T*>(vectors[id]);
     }

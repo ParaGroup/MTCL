@@ -141,6 +141,10 @@ public:
         return readn(fd, (char*)buff, size); 
     }
 
+	ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
+        return readn(fd, (char*)buff, size); 
+    }
+
 
     ~HandleTCP() {}
 

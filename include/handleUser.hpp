@@ -179,6 +179,10 @@ public:
 		return realHandle->receive(buff, std::min(sz,size));
     }
 
+	ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
+		return realHandle->ireceive(buff, size, r);
+    }
+
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {
 		realHandle->probed={false,0};
         return realHandle->sendrecv(sendbuff, sendsize, recvbuff, recvsize, datasize);

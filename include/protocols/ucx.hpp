@@ -358,6 +358,18 @@ public:
         return res;
     }
 
+    ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
+        ssize_t ret;
+        if((ret=receive_internal(&test_probe, sizeof(size_t), true)) <= 0) {
+            return ret;
+		}
+
+        ret = receive_internal(buff, size, true);
+        // Last recorded probe was consumed, reset probe size
+        last_probe = -1;
+        return ret;
+    }
+
     ssize_t probe(size_t& size, const bool blocking=true) {
         if(last_probe != -1) {
             size = last_probe;

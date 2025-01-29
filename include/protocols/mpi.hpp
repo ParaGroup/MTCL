@@ -141,6 +141,17 @@ public:
         return r;
     }
 
+    ssize_t ireceive(void* buff, size_t size, RequestPool& r){
+        MPI_Request* req = r._getInternalVector<ConnRequestVectorMPI>()->getNextRequest();
+
+        if (MPI_Irecv(buff, size, MPI_BYTE, this->rank, this->tag, MPI_COMM_WORLD, req) != MPI_SUCCESS){
+            MTCL_MPI_PRINT(100, "HandleMPI::receive MPI_Recv ERROR\n");
+			errno = ECOMM;
+			return -1;
+        }
+        return size;
+    }
+
     ssize_t probe(size_t& size, const bool blocking=true){
         int f = 0, c;
         MPI_Status s;
