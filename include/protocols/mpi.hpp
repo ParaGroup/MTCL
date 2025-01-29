@@ -53,7 +53,7 @@ public:
         arraySize *= 2;
     }
 
-    MPI_Request* getNextRequest(){
+    inline MPI_Request* getNextRequest(){
         if (currSize == arraySize) grow();
         return &requestArray[currSize++];
     }

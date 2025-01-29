@@ -24,44 +24,33 @@ namespace MTCL {
 class HandleUCX;
 
 typedef struct test_req {
-    int complete;
+    int complete = 0;
 } test_req_t;
 
 struct requestUCX : public request_internal {
     friend class HandleUCX;
     friend class ConnRequestVectorUCX;
-    ucp_dt_iov_t iov[2]; // what to send
-    size_t sz;
-
+    void* content;
     ucs_status_ptr_t request;
     test_req_t ctx;
     ucp_worker_h ucp_worker;
     
-    requestUCX(const void* buff, size_t size, ucp_worker_h w) : ucp_worker(w) {
-        sz = htobe64(size);
-        iov[0].buffer = &sz;
-        iov[0].length = sizeof(sz);
-        iov[1].buffer = const_cast<void*>(buff);
-        iov[1].length = size;
-    }
+    requestUCX(void* content, ucp_worker_h w) : content(content), ucp_worker(w) {}
 
     int test(int& result){
-        ucs_status_t status = UCS_OK;
-
         // Operation completed immediately, callback is not called!
         if(request == NULL) {
-            result = 1;
-            return status;   // OK!
+            result = 1; // success
+            return 0;   
         }
 
         if(UCS_PTR_IS_ERR(request)) {
-            status = UCS_PTR_STATUS(request);
-            MTCL_UCX_PRINT(100, "HandleUCX::test UCX_isend request error (%s)\n", ucs_status_string(status));
+            MTCL_UCX_PRINT(100, "HandleUCX::test UCX_isend request error (%s)\n", ucs_status_string(UCS_PTR_STATUS(request)));
             result = 0;
-            return status;
+            return -1;
         }
 
-        ucp_worker_progress(ucp_worker);
+        //ucp_worker_progress(ucp_worker);
         if(ctx.complete == 0) {
             result = 0;
             return 0;
@@ -69,7 +58,7 @@ struct requestUCX : public request_internal {
 
         result = 1;
 
-        status = ucp_request_check_status(request);
+        ucs_status_t status = ucp_request_check_status(request);
         ucp_request_free(request);
     
         if(status != UCS_OK) {
@@ -80,7 +69,7 @@ struct requestUCX : public request_internal {
     }
 
     int make_progress(){
-        auto start = std::chrono::steady_clock::now();
+        /*auto start = std::chrono::steady_clock::now();
         if (!request) return 0;
         if (UCS_PTR_IS_ERR(request)) return UCS_PTR_STATUS(request);
         auto end = start + std::chrono::microseconds(UCX_MAKE_PROGRESS_TIME);
@@ -88,12 +77,17 @@ struct requestUCX : public request_internal {
         while (std::chrono::steady_clock::now() < end) {
             ucp_worker_progress(ucp_worker);
             if(ctx.complete == 0) return 0;
-        }
+        }*/
+        ucp_worker_progress(ucp_worker);
 
         return 0;
     }
 
     ~requestUCX(){
+        if (content) {
+            delete reinterpret_cast<size_t*>((((ucp_dt_iov_t*)content)[0].buffer)); // delete the size int he iovector
+            free(content);
+        }
         if (request) ucp_request_free(request);
     }
 };
@@ -108,6 +102,7 @@ public:
 
     bool testAll(){
         int res = 0;
+        if (requests.front()) requests.front()->make_progress();
         for(auto r : requests){
             r->test(res);
             if (!res) return false;
@@ -122,9 +117,9 @@ public:
             for(auto r : requests){
                 r->test(res);
                 if (!res) {
+                    allCompleted = false;
                     r->make_progress();
-                    r->test(res);
-                    if (!res) allCompleted = false;
+                    break;
                 }
             }
             if (allCompleted) return;
@@ -143,32 +138,20 @@ class HandleUCX : public Handle {
     test_req_t ctx;
     ucp_request_param_t param;
 
-    static void common_cb(void *user_data, const char *type_str) {
-        test_req_t *ctx;
-        if (user_data == NULL) {
-            MTCL_UCX_ERROR("HandleUCX::common_cb user_data passed to %s mustn't be NULL\n", type_str);
-            return;
-        }
-
-        ctx           = (test_req_t*)user_data;
-        ctx->complete = 1;
-    }
-
     /**
      * The callback on the sending side, which is invoked after finishing sending
      * the message.
      */
     static void send_cb(void *request, ucs_status_t status, void *user_data) {
-        common_cb(user_data, "send_cb");
+        ((test_req_t*)request)->complete = 1;
     }
 
     /**
      * The callback on the receiving side, which is invoked upon receiving the
      * stream message.
      */
-    static void stream_recv_cb(void *request, ucs_status_t status, size_t length,
-                            void *user_data) {
-        common_cb(user_data, "stream_recv_cb");
+    static void stream_recv_cb(void *request, ucs_status_t status, size_t length, void *user_data) {
+         ((test_req_t*)request)->complete = 1;
     }
 
 
@@ -280,9 +263,13 @@ public:
         test_req_t* request;
         test_req_t ctx;
 
-        fill_request_param(&ctx, &param, true);
+        ctx.complete = 0;
+        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_DATATYPE | UCP_OP_ATTR_FIELD_USER_DATA;
+        param.datatype     = UCP_DATATYPE_IOV;
+        param.user_data    = &ctx;
         param.cb.send = send_cb;
-        request       = (test_req_t*)ucp_stream_send_nbx(endpoint, iov, 2, &param);
+
+        request = (test_req_t*)ucp_stream_send_nbx(endpoint, iov, 2, &param);
 
 		ucs_status_t status;
 		if((status = request_wait(request, &ctx, (char*)"send", true)) != UCS_OK) {
@@ -329,24 +316,70 @@ public:
     }
 
     ssize_t isend(const void* buff, size_t size, Request& r) {
-        requestUCX* rq = new requestUCX(buff, size, ucp_worker);
+        ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
+        size_t* sz = new size_t(htobe64(size));
+        iov[0].buffer = &sz;
+        iov[0].length = sizeof(sz);
+        iov[1].buffer = const_cast<void*>(buff);
+        iov[1].length = size;
+        
+        requestUCX* rq = new requestUCX(iov, ucp_worker);
 
         ucp_request_param_t param;
-        fill_request_param(&(rq->ctx), &param, true);
+        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                              UCP_OP_ATTR_FIELD_DATATYPE |
+                              UCP_OP_ATTR_FIELD_USER_DATA;
+        param.datatype     = UCP_DATATYPE_IOV;
+        param.user_data    = &rq->ctx;
         param.cb.send = send_cb;
-        rq->request       = ucp_stream_send_nbx(endpoint, rq->iov, 2, &param);
+        rq->request       = ucp_stream_send_nbx(endpoint, iov, 2, &param);
+
+        if (rq->request == NULL){
+            delete rq;
+            return size;
+        }
+
+        if (UCS_PTR_IS_ERR(rq->request)) {
+            ucs_status_t status = UCS_PTR_STATUS(rq->request);
+            MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_isend request error (%s)\n", ucs_status_string(status));
+            delete rq;
+            return status;
+        }
 
         r.__setInternalR(rq);
         return size;
     }
 
     ssize_t isend(const void* buff, size_t size, RequestPool& r) {
-        requestUCX* rq = new requestUCX(buff, size, ucp_worker);
+            ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
+        size_t* sz = new size_t(htobe64(size));
+        iov[0].buffer = &sz;
+        iov[0].length = sizeof(sz);
+        iov[1].buffer = const_cast<void*>(buff);
+        iov[1].length = size;
+        
+        requestUCX* rq = new requestUCX(iov, ucp_worker);
 
         ucp_request_param_t param;
-        fill_request_param(&(rq->ctx), &param, true);
+        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                              UCP_OP_ATTR_FIELD_DATATYPE |
+                              UCP_OP_ATTR_FIELD_USER_DATA;
+        param.datatype     = UCP_DATATYPE_IOV;
+        param.user_data    = &rq->ctx;
         param.cb.send = send_cb;
-        rq->request       = ucp_stream_send_nbx(endpoint, rq->iov, 2, &param);
+        rq->request       = ucp_stream_send_nbx(endpoint, iov, 2, &param);
+
+        if (rq->request == NULL){
+            delete rq;
+            return size;
+        }
+
+        if (UCS_PTR_IS_ERR(rq->request)) {
+            ucs_status_t status = UCS_PTR_STATUS(rq->request);
+            MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_isend request error (%s)\n", ucs_status_string(status));
+            delete rq;
+            return status;
+        }
 
         r._getInternalVector<ConnRequestVectorUCX>()->requests.push_back(rq);
         return size;
@@ -360,15 +393,41 @@ public:
     }
 
     ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
-        ssize_t ret;
-        if((ret=receive_internal(&test_probe, sizeof(size_t), true)) <= 0) {
-            return ret;
-		}
+        ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
+        size_t* sz = new size_t;
+        iov[0].buffer = &sz;
+        iov[0].length = sizeof(sz);
+        iov[1].buffer = const_cast<void*>(buff);
+        iov[1].length = size;
+        
+        ucp_request_param_t param;
+        requestUCX* req = new requestUCX(iov, ucp_worker);
+        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                              UCP_OP_ATTR_FIELD_DATATYPE |
+                              UCP_OP_ATTR_FIELD_USER_DATA |
+                              UCP_OP_ATTR_FIELD_FLAGS;
+        param.datatype     =  UCP_DATATYPE_IOV;
+        param.user_data    = &req->ctx;
+        param.flags = UCP_STREAM_RECV_FLAG_WAITALL;
+        param.cb.recv_stream = stream_recv_cb;
+        
+        size_t sizeOut;
+        req->request = ucp_stream_recv_nbx(endpoint, buff, size, &sizeOut, &param);
 
-        ret = receive_internal(buff, size, true);
-        // Last recorded probe was consumed, reset probe size
-        last_probe = -1;
-        return ret;
+        if (req->request == NULL){
+            delete req;
+            return sizeOut;
+        }
+
+        if(UCS_PTR_IS_ERR(req->request)) {
+            ucs_status_t status = UCS_PTR_STATUS(req->request);
+            MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_ireceive request error (%s)\n", ucs_status_string(status));
+            delete req;
+            return status;
+        }
+
+        r._getInternalVector<ConnRequestVectorUCX>()->requests.push_back(req);
+        return size;
     }
 
     ssize_t probe(size_t& size, const bool blocking=true) {
