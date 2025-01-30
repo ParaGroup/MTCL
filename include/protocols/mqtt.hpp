@@ -59,6 +59,10 @@ public:
         return this->send(buff, size);
     }
 
+    ssize_t isend(const void* buff, size_t size, RequestPool& r){
+        return this->send(buff, size);
+    }
+
     ssize_t receive(void* buff, size_t size){
         is_probed = false;
         while(true) {
@@ -89,6 +93,10 @@ public:
 				std::this_thread::sleep_for(std::chrono::milliseconds(MQTT_POLL_TIMEOUT));
         }        
         return 0;
+    }
+
+    ssize_t ireceive(void* buff, size_t size, RequestPool&){
+        return receive(buff, size);
     }
 
     ssize_t probe(size_t& size, const bool blocking=true) {
