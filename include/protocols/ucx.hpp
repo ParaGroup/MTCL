@@ -44,11 +44,11 @@ struct requestUCX : public request_internal {
             return 0;   
         }
 
-        if(UCS_PTR_IS_ERR(request)) {
+        /*if(UCS_PTR_IS_ERR(request)) {
             MTCL_UCX_PRINT(100, "HandleUCX::test UCX_isend request error (%s)\n", ucs_status_string(UCS_PTR_STATUS(request)));
             result = 0;
             return -1;
-        }
+        }*/
 
         //ucp_worker_progress(ucp_worker);
         if(ctx.complete == 0) {
@@ -58,14 +58,14 @@ struct requestUCX : public request_internal {
 
         result = 1;
 
-        ucs_status_t status = ucp_request_check_status(request);
+        //ucs_status_t status = ucp_request_check_status(request);
         ucp_request_free(request);
     
-        if(status != UCS_OK) {
+        /*if(status != UCS_OK) {
             MTCL_UCX_PRINT(100, "HandleUCX::test UCX_isend status error (%s)\n", ucs_status_string(status));
-        }
+        }*/
         request = NULL;
-        return status;
+        return UCS_OK;
     }
 
     int make_progress(){
@@ -88,7 +88,7 @@ struct requestUCX : public request_internal {
             delete reinterpret_cast<size_t*>((((ucp_dt_iov_t*)content)[0].buffer)); // delete the size int he iovector
             free(content);
         }
-        if (request) ucp_request_free(request);
+        //if (request) ucp_request_free(request);
     }
 };
 
@@ -139,7 +139,7 @@ class HandleUCX : public Handle {
      * the message.
      */
     static void send_cb(void *request, ucs_status_t status, void *user_data) {
-        ((test_req_t*)request)->complete = 1;
+        ((test_req_t*)user_data)->complete = 1;
     }
 
     /**
@@ -147,7 +147,7 @@ class HandleUCX : public Handle {
      * stream message.
      */
     static void stream_recv_cb(void *request, ucs_status_t status, size_t length, void *user_data) {
-         ((test_req_t*)request)->complete = 1;
+         ((test_req_t*)user_data)->complete = 1;
     }
 
 
@@ -187,7 +187,7 @@ protected:
             ucp_worker_progress(ucp_worker);
         }
         status = ucp_request_check_status(l_request);
-        ucp_request_free(l_request);
+        //ucp_request_free(l_request);
     
         if(status != UCS_OK) {
             MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_%s status error (%s)\n",
@@ -224,8 +224,8 @@ protected:
 
             return res;
         }
-
-        request = nullptr;
+        if (request) ucp_request_free(request);
+        //request = nullptr;
 
         return size;
     }
@@ -252,10 +252,9 @@ public:
         iov[0].buffer = &sz;
         iov[0].length = sizeof(sz);
         iov[1].buffer = (void*)&useless;
-        iov[1].length = sizeof(int);;
+        iov[1].length = sizeof(int);
 
         ucp_request_param_t param;
-        test_req_t* request;
         test_req_t ctx;
 
         ctx.complete = 0;
@@ -264,7 +263,7 @@ public:
         param.user_data    = &ctx;
         param.cb.send = send_cb;
 
-        request = (test_req_t*)ucp_stream_send_nbx(endpoint, iov, 2, &param);
+        ucs_status_ptr_t request = ucp_stream_send_nbx(endpoint, iov, 2, &param);
 
 		ucs_status_t status;
 		if((status = request_wait(request, &ctx, (char*)"send", true)) != UCS_OK) {
@@ -289,15 +288,14 @@ public:
         iov[1].length = size;
 
         ucp_request_param_t param;
-        test_req_t* request;
         test_req_t ctx;
 
         fill_request_param(&ctx, &param, true);
         param.cb.send = send_cb;
-        ucs_status_ptr_t request = (test_req_t*)ucp_stream_send_nbx(endpoint, iov, 2, &param);
+        ucs_status_ptr_t request_ = ucp_stream_send_nbx(endpoint, iov, 2, &param);
 
 		ucs_status_t status;
-		if((status = request_wait(request, &ctx, (char*)"send", true)) != UCS_OK) {
+		if((status = request_wait(request_, &ctx, (char*)"send", true)) != UCS_OK) {
 			int res = -1;
 			if(status == UCS_ERR_CONNECTION_RESET)
 				errno = ECONNRESET;
@@ -313,8 +311,8 @@ public:
     ssize_t isend(const void* buff, size_t size, Request& r) {
         ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
         size_t* sz = new size_t(htobe64(size));
-        iov[0].buffer = &sz;
-        iov[0].length = sizeof(sz);
+        iov[0].buffer = sz;
+        iov[0].length = sizeof(size_t);
         iov[1].buffer = const_cast<void*>(buff);
         iov[1].length = size;
         
@@ -348,8 +346,8 @@ public:
     ssize_t isend(const void* buff, size_t size, RequestPool& r) {
             ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
         size_t* sz = new size_t(htobe64(size));
-        iov[0].buffer = &sz;
-        iov[0].length = sizeof(sz);
+        iov[0].buffer = sz;
+        iov[0].length = sizeof(size_t);
         iov[1].buffer = const_cast<void*>(buff);
         iov[1].length = size;
         
@@ -390,8 +388,8 @@ public:
     ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
         ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
         size_t* sz = new size_t;
-        iov[0].buffer = &sz;
-        iov[0].length = sizeof(sz);
+        iov[0].buffer = sz;
+        iov[0].length = sizeof(size_t);
         iov[1].buffer = const_cast<void*>(buff);
         iov[1].length = size;
         
@@ -407,7 +405,7 @@ public:
         param.cb.recv_stream = stream_recv_cb;
         
         size_t sizeOut;
-        req->request = ucp_stream_recv_nbx(endpoint, buff, size, &sizeOut, &param);
+        req->request = ucp_stream_recv_nbx(endpoint, iov, 2, &sizeOut, &param);
 
         if (req->request == NULL){
             delete req;
