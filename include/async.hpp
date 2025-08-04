@@ -18,6 +18,8 @@ class Request {
 
     template <typename... R> friend bool testAll(const Request&...);
     template <typename... R> friend void waitAll(const Request&, const R&...);
+    friend bool test(const Request&);
+
     request_internal* r;
 
     // disable copy constructor and assignment
@@ -57,12 +59,18 @@ public:
     void __setInternalR(request_internal* _r){ this->r = _r;}
 };
 
+inline bool test(const Request& r){
+    int outTest;
+    r.test(outTest);
+    return outTest;
+}
+
 
 template <typename... Request>
 bool testAll(const Request&... requests) {
     int outTest = false;
     for(const auto& p : {&requests...}) {
-        p->test(&outTest);
+        p->test(outTest);
         if (!outTest) return false; 
     }
     return true;

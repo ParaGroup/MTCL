@@ -355,7 +355,7 @@ public:
         registerType<ConnMPI>("MPI");
 #endif
 
-#ifdef MTCL_ENABLE_MQTT
+#ifdef MTCL_ENABLE_MPIP2P
         registerType<ConnMPIP2P>("MPIP2P");
 #endif
 
@@ -573,7 +573,6 @@ public:
                 std::string pool = getPoolFromHost(host);
 
                     if (pool != poolName && (pool.empty() || poolName.empty())){ 
-                        std::string connectionString2Proxy;
                         if (poolName.empty() && !pool.empty()){ // go through the proxy of the destination pool
                             // connect verso il proxy di pool
                             if (protocol == "UCX" || protocol == "TCP"){

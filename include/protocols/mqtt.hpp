@@ -96,6 +96,9 @@ public:
     }
 
     ssize_t ireceive(void* buff, size_t size, RequestPool&){
+        size_t sz;
+        receive(&sz, sizeof(size_t));
+        assert(size == be64toh(sz));
         return receive(buff, size);
     }
 
