@@ -423,6 +423,46 @@ public:
         return size;
     }
 
+    ssize_t ireceive(void* buff, size_t size, Request& r) {
+        ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
+        size_t* sz = new size_t;
+        iov[0].buffer = sz;
+        iov[0].length = sizeof(size_t);
+        iov[1].buffer = const_cast<void*>(buff);
+        iov[1].length = size;
+        
+        ucp_request_param_t param;
+        requestUCX* req = new requestUCX(iov, ucp_worker);
+        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                              UCP_OP_ATTR_FIELD_DATATYPE |
+                              UCP_OP_ATTR_FIELD_USER_DATA |
+                              UCP_OP_ATTR_FIELD_FLAGS;
+        param.datatype     =  UCP_DATATYPE_IOV;
+        param.user_data    = &req->ctx;
+        param.flags = UCP_STREAM_RECV_FLAG_WAITALL;
+        param.cb.recv_stream = stream_recv_cb;
+        
+        size_t sizeOut;
+        req->request = ucp_stream_recv_nbx(endpoint, iov, 2, &sizeOut, &param);
+
+        if (req->request == NULL){
+            delete req;
+            return sizeOut;
+        }
+
+        if(UCS_PTR_IS_ERR(req->request)) {
+            ucs_status_t status = UCS_PTR_STATUS(req->request);
+            MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_ireceive request error (%s)\n", ucs_status_string(status));
+            delete req;
+            return status;
+        }
+
+        r.__setInternalR(req);
+        return size;
+    }
+
+    
+
     ssize_t probe(size_t& size, const bool blocking=true) {
         if(last_probe != -1) {
             size = last_probe;

@@ -93,6 +93,7 @@ public:
      */
     virtual ssize_t receive(void* buff, size_t size) = 0;
     virtual ssize_t ireceive(void* buff, size_t size, RequestPool& r) = 0;
+    virtual ssize_t ireceive(void* buff, size_t size, Request& r) = 0;
 
     virtual void yield() = 0;
     virtual void close(bool close_wr=true, bool close_rd=true) = 0;

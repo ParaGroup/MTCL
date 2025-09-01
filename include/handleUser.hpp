@@ -180,6 +180,62 @@ public:
     }
 
 	ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
+		size_t sz;
+		if (!realHandle->probed.first) {
+			// reading the header to get the size of the message
+			ssize_t r;
+			if ((r=this->probe(sz, true))<=0) {
+				return r;
+			}
+		} else {
+			newConnection = false;
+			if (!isReadable){
+				MTCL_PRINT(100, "[internal]:\t", "HandleUser::probe handle not readable\n");
+				return 0;
+			}
+			if (!realHandle) {
+				MTCL_PRINT(100, "[internal]:\t", "HandleUser::probe EBADF\n");
+				errno = EBADF; // the "communicator" is not valid or closed
+				return -1;
+			}
+			if (realHandle->closed_rd) return 0;
+		}
+		if ((sz=realHandle->probed.second)>size) {
+			MTCL_ERROR("[internal]:\t", "HandleUser::receive ENOMEM, receiving less data\n");
+			errno=ENOMEM;
+			return -1;
+		}	   
+		realHandle->probed={false,0};
+		return realHandle->ireceive(buff, size, r);
+    }
+
+	ssize_t ireceive(void* buff, size_t size, Request& r) {
+		size_t sz;
+		if (!realHandle->probed.first) {
+			// reading the header to get the size of the message
+			ssize_t r;
+			if ((r=this->probe(sz, true))<=0) {
+				return r;
+			}
+		} else {
+			newConnection = false;
+			if (!isReadable){
+				MTCL_PRINT(100, "[internal]:\t", "HandleUser::probe handle not readable\n");
+				return 0;
+			}
+			if (!realHandle) {
+				MTCL_PRINT(100, "[internal]:\t", "HandleUser::probe EBADF\n");
+				errno = EBADF; // the "communicator" is not valid or closed
+				return -1;
+			}
+			if (realHandle->closed_rd) return 0;
+		}
+		if ((sz=realHandle->probed.second)>size) {
+			MTCL_ERROR("[internal]:\t", "HandleUser::receive ENOMEM, receiving less data\n");
+			errno=ENOMEM;
+			return -1;
+		}	   
+		realHandle->probed={false,0};
 		return realHandle->ireceive(buff, size, r);
     }
 

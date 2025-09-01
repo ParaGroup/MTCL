@@ -56,7 +56,10 @@ public:
         if (r) delete r; // it should not be called after the object is moved
     }
 
-    void __setInternalR(request_internal* _r){ this->r = _r;}
+    void __setInternalR(request_internal* _r){ 
+        if (this->r) delete this->r; // if i have already something
+        this->r = _r;
+    }
 };
 
 inline bool test(const Request& r){
