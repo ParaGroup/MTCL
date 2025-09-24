@@ -6,12 +6,14 @@ namespace MTCL {
 class request_internal {
 public:
     virtual int test(int& result) = 0;
+    virtual int wait() { return 0; }
     virtual int make_progress() { return 0; }
     virtual ~request_internal() {} // make sure to delete the whole inherited object
 };
 
 class dummy_request_internal : public request_internal {
     int test(int& result){result = 1; return 0;}
+    int wait(){return 0;}
 };
 
 class Request {
@@ -60,7 +62,16 @@ public:
         if (this->r) delete this->r; // if i have already something
         this->r = _r;
     }
+
+    int wait() const {
+        if (r) return r->wait();
+        return 0;
+    }
 };
+
+inline int wait(const Request& r){
+    return r.wait();
+}
 
 inline bool test(const Request& r){
     int outTest;

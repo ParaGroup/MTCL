@@ -179,7 +179,7 @@ public:
 		return realHandle->receive(buff, std::min(sz,size));
     }
 
-	ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
+	ssize_t ireceive(void* buff, size_t size, RequestPool& rp) {
 		size_t sz;
 		if (!realHandle->probed.first) {
 			// reading the header to get the size of the message
@@ -206,10 +206,10 @@ public:
 			return -1;
 		}	   
 		realHandle->probed={false,0};
-		return realHandle->ireceive(buff, size, r);
+		return realHandle->ireceive(buff, size, rp);
     }
 
-	ssize_t ireceive(void* buff, size_t size, Request& r) {
+	ssize_t ireceive(void* buff, size_t size, Request& req) {
 		size_t sz;
 		if (!realHandle->probed.first) {
 			// reading the header to get the size of the message
@@ -236,7 +236,7 @@ public:
 			return -1;
 		}	   
 		realHandle->probed={false,0};
-		return realHandle->ireceive(buff, size, r);
+		return realHandle->ireceive(buff, size, req);
     }
 
     ssize_t sendrecv(const void* sendbuff, size_t sendsize, void* recvbuff, size_t recvsize, size_t datasize = 1) {

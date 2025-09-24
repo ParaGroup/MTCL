@@ -69,9 +69,9 @@ class requestMPI : public request_internal {
     MPI_Request requests = MPI_REQUEST_NULL;
     size_t size;
 
-    int test(int& result){
-        if (MPI_Test(&this->requests, &result, MPI_STATUS_IGNORE) != MPI_SUCCESS){
-            MTCL_MPI_PRINT(100, "requestMPI::test MPI_TestAll ERROR\n");
+    int test(int& result) {
+        if (MPI_Test(&requests, &result, MPI_STATUS_IGNORE) != MPI_SUCCESS){
+            MTCL_MPI_PRINT(100, "requestMPI::test MPI_Test ERROR\n");
             result=0;
             return -1;
         }
@@ -81,6 +81,14 @@ class requestMPI : public request_internal {
     int make_progress(){
         if constexpr (MPI_MAKE_PROGRESS_TIME > 0)
             std::this_thread::sleep_for(std::chrono::microseconds(MPI_MAKE_PROGRESS_TIME));
+        return 0;
+    }
+
+    int wait(){
+        if (MPI_Wait(&requests, MPI_STATUS_IGNORE) != MPI_SUCCESS){
+            MTCL_MPI_PRINT(100, "requestMPI::wait MPI_Wair ERROR\n");
+            return -1;
+        }
         return 0;
     }
 };
