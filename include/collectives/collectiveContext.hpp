@@ -238,6 +238,15 @@ public:
         }
         return -1;
     }
+
+    ssize_t ireceive(void* buff, size_t size, Request& r) {
+         if(!canReceive) {
+            MTCL_PRINT(100, "[internal]:\t", "CollectiveContext::send invalid operation for the collective\n");
+            errno = EINVAL;
+            abort(); // FIX MEE!
+        }
+        return -1;
+    }
     
     /**
      * @brief Sends \b size bytes of \b buff, following the semantics of the collective.

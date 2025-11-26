@@ -363,38 +363,38 @@ int main(int argc, char** argv){
                 
                 if (poolOfDestination.empty() || poolOfDestination == pool){ 
                     // desrtinazione visibile direttamente dal proxy JUST ONE HOP!!!
-                    std::string protocol = connectString.substr(0, connectString.find(':'));
-                    std::vector<std::string>& listen_endpoints = std::get<2>(componentInfo);
-                    if (protocol.empty()){
-                        // TODO: pigliane uno a caso che supporto anche io
-                        // for for (auto& le : listen_endpoints) connect se ok bene!
+                    std::string protocol;
+                    if (componentName == connectString) // it means there is no protocol
+                        protocol = "TCP"; // TODO: check the supported porotocols and pick one
+                    else
+                        protocol = connectString.substr(0, connectString.find(':'));
 
-                        // per ora ce sempre
-                    } else {
-                        bool found = false;
-                        for (auto& le : listen_endpoints)
-                            if (le.find(protocol) != std::string::npos){
-                                auto newHandle = Manager::connect(le);
-                                if (newHandle.isValid()){
-                                    // ###########
-                                    newHandle.send(&collective, sizeof(int));
-                                    if (collective) newHandle.send(teamID, teamIDSize); // send teamID if it is a collective
-                                    // ############
-                                    proc2proc.emplace(h.getID(), newHandle.getID());
-                                    proc2proc.emplace(newHandle.getID(), h.getID());
-                                    newHandle.yield();
-                                    id2handle.emplace(newHandle.getID(), std::move(newHandle));
-                                    found = true;
-                                    break;
-                                }
+                    std::vector<std::string>& listen_endpoints = std::get<2>(componentInfo);
+                  
+                    bool found = false;
+                    for (auto& le : listen_endpoints)
+                        if (le.find(protocol) != std::string::npos){
+                            auto newHandle = Manager::connect(le);
+                            if (newHandle.isValid()){
+                                // ###########
+                                newHandle.send(&collective, sizeof(int));
+                                if (collective) newHandle.send(teamID, teamIDSize); // send teamID if it is a collective
+                                // ############
+                                proc2proc.emplace(h.getID(), newHandle.getID());
+                                proc2proc.emplace(newHandle.getID(), h.getID());
+                                newHandle.yield();
+                                id2handle.emplace(newHandle.getID(), std::move(newHandle));
+                                found = true;
+                                break;
                             }
-                        
-                        if (!found){
-                           std::cerr << "Protocol specified ["<<protocol<<"] not supported by the remote peer ["<< componentName <<"]\n";
-                           h.close();
-                           continue; 
                         }
+                    
+                    if (!found){
+                        std::cerr << "Protocol specified ["<<protocol<<"] not supported by the remote peer ["<< componentName <<"]\n";
+                        h.close();
+                        continue; 
                     }
+                    
                 } else { // pool of destination non-empty
                     char* buff = new char[sizeof(cmd_t)+sizeof(handleID_t)+connectString.length()];
                     buff[0] = collective ? cmd_t::CONN_COLL : cmd_t::CONN;
