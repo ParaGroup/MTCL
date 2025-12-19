@@ -117,17 +117,23 @@ public:
 
 	// receives the header containing the size (sizeof(size_t) bytes)
 	ssize_t probe(size_t& size, const bool blocking=true) {
+		if (probed.first){
+			size = probed.second;
+			return (size?sizeof(size_t):0);
+		}
+
 		size_t sz;
 		ssize_t r;
 		if (blocking) {
-			if ((r=readn(fd, (char*)&sz, sizeof(size_t)))<=0)
-				return r;
+			r=readn(fd, (char*)&sz, sizeof(size_t));
 		} else {
-			if ((r=recv(fd, (char*)&sz, sizeof(size_t), MSG_DONTWAIT))<=0)
-				return r;
+			r=recv(fd, (char*)&sz, sizeof(size_t), MSG_DONTWAIT);
 		}
+		if (r < 0) return r;
+		if (!r) sz = 0;
 		size = be64toh(sz);
-		return sizeof(size_t);
+		probed = {true,size};
+		return (size?sizeof(size_t):0);
 	}
 
     bool peek() {
@@ -138,15 +144,38 @@ public:
     }
 	
     ssize_t receive(void* buff, size_t size) {
-        return readn(fd, (char*)buff, size); 
+		size_t probedSize;
+		if (!probed.first){
+			ssize_t r = probe(probedSize);
+			if (r <= 0)	return r;
+		} else
+			probedSize = probed.second;
+		
+		if (probedSize > size){
+			MTCL_ERROR("[internal]:\t", "HandleTCP::receive ENOMEM, receiving less data\n");
+			errno=ENOMEM;
+			return -1;
+		}
+		probed={false, 0};
+        return readn(fd, (char*)buff, probedSize); 
     }
 
 	ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
-        return readn(fd, (char*)buff, size); 
+		/*
+		 1) provo a leggere l'header in maniera non bloccante 
+		    si) vado avanti
+			no) scrivo su oggetto request che devlo ancora tirare via l'header
+		 2) tento di leggere il payload in maniera sincrona
+		 	si) ottimo ho gia finito
+			no) scrivo nell'oggeto request quanti ne mancano
+		*/
+        return receive(buff, size);
+		//return readn(fd, (char*)buff, size); 
     }
 
 	ssize_t ireceive(void* buff, size_t size, Request& r) {
-        return readn(fd, (char*)buff, size); 
+        return receive(buff, size);
+		//return readn(fd, (char*)buff, size); 
     }
 
 

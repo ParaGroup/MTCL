@@ -239,7 +239,7 @@ public:
     std::atomic<bool> closed_wr{false};
     std::atomic<bool> closed_rd{false};
 
-    ssize_t last_probe = -1;
+    //ssize_t last_probe = -1;
     size_t test_probe = 42;
 
     HandleUCX(ConnType* parent, ucp_ep_h endpoint, ucp_worker_h worker) : Handle(parent), endpoint(endpoint), ucp_worker(worker) {}
@@ -248,11 +248,11 @@ public:
         size_t sz = 0;
 		int useless = -1;
         
-        ucp_dt_iov_t iov[2];
+        ucp_dt_iov_t iov[1];
         iov[0].buffer = &sz;
         iov[0].length = sizeof(sz);
-        iov[1].buffer = (void*)&useless;
-        iov[1].length = sizeof(int);
+        /*iov[1].buffer = (void*)&useless;
+        iov[1].length = sizeof(int);*/
 
         ucp_request_param_t param;
         test_req_t ctx;
@@ -263,7 +263,7 @@ public:
         param.user_data    = &ctx;
         param.cb.send = send_cb;
 
-        ucs_status_ptr_t request = ucp_stream_send_nbx(endpoint, iov, 2, &param);
+        ucs_status_ptr_t request = ucp_stream_send_nbx(endpoint, iov, 1 /* 2 */, &param);
 
 		ucs_status_t status;
 		if((status = request_wait(request, &ctx, (char*)"send", true)) != UCS_OK) {
@@ -379,13 +379,34 @@ public:
     }
 
     ssize_t receive(void* buff, size_t size) {
+
+        size_t probedSize;
+		if (!probed.first){
+			ssize_t r = probe(probedSize);
+			if (r <= 0)	return r;
+		} else
+			probedSize = probed.second;
+		
+		if (probedSize > size){
+			MTCL_ERROR("[internal]:\t", "HandleUCX::receive ENOMEM, receiving less data\n");
+			errno=ENOMEM;
+			return -1;
+		}
+		
         ssize_t res = receive_internal(buff, size, true);
         // Last recorded probe was consumed, reset probe size
-        last_probe = -1;
+        //last_probe = -1;
+        probed={false, 0};
         return res;
     }
 
     ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
+        if (probed.first){
+            MTCL_ERROR("[internal]:\t", "HandleUCX::ireceive, already probed handle not supported with asynchronous receives\n");
+            // TODO: handle the case of already probed handles removing the first entry of the iovector
+            return -1;
+        }
+
         ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
         size_t* sz = new size_t;
         iov[0].buffer = sz;
@@ -424,6 +445,12 @@ public:
     }
 
     ssize_t ireceive(void* buff, size_t size, Request& r) {
+         if (probed.first){
+            MTCL_ERROR("[internal]:\t", "HandleUCX::ireceive, already probed handle not supported with asynchronous receives\n");
+            // TODO: handle the case of already probed handles removing the first entry of the iovector
+            return -1;
+        }
+
         ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
         size_t* sz = new size_t;
         iov[0].buffer = sz;
@@ -464,28 +491,26 @@ public:
     
 
     ssize_t probe(size_t& size, const bool blocking=true) {
-        if(last_probe != -1) {
+        /*if(last_probe != -1) {
             size = last_probe;
             return sizeof(size_t);
+        }*/
+
+        if (probed.first){
+            size = probed.second;
+            return (size?sizeof(size_t):0);
         }
 
 		ssize_t r;
-        if((r=receive_internal(&test_probe, sizeof(size_t), blocking)) <= 0) {
+        if((r=receive_internal(&test_probe, sizeof(size_t), blocking)) < 0) {
             return r;
 		}
-
+        if (!r) test_probe = 0;
         size = be64toh(test_probe);
-        last_probe = size;
+        //last_probe = size;
 
-		if (size == 0) {
-			int useless;
-			r = receive_internal(&useless, sizeof(int), true);
-			if (r<=0) {
-				MTCL_UCX_ERROR("ConnUCX::probe, ERROR extracting \"useless\" bytes of the EOS, going on\n");
-			}
-		}
-
-		return sizeof(size_t);
+        probed={true, size};
+		return (size?sizeof(size_t):0);
     }
 
     bool peek() {
