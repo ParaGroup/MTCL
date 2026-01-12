@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['manager_92',['Manager',['../classMTCL_1_1Manager.html',1,'MTCL']]],
-  ['mpicollective_93',['MPICollective',['../classMTCL_1_1MPICollective.html',1,'MTCL']]]
+  ['manager_0',['Manager',['../classMTCL_1_1Manager.html',1,'MTCL']]],
+  ['mpicollective_1',['MPICollective',['../classMTCL_1_1MPICollective.html',1,'MTCL']]],
+  ['msghdr_2',['MsgHdr',['../structMsgHdr.html',1,'']]]
 ];
