@@ -58,6 +58,8 @@
 #include <iostream>
 #include "mtcl.hpp"
 
+using namespace MTCL;
+
 static int EMITTER_RANK{0};
 static int WORKER_RANK{2};
 static int COLLECTOR_RANK{1};
@@ -98,6 +100,12 @@ void generate_configuration(int num_workers) {
     COLLECTOR_ENDPOINT = {"UCX:0.0.0.0:42001"};
 #endif
 
+#ifdef ENABLE_MQTT
+    PROTOCOL = {"MQTT"};
+    EMITTER_ENDPOINT = {"MQTT:emitter"};
+    COLLECTOR_ENDPOINT = {"MQTT:collector"};
+#endif
+	
     rapidjson::Value s;
     rapidjson::Document doc;
     doc.SetObject();
@@ -170,21 +178,21 @@ void Emitter(const std::string& bcast, const std::string& broot, const int itera
 	// Waiting for Collector
 	auto fbk = Manager::getNext();
 	if (!fbk.isValid()) {
-		MTCL_ERROR("[Emitter]:\t", "Manager::getNext, invalid feedback handle\n");
+		MTCL_ERROR("[Emitter]:", "Manager::getNext, invalid feedback handle\n");
 		return;
 	}
 	fbk.yield(); // give it back to the Manager
 	
 	auto hg = Manager::createTeam(bcast, broot, MTCL_BROADCAST);
 	if (hg.isValid()) {
-		MTCL_PRINT(0,"[Emitter]:\t", "Emitter starting\n");
+		MTCL_PRINT(0,"[Emitter]:", "Emitter starting\n");
 	} else {
-		MTCL_ERROR("[Emitter]:\t", "Manager::createTeam for BROADCAST, ERROR\n");
+		MTCL_ERROR("[Emitter]:", "Manager::createTeam for BROADCAST, ERROR\n");
 		return;
 	}
 
 	for(int i=0; i< iterations; ++i) {
-		MTCL_PRINT(0, "[Emitter]:\t", "starting iteration %d, size=%ld\n", i, size);
+		MTCL_PRINT(0, "[Emitter]:", "starting iteration %d, size=%ld\n", i, size);
 		int *data = new int[size]();
 
 		for (size_t i = 0, j = 100; i < size; i++, j += 100) {
@@ -192,7 +200,7 @@ void Emitter(const std::string& bcast, const std::string& broot, const int itera
 		}
 
 		if (hg.sendrecv(data, size * sizeof(int), nullptr, 0) <= 0) {
-			MTCL_ERROR("[Emitter]:\t", "broadcast ERROR\n");
+			MTCL_ERROR("[Emitter]:", "broadcast ERROR\n");
 			return;
 		}
 
@@ -212,17 +220,17 @@ void Emitter(const std::string& bcast, const std::string& broot, const int itera
 		auto h = Manager::getNext();
 		int res;
 		if (h.receive(&res, sizeof(int)) <= 0) {
-			MTCL_ERROR("[Emitter]:\t", "receive from feedback ERROR\n");
+			MTCL_ERROR("[Emitter]:", "receive from feedback ERROR\n");
 			return;
 		}
 		if (res != COLLECTOR_RANK) {
-			MTCL_ERROR("[Emitter]:\t", "receive from feedback, WRONG DATA\n");
+			MTCL_ERROR("[Emitter]:", "receive from feedback, WRONG DATA\n");
 			return;
 		}
 		
 		delete [] data;
 		size = size << 1;
-		MTCL_PRINT(0, "[Emitter]:\t", "done iteration %d\n", i);
+		MTCL_PRINT(0, "[Emitter]:", "done iteration %d\n", i);
 
 	}
 	auto h = Manager::getNext();	// waiting for the close of the Collector
@@ -237,17 +245,17 @@ void Worker(const std::string& bcast, const std::string& gather,
 	auto hg_gather= Manager::createTeam(gather, groot, MTCL_GATHER);
 		
 	if (!(hg_bcast.isValid() && hg_gather.isValid())) {
-		MTCL_ERROR("[Worker]:\t", "Manager::createTeam, invalid collective handles (BROADCAST and/or GATHER)\n");
+		MTCL_ERROR("[Worker]:", "Manager::createTeam, invalid collective handles (BROADCAST and/or GATHER)\n");
 		return;
 	}
-	MTCL_PRINT(0, "[Worker]:\t", "bcast=%s, gather=%s, broot=%s, groot=%s, Worker%d\n",
+	MTCL_PRINT(0, "[Worker]:", "bcast=%s, gather=%s, broot=%s, groot=%s, Worker%d\n",
 			   bcast.c_str(), gather.c_str(), broot.c_str(),groot.c_str(), hg_bcast.getTeamRank());
 
 	assert(hg_bcast.getTeamRank() == hg_gather.getTeamRank());
 	
 	for(int i=0; i< iterations; ++i) {
 		int gather_data_size = hg_gather.size()*size;		
-		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, starting iteration %d, size=%ld\n", hg_bcast.getTeamRank(), i, size);
+		MTCL_PRINT(0, "[Worker]:", "Worker%d, starting iteration %d, size=%ld\n", hg_bcast.getTeamRank(), i, size);
 		int *data = new int[size]();
 		hg_bcast.sendrecv(nullptr, 0, data, size * sizeof(int));		   			
 		hg_gather.sendrecv(data, size * sizeof(int), nullptr, gather_data_size * sizeof(int), sizeof(int));
@@ -266,7 +274,7 @@ void Worker(const std::string& bcast, const std::string& gather,
 
 		delete [] data;
 		size = size << 1;
-		MTCL_PRINT(0, "[Worker]:\t", "Worker%d, done iteration %d\n", hg_bcast.getTeamRank(), i);
+		MTCL_PRINT(0, "[Worker]:", "Worker%d, done iteration %d\n", hg_bcast.getTeamRank(), i);
 	}
 	
 	hg_bcast.close();        
@@ -278,22 +286,22 @@ void Collector(const std::string& gather, const std::string& groot,
 
 	auto fbk = Manager::connect("Emitter", 100, 200);
 	if(!fbk.isValid()) {
-		MTCL_ERROR("[Collector]:\t", "Manager::connect, cannot connect to the Emitter\n");
+		MTCL_ERROR("[Collector]:", "Manager::connect, cannot connect to the Emitter\n");
 		return;
 	}
 
 	auto hg = Manager::createTeam(gather, groot, MTCL_GATHER);
 	if (hg.isValid()) {
-		MTCL_PRINT(0,"[Collector]:\t", "Collector starting\n");
+		MTCL_PRINT(0,"[Collector]:", "Collector starting\n");
 	} else {
-		MTCL_ERROR("[Collector]:\t", "Manager::createTeam for GATHER, ERROR\n");
+		MTCL_ERROR("[Collector]:", "Manager::createTeam for GATHER, ERROR\n");
 		return;
 	}
 	
 	int *mydata;
 	for(int i=0; i< iterations; ++i) {
 		int gather_data_size = hg.size()*size;
-		MTCL_PRINT(0, "[Collector]:\t", "starting iteration %d, size=%ld, gather size=%d\n", i, size, gather_data_size);
+		MTCL_PRINT(0, "[Collector]:", "starting iteration %d, size=%ld, gather size=%d\n", i, size, gather_data_size);
 
 		int *gatherdata = new int[gather_data_size];
 		mydata = new int[size]();
@@ -301,7 +309,7 @@ void Collector(const std::string& gather, const std::string& groot,
 		usleep(500000);
 		
 		if (hg.sendrecv(mydata, size * sizeof(int), gatherdata, gather_data_size * sizeof(int), sizeof(int))==-1) {
-			MTCL_ERROR("[Collector]:\t", "Gather sendrecv ERROR\n");
+			MTCL_ERROR("[Collector]:", "Gather sendrecv ERROR\n");
 			return;
 		}
 
@@ -318,7 +326,7 @@ void Collector(const std::string& gather, const std::string& groot,
 		std::cout << "]\n\n";
 
 		if (fbk.send(&COLLECTOR_RANK, sizeof(int))<=0) {
-			MTCL_ERROR("[Collector]:\t", "send to the Emitter ERROR\n");
+			MTCL_ERROR("[Collector]:", "send to the Emitter ERROR\n");
 			return;
 		}
 		
@@ -326,7 +334,7 @@ void Collector(const std::string& gather, const std::string& groot,
 		delete [] mydata;
 		
 		size = size << 1;
-		MTCL_PRINT(0, "[Collector]:\t", "done iteration %d\n", i);
+		MTCL_PRINT(0, "[Collector]:", "done iteration %d\n", i);
 	}
 	fbk.close();		
 	hg.close();
@@ -349,12 +357,12 @@ int main(int argc, char** argv){
     size_t size     = std::stol(argv[4]);
 
 	if (iterations==0) {
-		MTCL_ERROR("[iterative_benchmark_bcast-gather]:\t", "iterations is equal to zero!\n");
+		MTCL_ERROR("[iterative_benchmark_bcast-gather]:", "iterations is equal to zero!\n");
 		Manager::finalize(true); 
 		return 0;		
 	} else {
 		if (rank == EMITTER_RANK)
-			MTCL_ERROR("[iterative_benchmark_bcast-gather]:\t", "initial size=%d, iterations=%d\n", size, iterations);
+			MTCL_ERROR("[iterative_benchmark_bcast-gather]:", "initial size=%d, iterations=%d\n", size, iterations);
 	}	
 	
     std::string configuration_file{"iterative_bench_auto.json"};
@@ -383,7 +391,7 @@ int main(int argc, char** argv){
     gather_string    += worker_string;
 
 	if (Manager::init(appName, configuration_file) < 0) {
-		MTCL_ERROR("[MTCL]:\t", "Manager::init ERROR\n");
+		MTCL_ERROR("[MTCL]:", "Manager::init ERROR\n");
 		return -1;
 	}
 

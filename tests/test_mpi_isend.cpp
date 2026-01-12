@@ -3,8 +3,9 @@
 #define MTCL_DISABLE_COLLECTIVES
 #include <iostream>
 #include "mtcl.hpp"
-#include "async.hpp"
+
 using namespace MTCL;
+
 int main(int argc, char** argv){
 #ifdef EXCLUDE_MPI
     std::cerr << "You must compile with MPI support this test\n";

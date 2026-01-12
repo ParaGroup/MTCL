@@ -2,7 +2,7 @@ ifndef CXX
 CXX 	   = g++
 endif
 CXXFLAGS  += -std=c++17
-INCS       = -I ../..
+INCS       = -I ../../include
 ifdef DEBUG
 	OPTIMIZE_FLAGS  += -g -fno-inline-functions
 else
@@ -26,8 +26,8 @@ ifndef EXCLUDE_UCX
 ifndef UCX_HOME
 $(error UCX_HOME env variable not defined!);
 endif
-	INCS += -I$(UCX_HOME)/include
-	LIBS += -L$(UCX_HOME)/lib -Wl,-rpath,${UCX_HOME}/lib -lucp -luct -lucs -lucm
+	INCS += -I$(UCX_HOME)/include -I$(UCC_HOME)/include
+	LIBS += -L$(UCX_HOME)/lib -L$(UCC_HOME)/lib -Wl,-rpath,${UCX_HOME}/lib -Wl,-rpath,${UCC_HOME}/lib -lucc -lucp -luct -lucs -lucm
 endif
 
 ifndef EXCLUDE_MQTT

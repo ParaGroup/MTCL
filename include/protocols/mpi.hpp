@@ -1,5 +1,4 @@
-#ifndef MPI_HPP
-#define MPI_HPP
+#pragma once
 
 #include <vector>
 #include <map>
@@ -68,14 +67,27 @@ class requestMPI : public request_internal {
     friend class HandleMPI;
     MPI_Request requests = MPI_REQUEST_NULL;
     size_t size;
-
+	MPI_Status status{};
+	ssize_t got = -1;
+	int last_mpi_rc = MPI_SUCCESS;
+	
     int test(int& result) {
-        if (MPI_Test(&requests, &result, MPI_STATUS_IGNORE) != MPI_SUCCESS){
-            MTCL_MPI_PRINT(100, "requestMPI::test MPI_Test ERROR\n");
-            result=0;
-            return -1;
+        int rc = MPI_Test(&requests, &result, &status);
+        last_mpi_rc = rc;
+        if (rc != MPI_SUCCESS) {
+            result = 0;
+            if (status.MPI_ERROR == MPI_ERR_TRUNCATE) errno = EMSGSIZE;
+            else errno = ECOMM;
+			MTCL_MPI_PRINT(100, "requestMPI::test MPI_Test ERROR\n");
+			return -1;
+		}
+        if (result && got < 0) {
+            int c = MPI_UNDEFINED;
+            MPI_Get_count(&status, MPI_BYTE, &c);
+            if (c != MPI_UNDEFINED) got = c;
+            else got = (ssize_t)size;
         }
-        return 0;       
+        return 0;
     }
 
     int make_progress(){
@@ -85,11 +97,31 @@ class requestMPI : public request_internal {
     }
 
     int wait(){
-        if (MPI_Wait(&requests, MPI_STATUS_IGNORE) != MPI_SUCCESS){
-            MTCL_MPI_PRINT(100, "requestMPI::wait MPI_Wair ERROR\n");
-            return -1;
+		int rc = MPI_Wait(&requests, &status);
+        last_mpi_rc = rc;
+        if (rc != MPI_SUCCESS) {
+            if (status.MPI_ERROR == MPI_ERR_TRUNCATE) errno = EMSGSIZE;
+			else errno = ECOMM;
+			MTCL_MPI_PRINT(100, "requestMPI::wait MPI_Wait ERROR\n");
+            if (got < 0) {
+                int c = MPI_UNDEFINED;
+                MPI_Get_count(&status, MPI_BYTE, &c);
+                if (c != MPI_UNDEFINED) got = c;
+            }
+			return -1;
+		}
+        if (got < 0) {
+            int c = MPI_UNDEFINED;
+            MPI_Get_count(&status, MPI_BYTE, &c);
+            if (c != MPI_UNDEFINED) got = c;
+            else got = (ssize_t)size;
         }
-        return 0;
+		return 0;
+	}
+
+    ssize_t count() const override {
+        if (got >= 0) return got;
+        return (ssize_t)size;
     }
 };
 
@@ -104,6 +136,7 @@ public:
     ssize_t isend(const void* buff, size_t size, Request& r) {
         requestMPI* requestPtr = new requestMPI;
 
+		requestPtr->size = size;
         if (MPI_Isend(buff, size, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &requestPtr->requests) != MPI_SUCCESS){
 	        MTCL_MPI_PRINT(100, "HandleMPI::send MPI_Isend ERROR\n");
             errno = ECOMM;
@@ -111,7 +144,7 @@ public:
         }
 
         r.__setInternalR(requestPtr);
-	    return size;
+	    return 0;
     }
 
     ssize_t isend(const void* buff, size_t size, RequestPool& r) {
@@ -122,8 +155,7 @@ public:
             errno = ECOMM;
             return -1;
         }
-
-	    return size;
+	    return 0;
     }
 
     ssize_t send(const void* buff, size_t size) {
@@ -138,14 +170,20 @@ public:
 
 
     ssize_t receive(void* buff, size_t size){
-        int r;
+        int r=0;
         MPI_Status s;
-        if (MPI_Recv(buff, size, MPI_BYTE, this->rank, this->tag, MPI_COMM_WORLD, &s) != MPI_SUCCESS){
+
+		int rc = MPI_Recv(buff, (int)size, MPI_BYTE, this->rank, this->tag, MPI_COMM_WORLD, &s);
+		if (rc != MPI_SUCCESS) {
             MTCL_MPI_PRINT(100, "HandleMPI::receive MPI_Recv ERROR\n");
-			errno = ECOMM;
+			if (s.MPI_ERROR == MPI_ERR_TRUNCATE) errno = EMSGSIZE;
+			else errno = ECOMM;
 			return -1;
         }
         MPI_Get_count(&s, MPI_BYTE, &r);
+		if (r == 0) { // EOS
+			this->closed_rd = true;
+		}
         return r;
     }
 
@@ -157,18 +195,19 @@ public:
 			errno = ECOMM;
 			return -1;
         }
-        return size;
+        return 0;
     }
 
     ssize_t ireceive(void* buff, size_t size, Request& r){
         requestMPI* requestPtr = new requestMPI;
+		requestPtr->size = size;
         if (MPI_Irecv(buff, size, MPI_BYTE, this->rank, this->tag, MPI_COMM_WORLD, &requestPtr->requests) != MPI_SUCCESS){
             MTCL_MPI_PRINT(100, "HandleMPI::receive MPI_Recv ERROR\n");
 			errno = ECOMM;
 			return -1;
         }
         r.__setInternalR(requestPtr);
-        return size;
+        return 0;
     }
 
     ssize_t probe(size_t& size, const bool blocking=true){
@@ -193,9 +232,13 @@ public:
 
         MPI_Get_count(&s, MPI_BYTE, &c);
         size = c;
-        if (!c) MPI_Recv(nullptr, 0, MPI_CHAR, this->rank, this->tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        if (!c) {
+			MPI_Recv(nullptr, 0, MPI_CHAR, this->rank, this->tag,
+						 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			this->closed_rd = true;
+		}
         
-        return sizeof(size_t);
+		return (size ? (ssize_t)sizeof(size_t): 0);
     }
 
     bool peek() {
@@ -243,6 +286,7 @@ public:
         }
 
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN); // force return on error
 		return 0;
     }
 
@@ -286,7 +330,6 @@ public:
 			return nullptr;
 		}
 
-        // creo l'handle
         HandleMPI* handle = new HandleMPI(this, rank, tag);
 		{
 			REMOVE_CODE_IF(std::unique_lock lock(shm));
@@ -307,7 +350,7 @@ public:
         if (MPI_Iprobe(MPI_ANY_SOURCE, MPI_CONNECTION_TAG, MPI_COMM_WORLD, &flag, &status) != MPI_SUCCESS) {
 			MTCL_MPI_ERROR("ConnMPI::update: MPI_Iprobe ERROR (CONNECTION)\n");
 			errno = ECOMM;
-			throw;
+			return;
 		}
         if(flag) {
             int headersLen;
@@ -317,7 +360,7 @@ public:
             if (MPI_Recv(header, headersLen, MPI_INT, status.MPI_SOURCE, MPI_CONNECTION_TAG, MPI_COMM_WORLD, &status) != MPI_SUCCESS) {
 				MTCL_MPI_ERROR("ConnMPI::update: MPI_Recv ERROR (CONNECTION)\n");
 				errno = ECOMM;
-                throw;
+                return;
             }
             
             int source = status.MPI_SOURCE;
@@ -335,7 +378,7 @@ public:
                 if (MPI_Iprobe(rankTagPair.first, rankTagPair.second, MPI_COMM_WORLD, &flag, &status) != MPI_SUCCESS) {
 					MTCL_MPI_ERROR("ConnMPI::update: MPI_Iprobe ERROR\n");
 					errno = ECOMM;
-					throw;
+					return;
 				}
                 if (flag) {
                     handlePair.second = false;
@@ -370,13 +413,55 @@ public:
 	}
 
     void end(bool blockflag=false) {
-        auto modified_connections = connections;
-        for(auto& [_, handlePair] : modified_connections)
-            setAsClosed(handlePair.first, true);
-        MPI_Finalize();
-    }
+		// Snapshot and clear the connection table under lock.
+		decltype(connections) local;
+		{
+			REMOVE_CODE_IF(std::unique_lock l(shm));
+			local.swap(connections);
+		}
+
+		for (auto& [_, handlePair] : local) {
+			setAsClosed(handlePair.first, blockflag);
+		}
+		
+		// Best-effort drain of unexpected/pending messages (including connections)
+		// to prevent MPI_Finalize from hanging on some MPI implementations.
+		while (true) {
+			int flag = 0;
+			MPI_Status st;
+			int rc = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &st);
+			if (rc != MPI_SUCCESS || !flag) break;
+			
+			if (st.MPI_TAG == MPI_CONNECTION_TAG) {
+				int nints = 0;
+				MPI_Get_count(&st, MPI_INT, &nints);
+				if (nints < 0) nints = 0;
+				if (nints > 0) {
+					std::vector<int> tmp((size_t)nints);
+					MPI_Recv(tmp.data(), nints, MPI_INT, st.MPI_SOURCE, st.MPI_TAG,
+							 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				} else {
+					MPI_Recv(nullptr, 0, MPI_INT, st.MPI_SOURCE, st.MPI_TAG,
+							 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				}
+			} else {
+				int nbytes = 0;
+				MPI_Get_count(&st, MPI_BYTE, &nbytes);
+				if (nbytes < 0) nbytes = 0;
+				if (nbytes > 0) {
+					std::vector<char> tmp((size_t)nbytes);
+					MPI_Recv(tmp.data(), nbytes, MPI_BYTE, st.MPI_SOURCE, st.MPI_TAG,
+							 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				} else {
+					MPI_Recv(nullptr, 0, MPI_BYTE, st.MPI_SOURCE, st.MPI_TAG,
+							 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				}
+			}
+		}
+		
+		MPI_Finalize();
+	}
 };
 
 } // namespace
 
-#endif

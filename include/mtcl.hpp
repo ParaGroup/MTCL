@@ -1,5 +1,4 @@
-#ifndef COMMLIB_HPP
-#define COMMLIB_HPP
+#pragma once
 
 namespace MTCL {
 #if defined(DISABLE_TCP)
@@ -42,4 +41,3 @@ const bool UCC_ENABLED     = false;
 #include "utils.hpp"
 #include "manager.hpp"
 
-#endif

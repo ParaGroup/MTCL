@@ -37,8 +37,7 @@ int main(int argc, char** argv){
         }
     }
 
-
-    Manager::finalize();
+    Manager::finalize(true);
     return 0;
 
 }

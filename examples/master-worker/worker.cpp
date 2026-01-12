@@ -8,7 +8,9 @@
 #include <fstream>
 #include <algorithm>
 
-#include <mtcl.hpp>
+#include "mtcl.hpp"
+
+using namespace MTCL;
 
 #undef EXPLICIT_MSG_SIZE
 
@@ -20,7 +22,7 @@ const int headersize = 0;
 const int maxpayload = 100; 
 
 int main(int argc, char** argv){
-    Manager::init("client");
+    Manager::init("client_" + std::to_string(getpid()));
 
 	int myid=0;	
 	std::ifstream input("workers.list");

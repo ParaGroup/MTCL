@@ -18,7 +18,7 @@ public:
     HandleSHM(ConnType* parent, shmBuffer& in, shmBuffer& out): Handle(parent), in(in), out(out) {}
 
 	ssize_t sendEOS() {
-		return out.put((void*)0x1, 0);
+		return out.put(nullptr, 0);
 	}
 	
     ssize_t send(const void* buff, size_t size) {
@@ -30,23 +30,56 @@ public:
 	}
 	// receives the header containing the size (sizeof(size_t) bytes)
 	ssize_t probe(size_t& size, const bool blocking=true) {
+		if (probed.first){
+			size = probed.second;
+			return (size ? (ssize_t)sizeof(size_t) : 0);
+		}
 		ssize_t sz;
 		if (blocking) {
-			if ((sz=in.getsize())<0)
-				return -1;
+			sz = in.getsize();
 		} else {
-			if ((sz=in.trygetsize())<0)
+			sz = in.trygetsize();
+			if (sz<0 && errno == EAGAIN) {
+				errno = EWOULDBLOCK;
 				return -1;
+			}
 		}
-		size=sz;
-		return sizeof(size_t);
+		if (sz<0) return -1;
+		size = (size_t)sz;
+		probed = {true, size};
+
+		// If EOS, consume it immediately so that subsequent probes do not see it.
+		if (size == 0) {
+			char dummy;
+			(void)in.tryget(&dummy, 1);
+		}
+		return (size ? (ssize_t)sizeof(size_t) : 0);
 	}
 	
     ssize_t receive(void* buff, size_t size) {
-        return in.get(buff,size);
+		size_t probedSize;
+		if (!probed.first){
+			ssize_t r = probe(probedSize, true);
+			if (r <= 0) return r;
+		} else {
+			probedSize = probed.second;
+		}
+		if (probedSize == 0) {
+			probed = {false, 0};
+			return 0;
+		}
+		if (probedSize > size){
+			errno = ENOMEM;
+			return -1;
+		}
+		probed = {false, 0};
+		return in.get(buff, probedSize);
     }
 
-    bool peek() {return false;}
+    bool peek() {
+		ssize_t r = in.peek();
+		return (r > 0);
+	}
 
     ~HandleSHM() {}
 };
@@ -78,10 +111,20 @@ public:
 
 		//FIX: controllo che l'indirizzo parte con '/' e che non sia piu' lungo di NAME_MAX
 		// vale la pena prependere name all'address e mettere noi lo slash?
-		
+
 		if (connbuff.create(address, false)==-1) {
-			MTCL_SHM_PRINT(100, "ConnSHM::listen ERROR errno=%d (%s)\n", errno, strerror(errno));
-			return -1;
+			// If a previous run crashed, the name might still exist.
+			if (errno == EEXIST) {
+				if (connbuff.create(address, true) == 0) {
+					MTCL_SHM_PRINT(1, "ConnSHM::listen, removed stale endpoint %s\n", address.c_str());
+				} else {
+					MTCL_SHM_PRINT(100, "ConnSHM::listen ERROR errno=%d (%s)\n", errno, strerror(errno));
+					return -1;
+				}
+			} else {
+				MTCL_SHM_PRINT(100, "ConnSHM::listen ERROR errno=%d (%s)\n", errno, strerror(errno));
+				return -1;
+			}
 		}
         MTCL_SHM_PRINT(1, "listening to %s\n", address.c_str());
 

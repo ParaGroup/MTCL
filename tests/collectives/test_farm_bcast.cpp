@@ -28,6 +28,8 @@
 #include <iostream>
 #include "mtcl.hpp"
 
+using namespace MTCL;
+
 inline static std::string hello{"Hello team!"};
 inline static std::string bye{"Bye team!"};
 
@@ -56,7 +58,7 @@ int main(int argc, char** argv){
         fbk.setName("Collector");
         fbk.yield();
 
-        auto hg = Manager::createTeam("App1:App2:App3", "App1", BROADCAST);
+        auto hg = Manager::createTeam("App1:App2:App3", "App1", MTCL_BROADCAST);
         if(hg.isValid() && fbk.isValid())
             printf("Emitter starting\n");
         else
@@ -96,14 +98,14 @@ int main(int argc, char** argv){
         fbk.receive(&stream_len, sizeof(int));
         printf("Stream len is %d\n", streamlen);
 
-        auto hg_gather = Manager::createTeam("App2:App3:App4", "App4", GATHER);
+        auto hg_gather = Manager::createTeam("App2:App3:App4", "App4", MTCL_GATHER);
 
         int partial = 0;
         int gather_data[3];
 
         ssize_t r;
         do {
-            r = hg_gather.sendrecv(&rank, sizeof(int), gather_data, sizeof(int));
+            r = hg_gather.sendrecv(&rank, sizeof(int), gather_data, 3*sizeof(int), sizeof(int));
             if(r == 0) {
                 printf("gather closed\n");
                 break;
@@ -111,8 +113,8 @@ int main(int argc, char** argv){
         } while(r > 0);
         hg_gather.close();
 
-        partial += gather_data[0];
         partial += gather_data[1];
+        partial += gather_data[2];
         printf("Collector computed %d\n", partial);
 
         fbk.send(&partial, sizeof(int));
@@ -120,8 +122,8 @@ int main(int argc, char** argv){
     }
     // Worker
     else {
-        auto hg_bcast = Manager::createTeam("App1:App2:App3", "App1", BROADCAST);
-        auto hg_gather = Manager::createTeam("App2:App3:App4", "App4", GATHER);
+        auto hg_bcast = Manager::createTeam("App1:App2:App3", "App1", MTCL_BROADCAST);
+        auto hg_gather = Manager::createTeam("App2:App3:App4", "App4", MTCL_GATHER);
         if(hg_bcast.isValid() && hg_gather.isValid())
             printf("Correctly created teams\n");
         else {
@@ -142,7 +144,7 @@ int main(int argc, char** argv){
         }
         hg_bcast.close();
         
-        hg_gather.sendrecv(&partial, sizeof(int), nullptr, 0);
+        hg_gather.sendrecv(&partial, sizeof(int), nullptr, 3*sizeof(int), sizeof(int));
         hg_gather.close();
     }
 

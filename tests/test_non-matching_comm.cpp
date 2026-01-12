@@ -9,12 +9,6 @@
  *  $> mpicxx -I .. -std=c++17 -DENABLE_MPI -Wall -o test_non-matching_comm test_non-matching_comm.cpp  -pthread -lrt
  *  $> MTCL_VERBOSE=10 mpirun -n 1 ./test_non-matching_comm 0 server : -n 1 ./test_non-matching_comm 1 client
  * 
- * ===========================
- * MPI hangs if we send a *big* (still not sure how big) message which is not
- * matched by the remote peer.
- * N=7, minsize=16 --> terminates
- * N=8, minsize=16 --> hangs
- * ===========================
  * 
  * 
  * 
@@ -62,7 +56,7 @@ int main(int argc, char** argv){
         
         auto h = Manager::getNext();
         if (h.isNewConnection()) {
-            MTCL_PRINT(0, "[SERVER]:\t", "Received new connection\n");
+            MTCL_PRINT(0, "[SERVER]:", "Received new connection\n");
             // These are matched by the remote peer
             h.send(welcome.c_str(), welcome.length());
             h.send(bye.c_str(), bye.length());
@@ -70,7 +64,7 @@ int main(int argc, char** argv){
             // This is not going to be matched by the remote peer, we already
             // sent the bye message
             h.send(buff, maxsize);
-            MTCL_PRINT(0, "[SERVER]:\t", "Sent all messages\n");
+            MTCL_PRINT(0, "[SERVER]:", "Sent all messages\n");
             h.close();
         }
     }
@@ -87,7 +81,7 @@ int main(int argc, char** argv){
         }();
 
         if(handle.isValid()) {
-            MTCL_PRINT(0, "[CLIENT]:\t", "Connected to server\n");
+            MTCL_PRINT(0, "[CLIENT]:", "Connected to server\n");
 
             while(true) {
 		        int r=0;
@@ -96,26 +90,26 @@ int main(int argc, char** argv){
 
                 if ((r=handle.probe(size, true))<=0) {
                     if (r==0) {
-                        MTCL_PRINT(10, "[CLIENT]:\t", "The client unexpectedly closed the connection. Bye! (size)\n");
+                        MTCL_PRINT(10, "[CLIENT]:", "The client unexpectedly closed the connection. Bye! (size)\n");
                     } else
-                        MTCL_ERROR("[CLIENT]:\t", "ERROR receiving the message size. Bye!\n");
+                        MTCL_ERROR("[CLIENT]:", "ERROR receiving the message size. Bye!\n");
                     handle.close();
-                    continue;
+                    break;
                 }
-                MTCL_PRINT(0, "[CLIENT]:\t", "Incoming message with size %ld\n", size);
+                MTCL_PRINT(0, "[CLIENT]:", "Incoming message with size %ld\n", size);
                 assert(size<max_msg_size); // check
                 if ((r=handle.receive(buff, size))<=0) {
                     if (r==0){
-                        MTCL_PRINT(10, "[CLIENT]:\t", "The client unexpectedly closed the connection. Bye! (payload)\n");
+                        MTCL_PRINT(10, "[CLIENT]:", "The client unexpectedly closed the connection. Bye! (payload)\n");
                     } else
-                        MTCL_ERROR("[CLIENT]:\t", "ERROR receiving the message payload. Bye!\n");
+                        MTCL_ERROR("[CLIENT]:", "ERROR receiving the message payload. Bye!\n");
                     handle.close();
-                    continue;
+					break;
                 }
                 buff[size]='\0';
-                MTCL_PRINT(0, "[CLIENT]:\t", "Received message \'%s\'\n", buff);
+                MTCL_PRINT(0, "[CLIENT]:", "Received message \'%s\'\n", buff);
                 if (std::string(buff) == bye) {
-                    MTCL_PRINT(0, "[CLIENT]:\t", "The server sent the bye message! Goodbye!\n");
+                    MTCL_PRINT(0, "[CLIENT]:", "The server sent the bye message! Goodbye!\n");
                     break;
                 }
             }
@@ -123,9 +117,8 @@ int main(int argc, char** argv){
         }
     }
 
-    MTCL_PRINT(0, rank ? "[CLIENT]:\t" : "[SERVER]:\t", "Finalizing...\n");
     Manager::finalize();
-    MTCL_PRINT(0, rank ? "[CLIENT]:\t" : "[SERVER]:\t", "Finalized\n");
+    MTCL_PRINT(0, rank ? "[CLIENT]:" : "[SERVER]:", "Finalized\n");
     return 0;
 
 }

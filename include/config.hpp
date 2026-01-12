@@ -1,5 +1,4 @@
-#ifndef CONFIG_HPP
-#define CONFIG_HPP
+#pragma once
 
 #include <string>
 namespace MTCL {
@@ -7,6 +6,8 @@ namespace MTCL {
 
 // all timeouts are in microseconds unless otherwise stated
 const unsigned IO_THREAD_POLL_TIMEOUT  = 10;
+const unsigned WAIT_INTERNAL_TIMEOUT   = 100;
+const unsigned SPIN_THRESHOLD          = 300;
 
 // ------ TCP ------
 const unsigned TCP_BACKLOG             = 128;
@@ -46,14 +47,11 @@ const unsigned UCX_POLL_TIMEOUT        = 10;
 
 // amount of time we call continously make_progress 
 const unsigned UCX_MAKE_PROGRESS_TIME  = 100; // uS
+const unsigned UCX_DRAIN_CHUNK_SIZE    = 4096;
 
 // -------- COLLECTIVES ------
 const int CCONNECTION_RETRY            = 10;
 const unsigned CCONNECTION_TIMEOUT     = 100;     // milliseconds
 const int GATHER_THRESHOLD_MSG_SIZE    = (1<<18); // bytes
 
-// --------- ASYNC ----------
-const unsigned WAIT_INTERNAL_TIMEOUT   = 100;
-
 } //namespace
-#endif 

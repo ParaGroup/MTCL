@@ -1,5 +1,4 @@
-#ifndef COLLECTIVEIMPL_HPP
-#define COLLECTIVEIMPL_HPP
+#pragma once
 
 #include <iostream>
 #include <map>
@@ -53,7 +52,7 @@ protected:
 		if ((r=realHandle->probe(size, blocking))<=0) {
 			switch(r) {
 			case 0: {
-				realHandle->close(true, true);
+				realHandle->close(false, true);
 				return 0;
 			}
 			case -1: {				
@@ -68,37 +67,37 @@ protected:
 			}}
 			return r;
 		}
-		realHandle->probed={true,size};
-		if (size==0) { // EOS received
-			realHandle->close(false, true);
-			return 0;
-		}
 		return r;		
 	}
 
     ssize_t receiveFromHandle(Handle* realHandle, void* buff, size_t size) {
+		if (!realHandle) {
+			MTCL_PRINT(100, "[internal]:\t", "CollectiveImpl::receiveFromHandle EBADF\n");
+			errno = EBADF; // the handle  is not valid or closed
+			return -1;
+		}
+		if (realHandle->closed_rd) return 0;
+
 		size_t sz;
 		if (!realHandle->probed.first) {
-			// reading the header to get the size of the message
-			ssize_t r;
-			if ((r=probeHandle(realHandle, sz, true))<=0) {
-				return r;
-			}
+			// read the header to get the message size
+			const ssize_t pr = probeHandle(realHandle, sz, true);
+			if (pr<=0) return pr;
 		} else {
-			if (!realHandle) {
-				MTCL_PRINT(100, "[internal]:\t", "CollectiveImpl::receiveFromHandle EBADF\n");
-				errno = EBADF; // the "communicator" is not valid or closed
-				return -1;
+			sz = realHandle->probed.second;
+			if (sz == 0) { // EOS already received
+				realHandle->close(false, true);
+				return 0;
 			}
-			if (realHandle->closed_rd) return 0;
 		}
-		if ((sz=realHandle->probed.second)>size) {
-			MTCL_ERROR("[internal]:\t", "CollectiveImpl::receiveFromHandle ENOMEM, receiving less data\n");
-			errno=ENOMEM;
+		if (sz > size) {
+			MTCL_ERROR("[internal]:\t", "CollectiveImpl::receiveFromHandle EMSGSIZE, buffer too small\n");
+			errno = EMSGSIZE;
 			return -1;
-		}	   
-		realHandle->probed={false,0};
-		return realHandle->receive(buff, std::min(sz,size));
+		}
+		// NOTE: do not clear probed here, i.e., realHandle->probed={false,0}
+		//       it is handled by the receive
+		return realHandle->receive(buff, sz);
     }
 
 
@@ -340,48 +339,57 @@ private:
     bool root;
 
 public:
-	// OK
-    ssize_t probe(size_t& size, const bool blocking=true) {
-        
-        ssize_t res = -1;
-        auto iter = participants.begin();
-        while(res == -1 && !participants.empty()) {
-            auto h = *iter;
-            res = h->probe(size, false);
-            // The handle sent EOS, we remove it from participants and go on
-            // looking for a "real" message
-            if(res > 0 && size == 0) {
-                iter = participants.erase(iter);
-                res = -1;
-                h->close(true, true);
-                if(iter == participants.end()) {
-                    if(blocking) {
-                        iter = participants.begin();
-                        continue;
-                    }
-                    else break;
-                }
-            }
-            if(res > 0) {
-                probed_idx = iter - participants.begin();
-				h->probed={true, size};
-            }
-            iter++;
-            if(iter == participants.end()) {
-                if(blocking)
-                    iter = participants.begin();
-                else break;
-            }
-        }
 
+    ssize_t probe(size_t& size, const bool blocking=true) {
+		if (participants.empty()) {
+			size = 0;
+			return 0;
+		}
+
+		auto iter = participants.begin();
+		while (!participants.empty()) {
+			Handle* h = *iter;
+			size_t sz = 0;
+			const ssize_t res = probeHandle(h, sz, false);
+
+			// real message ready on this handle
+			if (res > 0) {
+				size = sz;
+				probed_idx = (ssize_t)(iter - participants.begin());
+				return res;
+			}
+			
+			// EOS or peer closed, remove this participant and keep searching
+			if (res == 0) {
+				h->close(true, true);
+				iter = participants.erase(iter);
+				if (participants.empty()) {
+					size = 0;
+					return 0;
+				}
+				if (iter == participants.end()) iter = participants.begin();
+				continue;
+			}
+
+			// res < 0
+			if (errno != EWOULDBLOCK && errno != EAGAIN) {
+				return -1;
+			}
+
+			++iter;
+			if (iter == participants.end()) {
+				if (!blocking) {
+					errno = EWOULDBLOCK;
+					return -1;
+				}
+				iter = participants.begin();
+				mtcl_cpu_relax();
+			}
+		}
         // All participants have closed their connection, we "notify" the HandleUser
         // that an EOS has been received for the entire group
-        if(participants.empty()) {
-            size = 0;
-            res = sizeof(size_t);
-        }
-
-        return res;
+		size = 0;
+		return 0;
     }
 
     ssize_t send(const void* buff, size_t size) {
@@ -394,17 +402,40 @@ public:
     }
 
     ssize_t receive(void* buff, size_t size) {
-        // I already probed one of the handles, I must receive from the same one
-        ssize_t r;
-        auto h = participants.at(probed_idx);
+		while (true) {
+			if (participants.empty()) return 0; // EOS for the whole group
 
-        if((r = h->receive(buff, size)) <= 0)
-            return -1;
-        h->probed = {false,0};
-
-        probed_idx = -1;
-
-        return r;
+			if (probed_idx < 0 || (size_t)probed_idx >= participants.size()) {
+				size_t useless = 0;
+				const ssize_t pr = probe(useless, true);
+				if (pr < 0) return -1;
+				if (pr == 0) return 0;
+			}
+			
+			Handle* h = participants.at((size_t)probed_idx);
+			
+			// If it does not fit, keep the probed state intact for a retry
+			if (h->probed.first && h->probed.second > size) {
+				errno = EMSGSIZE;
+				return -1;
+			}
+			
+			const ssize_t r = receiveFromHandle(h, buff, size);
+			if (r > 0) {
+				probed_idx = -1;
+				return r;
+			}
+			if (r < 0) {
+				// Keep probed_idx on EMSGSIZE to allow an immediate retry
+				if (errno != EMSGSIZE) probed_idx = -1;
+				return -1;
+			}
+			
+			// r == 0, this participant closed. Remove it and keep waiting for others.
+			h->close(true, true);
+			participants.erase(participants.begin() + probed_idx);
+			probed_idx = -1;
+		}
     }
 
     void close(bool close_wr=true, bool close_rd=true) {
@@ -431,38 +462,52 @@ private:
 public:
     ssize_t probe(size_t& size, const bool blocking=true) {
         if(participants.empty()) {
-            errno = ECONNRESET;
-            return -1;
+            size = 0;
+            return 0;
         }
 
-        auto h = participants.at(0);
-        ssize_t res = h->probe(size, blocking);
-        // EOS
-        if(res > 0 && size == 0) {
-            participants.pop_back();
-            h->close(true, true);
-        }
-		if (res > 0) 
-			h->probed={true, size};
-        return res;
+		auto h = participants.at(0);
+		size_t sz=0;
+		const ssize_t res = probeHandle(h, sz, blocking);
+		if (res > 0) {
+			size = sz;
+			return res;
+		}
+		// EOS
+		if(res == 0) {
+			h->close(true, true);
+			participants.clear();
+			size = 0;
+			return 0;
+		}
+		// res < 0
+		if (errno != EWOULDBLOCK && errno != EAGAIN) {
+			return -1;
+		}
+		errno = EWOULDBLOCK;
+		return -1;
     }
 
     ssize_t send(const void* buff, size_t size) {
-        size_t count = participants.size();
+		if (participants.empty()) {
+			errno = EPIPE;
+			return -1;
+		}
+        const size_t count = participants.size();
         auto h = participants.at(current);
-        
-        int res = h->send(buff, size);
-
+        const ssize_t res = h->send(buff, size);
         ++current %= count;
-
         return res;
     }
 
     ssize_t receive(void* buff, size_t size) {
+		if (participants.empty()) return 0;
         auto h = participants.at(0);
-        ssize_t res = h->receive(buff, size);
-        h->probed = {false, 0};
-
+		const ssize_t res = receiveFromHandle(h, buff, size);
+		if (res == 0) {
+			h->close(true,false);
+			participants.clear();
+		}
         return res;
     }
 
@@ -869,4 +914,3 @@ public:
 
 } // namespace
 
-#endif //COLLECTIVEIMPL_HPP

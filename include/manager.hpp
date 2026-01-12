@@ -1,7 +1,7 @@
-#ifndef MTCL_MANAGER_HPP
-#define MTCL_MANAGER_HPP
+#pragma once
 
 #include <csignal>
+#include <cctype>
 #include <cstdlib>
 #include <map>
 #include <set>
@@ -9,13 +9,17 @@
 #include <queue>
 #include <mutex>
 #include <thread>
+#include <chrono>
 #include <condition_variable>
 #include <sstream>
 #include <cassert>
+#include <cerrno>
+#include <cstring>
 
 #include "handle.hpp"
 #include "handleUser.hpp"
 #include "protocolInterface.hpp"
+#include "utils.hpp"
 
 #ifndef MTCL_DISABLE_TCP
 #include "protocols/tcp.hpp"
@@ -50,6 +54,9 @@
 #ifdef MTCL_ENABLE_SHM
 #include "protocols/shm.hpp"
 #endif
+
+
+
 namespace MTCL {
 
 int  mtcl_verbose = -1;
@@ -91,7 +98,8 @@ class Manager {
     inline static std::condition_variable group_cond;
 
 private:
-    Manager() {}
+
+	Manager() {}
 
 	// initial handshake for a connection, it could be a p2p connection or a connection
 	// part of a collective handle
@@ -102,14 +110,15 @@ private:
 		// new connection, read handle type (p2p=0, collective=1)
 		int collective = 0;		
 		size_t size;
-		if (h->probe(size, true) <=0) {
-			MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, errno=%d\n", errno);
+		if (nb_probe_with_timeout(h, size, CCONNECTION_RETRY, CCONNECTION_TIMEOUT) <= 0) {
+			MTCL_ERROR("[MTCL]:", "Manager::connectionHandshake error in probe, errno=%d (%s)\n", errno, strerror(errno));
 			teamID=nullptr;
 			appName=nullptr;
 			return -1;
 		}
+		
 		if (h->receive(&collective, sizeof(int)) <=0) {
-			MTCL_ERROR("[Manager]:\t", "addinQ handshake error in receiving collective flag, errno=%d\n", errno);
+			MTCL_ERROR("[MTCL]:", "Manager::connectionHandshake error in receiving collective flag, errno=%d (%s)\n", errno, strerror(errno));
 			teamID=nullptr;
 			appName=nullptr;
 			return -1;
@@ -117,9 +126,9 @@ private:
 		// If collective, the handle sends further data with string teamID.
 		// The teamID uniquely associate a single context to all handles of the same collective
 		// This is useful to synchronize the root thread for the accepts.
-		if(collective) {
-			if (h->probe(size, true) <= 0) {
-				MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, appName size, errno=%d\n", errno);
+		if (collective) {
+			if (nb_probe_with_timeout(h, size, CCONNECTION_RETRY, CCONNECTION_TIMEOUT) <= 0) {
+				MTCL_ERROR("[MTCL]:", "Manager::connectionHandshake error in probe, appName size, errno=%d (%s)\n", errno, strerror(errno));
 				teamID=nullptr;
 				appName=nullptr;
 				return -1;
@@ -127,21 +136,21 @@ private:
 			appName = new char[size+1];
 			assert(appName);
 			if (h->receive(appName, size) <=0) {
-				MTCL_ERROR("[Manager]:\t", "addinQ handshake error in receive appName, errno=%d\n", errno);
+				MTCL_ERROR("[MTCL]:", "Manager::connectionHandshake error in receive appName, errno=%d (%s)\n", errno, strerror(errno));
 				teamID=nullptr;
 				appName=nullptr;
 				return -1;			
 			}
-			appName[size]='\0';				   
-			if (h->probe(size, true) <= 0) {
-				MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, teamID size, errno=%d\n", errno);
+			appName[size]='\0';
+			if (nb_probe_with_timeout(h, size, CCONNECTION_RETRY, CCONNECTION_TIMEOUT) <= 0) {
+				MTCL_ERROR("[MTCL]:", "Manager::connectionHandshake error in probe, teamID size, errno=%d (%s)\n", errno, strerror(errno));
 				teamID=nullptr;
 				appName=nullptr;
 				return -1;
 			}
 			// sanity check
 			if (size>1048576) {
-				MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, teamID size TOO LARGE (size=%ld)\n", size);
+				MTCL_ERROR("[MTCL]:", "Manager::connectionHandshake error in probe, teamID size TOO LARGE (size=%ld)\n", size);
 				teamID=nullptr;
 				delete [] appName;
 				appName=nullptr;
@@ -150,7 +159,7 @@ private:
 			teamID = new char[size+1];
 			assert(teamID);
 			if (h->receive(teamID, size) <=0) {
-				MTCL_ERROR("[Manager]:\t", "addinQ handshake error in probe, receiving teamID, errno=%d\n", errno);
+				MTCL_ERROR("[MTCL]:", "Manager::connectionHandshake error in probe, receiving teamID, errno=%d (%s)\n", errno, strerror(errno));
 				delete [] teamID;
 				delete [] appName;
 				teamID=nullptr;
@@ -158,7 +167,7 @@ private:
 				return -1;
 			}
 			teamID[size] = '\0';			
-			MTCL_PRINT(100, "[Manager]: \t", "Manager::addinQ received connection for team %s from appName=%s\n", teamID, appName);
+			MTCL_PRINT(100, "[MTCL]:", "Manager::connectionHandshake received connection for team %s from appName=%s\n", teamID, appName);
 		}	
 		return 0;
 	}
@@ -169,7 +178,11 @@ private:
         if(b) { // we have to see if it is part of a collective
 			char *teamID=nullptr;
 			char *appName=nullptr;
-			if (connectionHandshake(teamID, appName, h)==-1) return;
+			if (connectionHandshake(teamID, appName, h)==-1) {
+				MTCL_PRINT(100, "[MTCL]:", "Manager::addinQ connectionHandshake failed errno=%d (%s) for team %s from appName=%s\n", errno, strerror(errno), teamID, appName);
+				h->close(true,true);
+				return;
+			}
 
 			if (teamID) {
                 if(groupsReady.count(teamID) == 0)
@@ -184,13 +197,16 @@ private:
 		
 		handleReady.push(HandleUser(h, true, b));
 	}
-#else	
+#else
     static inline void addinQ(const bool b, Handle* h) {
 
         if(b) { // For each new connection... is the handle coming from a collective?
 			char *teamID  = nullptr;
 			char *appName = nullptr;
-			if (connectionHandshake(teamID, appName, h) == -1) return;
+			if (connectionHandshake(teamID, appName, h) == -1) {
+				h->close(true,true);
+				return;
+			}
 
 			if (teamID) {
 				std::unique_lock lk(group_mutex);
@@ -251,16 +267,67 @@ private:
     template <bool B, typename T>
     static std::vector<std::string> JSONArray2VectorString(const rapidjson::GenericArray<B, T>& arr){
         std::vector<std::string> output;
-        for(auto& e : arr)  
-            output.push_back(e.GetString());
-        
+		output.reserve(arr.Size());
+        size_t i = 0;
+        for (auto& e : arr) {
+           if (!e.IsString()) {
+                MTCL_ERROR("[MTCL]:", "Config error: array element at index %ld is not a string, skipping it.\n", i);
+                ++i;
+                continue;
+            }
+            output.emplace_back(e.GetString());
+            ++i;
+        }
         return output;
     }
-    
+	static inline bool vectorContainsProto(const std::vector<std::string>& v, const std::string& proto) {
+        for (const auto& x : v) if (x == proto) return true;
+        return false;
+    }
+    static inline bool validateListenEndpoint(const std::string& endpoint, const std::string& componentName,
+											  const std::vector<std::string>& componentProtocols) {
+        if (endpoint.empty()) {
+			MTCL_ERROR("[MTCL]:", "Config error: component \"%s\" has an empty listen-endpoint.\n",
+                       componentName.c_str());
+            errno = EINVAL;
+            return false;
+        }
+        std::string proto, rest;
+		if (!splitProtoRest(endpoint, proto, rest)) {
+            MTCL_ERROR("[MTCL]:",
+                       "Config error: component \"%s\" listen-endpoint \"%s\" has no protocol prefix. Expected \"PROTO:...\".\n",
+                       componentName.c_str(), endpoint.c_str());
+            errno = EPROTO;
+            return false;
+        }
+        if (proto.empty() || rest.empty()) {
+            MTCL_ERROR("[MTCL]:",
+                       "Config error: component \"%s\" listen-endpoint \"%s\" is malformed. Expected \"PROTO:...\" with non-empty protocol and address.\n",
+                       componentName.c_str(), endpoint.c_str());
+            errno = EPROTO;
+            return false;
+        }
+        if (protocolsMap.count(proto) == 0) {
+            MTCL_ERROR("[MTCL]:",
+                       "Config error: component \"%s\" listen-endpoint \"%s\" uses unknown or disabled protocol \"%s\".\n",
+                       componentName.c_str(), endpoint.c_str(), proto.c_str());
+            errno = EPROTONOSUPPORT;
+            return false;
+        }
+        if (!vectorContainsProto(componentProtocols, proto)) {
+            MTCL_ERROR("[MTCL]:",
+                       "Config error: component \"%s\" listen-endpoint \"%s\" uses protocol \"%s\" not listed in the component \"protocols\" field.\n",
+                       componentName.c_str(), endpoint.c_str(), proto.c_str());
+            errno = EPROTO;
+            return false;
+        }
+        return true;
+    }
+
     static int parseConfig(std::string& f){
         std::ifstream ifs(f);
         if ( !ifs.is_open() ) {
-			MTCL_ERROR("[Manager]:\t", "parseConfig: cannot open file %s for reading, skip it\n",
+			MTCL_ERROR("[MTCL]:", "Config error: cannot open file %s for reading, skip it\n",
 					   f.c_str());
             return -1;
         }
@@ -268,7 +335,7 @@ private:
         rapidjson::Document doc;
         doc.ParseStream( isw );
         if(doc.HasParseError()) {
-            MTCL_ERROR("[internal]:\t", "Manager::parseConfig JSON syntax error in file %s\n", f.c_str());
+            MTCL_ERROR("[MTCL]:", "Config error: JSON syntax error in file %s\n", f.c_str());
 			return -1;
         }
 
@@ -278,11 +345,11 @@ private:
                 if (c.IsObject() && c.HasMember("name") && c["name"].IsString() && c.HasMember("proxyIp") && c["proxyIp"].IsArray() && c.HasMember("nodes") && c["nodes"].IsArray()){
                     auto name = c["name"].GetString();
                     if (pools.count(name))
-						MTCL_ERROR("[Manager]:\t", "parseConfig: one pool element is duplicate on configuration file. I'm overwriting it.\n");
+						MTCL_ERROR("[MTCL]:", "Config error: one pool element is duplicate on configuration file. I'm overwriting it.\n");
                     
                     pools[name] = std::make_pair(JSONArray2VectorString(c["proxyIp"].GetArray()), JSONArray2VectorString(c["nodes"].GetArray()));
                 } else
-					MTCL_ERROR("[Manager]:\t", "parseConfig: an object in pool is not well defined. Skipping it.\n");
+					MTCL_ERROR("[MTCL]:", "Config error: an object in pool is not well defined. Skipping it.\n");
         }
         if (doc.HasMember("components") && doc["components"].IsArray()){
             // components
@@ -290,12 +357,29 @@ private:
                 if (c.IsObject() && c.HasMember("name") && c["name"].IsString() && c.HasMember("host") && c["host"].IsString() && c.HasMember("protocols") && c["protocols"].IsArray()){
                     auto name = c["name"].GetString();
                     if (components.count(name))
-						MTCL_ERROR("[Manager]:\t", "parseConfig: one component element is duplicate on configuration file. I'm overwriting it.\n");
-					
-                    auto listen_strs = (c.HasMember("listen-endpoints") && c["listen-endpoints"].IsArray()) ? JSONArray2VectorString(c["listen-endpoints"].GetArray()) : std::vector<std::string>();
-                    components[name] = std::make_tuple(c["host"].GetString(), JSONArray2VectorString(c["protocols"].GetArray()), listen_strs);
-                } else
-					  MTCL_ERROR("[Manager]:\t", "parseConfig: an object in components is not well defined. Skipping it.\n");
+						MTCL_ERROR("[MTCL]:", "Config error: one component element is duplicate on configuration file. I'm overwriting it.\n");
+				
+                    auto protos = JSONArray2VectorString(c["protocols"].GetArray());
+                    std::vector<std::string> listen_strs;
+                    if (c.HasMember("listen-endpoints")) {
+                        if (!c["listen-endpoints"].IsArray()) {
+                            MTCL_ERROR("[MTCL]:",
+                                       "Config error: component \"%s\" field \"listen-endpoints\" is not an array.\n",
+                                       name);
+                            errno = EINVAL;
+                            return -1;
+                        }
+                        listen_strs = JSONArray2VectorString(c["listen-endpoints"].GetArray());
+                    }
+                    for (const auto& le : listen_strs) {
+                        if (!validateListenEndpoint(le, name, protos)) {
+                            MTCL_ERROR("[MTCL]:", "Config error: invalid listen-endpoint for component \"%s\".\n", name);
+                            return -1;
+                        }
+                    }
+                    components[name] = std::make_tuple(c["host"].GetString(), std::move(protos), std::move(listen_strs));
+				} else
+					  MTCL_ERROR("[MTCL]:", "Config error: an object in components is not well defined. Skipping it.\n");
         }
 		return 0;
     }
@@ -336,7 +420,7 @@ public:
 					mtcl_verbose=std::stoi(level);
 					if (mtcl_verbose<=0) mtcl_verbose=1;
 				} catch(...) {
-					MTCL_ERROR("[Manger]:\t", "invalid MTCL_VERBOSE value, it should be a number or all|ALL|max|MAX\n");
+					MTCL_ERROR("[Manger]:", "invalid MTCL_VERBOSE value, it should be a number or all|ALL|max|MAX\n");
 				}
 		}
 		
@@ -373,7 +457,7 @@ public:
 
         // if the current appname is not found in configuration file, abort the execution.
         if (components.find(appName) == components.end()){			
-            MTCL_ERROR("[Manager]", "Component %s not found in configuration file\n", appName.c_str());
+            MTCL_ERROR("[MTCL]", "Component %s not found in configuration file\n", appName.c_str());
             return -1;
         }
 
@@ -386,7 +470,7 @@ public:
 		end = false;
         for (auto &el : protocolsMap) {
             if (el.second->init(appName) == -1) {
-				MTCL_PRINT(100, "[Manager]:\t", "ERROR initializing protocol %s\n", el.first.c_str());
+				MTCL_PRINT(100, "[MTCL]:", "ERROR initializing protocol %s\n", el.first.c_str());
 			}
         }
 #ifdef ENABLE_CONFIGFILE
@@ -415,8 +499,10 @@ public:
     static void finalize(bool blockflag=false) {
 		end = true;
 #ifndef SINGLE_IO_THREAD
-        t1.join();
-#endif
+		try {
+			t1.join();
+		} catch(...) {}
+#endif		
 #ifndef MTCL_DISABLE_COLLECTIVES
         for(auto& [ctx, _] : contexts) {
             ctx->finalize(blockflag, ctx->getName());
@@ -428,7 +514,6 @@ public:
         for (auto [_,v]: protocolsMap) {
             v->end(blockflag);
         }
-
     }
 
     /**
@@ -501,7 +586,7 @@ public:
     static void registerType(std::string name){
         static_assert(std::is_base_of<ConnType,T>::value, "Not a ConnType subclass");
         if(initialized) {
-			MTCL_ERROR("[Manager]:\t", "The Manager has been already initialized. Impossible to register new protocols.\n");
+			MTCL_ERROR("[MTCL]:", "The Manager has been already initialized. Impossible to register new protocols.\n");
             return;
         }
 
@@ -522,17 +607,30 @@ public:
      * @param connectionString URI containing parameters to perform the effective listen operation
     */
     static int listen(std::string s) {
-        // Check if Manager has already this endpoint listening
-        if(listening_endps.count(s) != 0) return 0;
-        listening_endps.insert(s);
-
-        std::string protocol = s.substr(0, s.find(":"));
-        
-        if (!protocolsMap.count(protocol)){
-			errno=EPROTO;
+        if (s.empty()) {
+            errno = EINVAL;
             return -1;
         }
-        return protocolsMap[protocol]->listen(s.substr(protocol.length()+1, s.length()));
+        std::string proto, rest;
+        if (!splitProtoRest(s, proto, rest) || proto.empty() || rest.empty()) {
+            MTCL_ERROR("[MTCL]:", "listen() error: endpoint \"%s\" is malformed. Expected \"PROTO:rest\".\n", s.c_str());
+            errno = EPROTO;
+            return -1;
+        }
+        if (protocolsMap.count(proto) == 0) {
+            MTCL_ERROR("[MTCL]:", "listen() error: endpoint \"%s\" uses unknown or disabled protocol \"%s\".\n", s.c_str(), proto.c_str());
+            errno = EPROTONOSUPPORT;
+            return -1;
+        }
+        // Already listening
+        if (listening_endps.count(s) != 0) return 0;
+
+        const int rc = protocolsMap[proto]->listen(rest);
+        if (rc >= 0) {
+            // Insert only on success, otherwise we would block future retries.
+            listening_endps.insert(s);
+        }
+        return rc;
     }
 
 
@@ -540,109 +638,89 @@ public:
         size_t pos;
         std::string protocol = s.substr(0, (pos = s.find(":")) == std::string::npos ? 0 : pos);
        
-       /* if(protocol.empty()){
-            // checking if there is a config file to cycle on all addresses
-#ifdef ENABLE_CONFIGFILE
-            if (components.count(s))
-                for(auto& le : std::get<2>(components[s])){
-                    std::string sWoProtocol = le.substr(le.find(":") + 1, le.length());
-                    std::string remote_protocol = le.substr(0, le.find(":"));
-                    if (protocolsMap.count(remote_protocol)){
-                        auto* h = protocolsMap[remote_protocol]->connect(sWoProtocol, retry, timeout);
-                        if (h) return h;
-                    }
-                }
-#endif
-            MTCL_ERROR("[internal]:\t", "Manager::connectHandle specified appName (%s) not found in configuration file.\n", s.c_str());
-            return nullptr;
-        }*/
-
         // POSSIBILE LABEL
         std::string appLabel = protocol.empty() ? s : s.substr(s.find(":") + 1, s.length());
 
         #ifdef ENABLE_CONFIGFILE
-            if (components.count(appLabel)){ // there is a label
-                auto& component = components.at(appLabel);
+		if (components.count(appLabel)){ // there is a label
+			auto& component = components.at(appLabel);
+            
+			// fix protocol empty 
+			//if (protocol.empty())
+			//    protocol = "TCP";
+			
+			
+			std::string& host = std::get<0>(component); // host= [pool:]hostname
+			std::string pool = getPoolFromHost(host);
+			
+			if (pool != poolName && (pool.empty() || poolName.empty())){ 
+				if (poolName.empty() && !pool.empty()){ // go through the proxy of the destination pool
+					// connect towards the proxy pool
+					if (protocol == "UCX" || protocol == "TCP"){
+						for (auto& ip: pools[pool].first){
+							// if the ip contains a port is better to skip it, probably is a tunnel used betweens proxies
+							Handle* handle;
+							if (ip.find(":") != std::string::npos) 
+								handle = protocolsMap["TCP"]->connect(ip, retry,timeout);
+							else
+								handle = protocolsMap[protocol]->connect(ip + ":" + (protocol == "UCX" ? "13001" : "13000"), retry, timeout);
+							//handle->send(s.c_str(), s.length());
+							if (handle){
+								handle->type = HandleType::PROXY;
+								//handle->send(s.c_str(), s.length());
+								return handle;
+							}
+						}
+					} else {
+						auto* handle = protocolsMap[protocol]->connect("PROXY-" + pool, retry, timeout);
+						//handle->send(s.c_str(), s.length());
+						if (handle) {
+							handle->type = HandleType::PROXY;
+							return handle;
+						}
+					}
+				}
                 
-                // fix protocol empty 
-                //if (protocol.empty())
-                //    protocol = "TCP";
-
-
-                std::string& host = std::get<0>(component); // host= [pool:]hostname
-                std::string pool = getPoolFromHost(host);
-
-                    if (pool != poolName && (pool.empty() || poolName.empty())){ 
-                        if (poolName.empty() && !pool.empty()){ // go through the proxy of the destination pool
-                            // connect verso il proxy di pool
-                            if (protocol == "UCX" || protocol == "TCP"){
-                               for (auto& ip: pools[pool].first){
-                                // if the ip contains a port is better to skip it, probably is a tunnel used betweens proxies
-                                Handle* handle;
-                                if (ip.find(":") != std::string::npos) 
-                                    handle = protocolsMap["TCP"]->connect(ip, retry,timeout);
-                                else
-                                    handle = protocolsMap[protocol]->connect(ip + ":" + (protocol == "UCX" ? "13001" : "13000"), retry, timeout);
-                                //handle->send(s.c_str(), s.length());
-                                if (handle){
-                                    handle->type = HandleType::PROXY;
-                                    //handle->send(s.c_str(), s.length());
-                                        return handle;
-                                }
-                               }
-                            } else {
-                                auto* handle = protocolsMap[protocol]->connect("PROXY-" + pool, retry, timeout);
-                                //handle->send(s.c_str(), s.length());
-                                if (handle) {
-                                    handle->type = HandleType::PROXY;
-                                    return handle;
-                                }
-                            }
-                        }
-                    
-                        if (!poolName.empty() && !pool.empty()){ // try to contact my proxy
-                            if (protocol == "UCX" || protocol == "TCP"){
-                               for (auto& ip: pools[poolName].first){
-								   auto* handle = protocolsMap[protocol]->connect(ip + ":" + (protocol == "UCX" ? "13001" : "13000"), retry, timeout);
-                                //handle->send(s.c_str(), s.length());
-                                if (handle) {
-                                    handle->type = HandleType::PROXY;
-                                    return handle;
-                                }
-                               }
-                            } else {
-                                auto* handle = protocolsMap[protocol]->connect("PROXY-" + poolName, retry, timeout);
-                                //handle->send(s.c_str(), s.length());
-                                if (handle) {
-                                    handle->type = HandleType::PROXY;
-                                    return handle;
-                                }
-                            }
-                        }
-                        return nullptr;
-                    } else {
-                        // connessione diretta
-                        for (auto& le : std::get<2>(component)){
-                            if (protocol.empty()){
-                                std::string sWoProtocol = le.substr(le.find(":") + 1, le.length());
-                                std::string remote_protocol = le.substr(0, le.find(":"));
-                                if (protocolsMap.count(remote_protocol)){
-                                    auto* h = protocolsMap[remote_protocol]->connect(sWoProtocol, retry, timeout);
-                                    if (h) return h;
-                                }
-                            }
-                            else if (le.find(protocol) != std::string::npos){
-                                auto* handle = protocolsMap[protocol]->connect(le.substr(le.find(":") + 1, le.length()), retry, timeout);
-                                if (handle) return handle;
-                            }
-                        }
-                        
-                        
-                        return nullptr;
-                    } 
+				if (!poolName.empty() && !pool.empty()){ // try to contact my proxy
+					if (protocol == "UCX" || protocol == "TCP"){
+						for (auto& ip: pools[poolName].first){
+							auto* handle = protocolsMap[protocol]->connect(ip + ":" + (protocol == "UCX" ? "13001" : "13000"), retry, timeout);
+							//handle->send(s.c_str(), s.length());
+							if (handle) {
+								handle->type = HandleType::PROXY;
+								return handle;
+							}
+						}
+					} else {
+						auto* handle = protocolsMap[protocol]->connect("PROXY-" + poolName, retry, timeout);
+						//handle->send(s.c_str(), s.length());
+						if (handle) {
+							handle->type = HandleType::PROXY;
+							return handle;
+						}
+					}
+				}
+				return nullptr;
+			} else {
+				// direct connection
+				for (auto& le : std::get<2>(component)){
+					if (protocol.empty()){
+						std::string sWoProtocol = le.substr(le.find(":") + 1, le.length());
+						std::string remote_protocol = le.substr(0, le.find(":"));
+						if (protocolsMap.count(remote_protocol)){
+							auto* h = protocolsMap[remote_protocol]->connect(sWoProtocol, retry, timeout);
+							if (h) return h;
+						}
+					}
+					else if (le.find(protocol) != std::string::npos){
+						auto* handle = protocolsMap[protocol]->connect(le.substr(le.find(":") + 1, le.length()), retry, timeout);
+						if (handle) return handle;
+					}
+				}
                 
-  
-            }
+				return nullptr;
+			} 
+		}
         #endif
 
         if(protocolsMap.count(protocol)) {
@@ -680,17 +758,17 @@ public:
 
 
 #ifndef MTCL_DISABLE_COLLECTIVES
-	MTCL_PRINT(100, "[Manager]:\t", "Manager::createTeam participants: %s - root: %s - type: %d\n", participants.c_str(), root.c_str(), type);
+	MTCL_PRINT(100, "[MTCL]:", "Manager::createTeam participants: %s - root: %s - type: %d\n", participants.c_str(), root.c_str(), type);
 
 	
 #ifndef ENABLE_CONFIGFILE
-        MTCL_ERROR("[Manager]:\t", "Manager::createTeam team creation is only available with a configuration file\n");
+        MTCL_ERROR("[MTCL]:", "Manager::createTeam team creation is only available with a configuration file\n");
         return HandleUser();
 #else
         std::string teamID{participants + root + "-" + std::to_string(type)};
 
 		if (createdTeams.count(teamID) != 0) {
-			MTCL_ERROR("[Manager]:\t", "Manager::createTeam, team already created [%s]\n", teamID.c_str());
+			MTCL_ERROR("[MTCL]:", "Manager::createTeam, team already created [%s]\n", teamID.c_str());
 			errno=EINVAL;
 			return HandleUser();
 		}
@@ -716,7 +794,7 @@ public:
             bool mpi = false;
             bool ucc = false;
             if(components.count(line) == 0) {
-                MTCL_ERROR("[internal]:\t", "Manager::createTeam missing \"%s\" in configuration file\n", line.c_str());
+                MTCL_ERROR("[MTCL]:", "Manager::createTeam missing \"%s\" in configuration file\n", line.c_str());
 				return HandleUser();
             }
 
@@ -734,16 +812,16 @@ public:
 		assert(ordering.size() == (size-1));
 		
         if(std::get<2>(components[root]).size() == 0) {
-            MTCL_ERROR("[internal]:\t", "Manager::createTeam root App [\"%s\"] has no listening endpoints\n", root.c_str());
+            MTCL_ERROR("[MTCL]:", "Manager::createTeam root App [\"%s\"] has no listening endpoints\n", root.c_str());
 			return HandleUser();
         }
 
         if(!root_ok) {
-            MTCL_ERROR("[internal]:\t", "Manager::createTeam missing root App [\"%s\"] in participants string\n", root.c_str());
+            MTCL_ERROR("[MTCL]:", "Manager::createTeam missing root App [\"%s\"] in participants string\n", root.c_str());
 			return HandleUser();
         }
 
-        MTCL_PRINT(100, "[Manager]:\t", "Manager::createTeam initializing collective with size: %d - AppName: %s - rank: %d - mpi: %d - ucc: %d\n",
+        MTCL_PRINT(100, "[MTCL]:", "Manager::createTeam initializing collective with size: %d - AppName: %s - rank: %d - mpi: %d - ucc: %d\n",
 				   size, Manager::appName.c_str(), rank, mpi_impl, ucc_impl);
 
 
@@ -755,13 +833,13 @@ public:
         if (mpi_impl) {
 			impl = MPI;
 			if constexpr (!MPI_ENABLED) {
-					MTCL_ERROR("[Manager]:\t", "Manager::createTeam the selected protocol (MPI) has not been enabled AppName: %s\n", Manager::appName.c_str());
+					MTCL_ERROR("[MTCL]:", "Manager::createTeam the selected protocol (MPI) has not been enabled AppName: %s\n", Manager::appName.c_str());
 					return HandleUser();
 			}
 		} else if(ucc_impl) {
 			impl = UCC;
 			if constexpr (!UCC_ENABLED) {
-					MTCL_ERROR("[Manager]:\t", "Manager::createTeam the selected protocol (UCX/UCC) has not been enabled AppName: %s\n", Manager::appName.c_str());
+					MTCL_ERROR("[MTCL]:", "Manager::createTeam the selected protocol (UCX/UCC) has not been enabled AppName: %s\n", Manager::appName.c_str());
 					return HandleUser();
 				}
 		}
@@ -770,7 +848,7 @@ public:
         auto ctx = createContext(type, size, Manager::appName == root, rank);
         if(Manager::appName == root) {
             if(ctx == nullptr) {
-                MTCL_ERROR("[Manager]:\t", "Operation type not supported\n");
+                MTCL_ERROR("[MTCL]:", "Operation type not supported\n");
                 return HandleUser();
             }
 
@@ -827,7 +905,7 @@ public:
         }
         else {
             if(components.count(root) == 0) {
-                MTCL_ERROR("[Manager]:\t", "Requested root node is not in configuration file\n");
+                MTCL_ERROR("[MTCL]:", "Requested root node is not in configuration file\n");
                 return HandleUser();
             }
             Handle* handle = nullptr;
@@ -841,10 +919,10 @@ public:
                 //      if mpi_impl/ucc_impl, then we must use the proper protocol
                 handle = connectHandle(addr, CCONNECTION_RETRY, CCONNECTION_TIMEOUT);
                 if(handle != nullptr) {
-                    MTCL_PRINT(100, "[Manager]:\t", "Connection ok to %s\n", addr.c_str());
+                    MTCL_PRINT(100, "[Manager]:", "Connection ok to %s\n", addr.c_str());
                     break; 
                 }
-                MTCL_PRINT(100, "[Manager]:\t", "Connection failed to %s\n", addr.c_str());
+                MTCL_PRINT(100, "[Manager]:", "Connection failed to %s\n", addr.c_str());
             }
             */
             
@@ -859,13 +937,13 @@ public:
             handle = connectHandle(protocol+root, CCONNECTION_RETRY, CCONNECTION_TIMEOUT);
     
             if(handle == nullptr) {
-                MTCL_ERROR("[Manager]:\t", "Could not establish a connection with root node \"%s\"\n", root.c_str());
+                MTCL_ERROR("[MTCL]:", "Could not establish a connection with root node \"%s\"\n", root.c_str());
                 return HandleUser();
             }
 
             if (handle->type == HandleType::PROXY){
                 if (handle->send(root.c_str(), root.length())==-1){
-                    MTCL_ERROR("[Manager]:\t", "PROXY handshake error, errno=%d (%s)\n",
+                    MTCL_ERROR("[MTCL]:", "PROXY handshake error, errno=%d (%s)\n",
 						   errno, strerror(errno));
                     return HandleUser();				
                 }
@@ -895,7 +973,7 @@ public:
         return HandleUser(ctx, true, true);
 #endif
 #else
-        MTCL_ERROR("[Manager]:\t", "Manager::createTeam team creation is only available when collectives are enabled\n");
+        MTCL_ERROR("[MTCL]:", "Manager::createTeam team creation is only available when collectives are enabled\n");
         return HandleUser();
 #endif
 
@@ -910,22 +988,24 @@ public:
      * 
      * @param connectionString URI of the peer or label 
     */
-    static HandleUser connect(std::string s, int nretry=-1, unsigned timeout=0) {
-        Handle* handle = connectHandle(s, nretry, timeout);
+    static HandleUser connect(std::string s, int nretry=-1, unsigned timeout_ms=0) {
+        Handle* handle = connectHandle(s, nretry, timeout_ms);
 
         // if handle is connected, we perform the handshake
 #ifndef ISPROXY        
         if(handle) {
+			MTCL_PRINT(100, "[MTCL]:", "HandleUser::connect starting handshake\n");
+			
             int collective = 0; // no nbh conversion
             if (handle->send(&collective, sizeof(int))==-1) {
-                MTCL_ERROR("[Manager]:\t", "handshake error, errno=%d (%s)\n",
+                MTCL_ERROR("[MTCL]:", "handshake error, errno=%d (%s)\n",
 						   errno, strerror(errno));
                 return HandleUser();				
 			}
 
             if (handle->type == HandleType::PROXY){
                 if (handle->send(s.c_str(), s.length())==-1){
-                    MTCL_ERROR("[Manager]:\t", "PROXY handshake error, errno=%d (%s)\n",
+                    MTCL_ERROR("[MTCL]:", "PROXY handshake error, errno=%d (%s)\n",
 						   errno, strerror(errno));
                     return HandleUser();				
                 }
@@ -955,7 +1035,7 @@ void CollectiveContext::yield() {
         Manager::releaseTeam(this);
     }
     else if(!closed_rd) {
-        MTCL_PRINT(1, "[internal]:\t", "CollectiveContext::yield() cannot yield this context.\n");
+        MTCL_PRINT(1, "[MTCL]:", "CollectiveContext::yield() cannot yield this context.\n");
 		//
         //TODO: if yield is called by HandleUser destructor, we may want to close
         //      the collective if its type is BROADCAST or GATHER
@@ -964,4 +1044,3 @@ void CollectiveContext::yield() {
 #endif
 
 } //namespace
-#endif

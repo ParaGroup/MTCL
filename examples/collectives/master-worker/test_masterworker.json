@@ -1,0 +1,351 @@
+{
+    "components" : [
+        {
+            "name" : "Master",
+            "host" : "localhost",
+            "protocols" :  ["TCP"],
+            "listen-endpoints" : ["TCP:localhost:42000"]
+        },
+        {
+            "name" : "Worker1",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker2",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker3",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker4",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker5",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker6",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker7",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker8",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker9",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker10",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker11",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker12",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker13",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker14",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker15",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker16",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker17",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker18",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker19",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker20",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker21",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker22",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker23",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker24",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker25",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker26",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker27",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker28",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker29",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker30",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker31",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker32",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+	{
+            "name" : "Worker33",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker34",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker35",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker36",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker37",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker38",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker39",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker40",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker41",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+	{
+            "name" : "Worker42",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker43",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker44",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker45",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker46",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker47",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker48",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker49",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker50",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+	{
+            "name" : "Worker51",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker52",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker53",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker54",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker55",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker56",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker57",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker58",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker59",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+	{
+            "name" : "Worker60",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker61",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker62",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker63",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker64",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker65",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker66",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker67",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        },
+        {
+            "name" : "Worker68",
+            "host" : "localhost",
+            "protocols" : ["TCP"]
+        }
+    ]
+}
+

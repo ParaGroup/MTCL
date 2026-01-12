@@ -42,6 +42,8 @@
 #include <iostream>
 #include "mtcl.hpp"
 
+using namespace MTCL;
+
 int main(int argc, char* argv[]){
 
     if(argc < 7) {
@@ -74,6 +76,7 @@ int main(int argc, char* argv[]){
 
 		if(!hg.isValid()) {
 			MTCL_ERROR("[scatter_gather_test]:\t", "Manager::createTeam ERROR\n");
+			Manager::finalize(true); 
 			return -1;
 		}
 
@@ -94,6 +97,8 @@ int main(int argc, char* argv[]){
 		
 			if (hg.sendrecv(data, size * sizeof(int), recvbuff, recvsize * sizeof(int), sizeof(int)) <= 0) {
 				MTCL_ERROR("[scatter_gather_test]:\t", "sendrecv failed\n");
+				hg.close();
+				Manager::finalize(true); 
 				return -1;
 			}
 
@@ -136,6 +141,8 @@ int main(int argc, char* argv[]){
 		
 			if (hg.sendrecv(sendbuff, sendsize * sizeof(int), data, size * sizeof(int), sizeof(int)) <= 0) {
 				MTCL_ERROR("[scatter_gather_test]:\t", "sendrecv failed\n");
+				hg.close();
+				Manager::finalize(true); 
 				return -1;
 			}
 

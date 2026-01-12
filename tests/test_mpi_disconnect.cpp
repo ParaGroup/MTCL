@@ -2,7 +2,7 @@
 #include "mtcl.hpp"
 using namespace MTCL;
 int main(int argc, char** argv){
-#ifdef EXCLUDE_MPI
+#ifndef ENABLE_MPI
     std::cerr << "You must compile with MPI support this test\n";
     return 1;
 #endif
@@ -15,7 +15,6 @@ int main(int argc, char** argv){
     if (rank == 0){
         Manager::connect("MPI:1");
         while(true){
-            std::cout << "0: get an handle!\n";
             auto h = Manager::getNext();
             std::cout << "0: handle received!\n";
             char tmp;
@@ -36,14 +35,12 @@ int main(int argc, char** argv){
             h.send("a", 1);
             h.send("b", 1);
             h.send("c", 1);
-            std::cout << "1: sended a\n";
+            std::cout << "1: sent abc\n";
             h.close();
             std::cout << "1: connection closed!\n";
         }
     }
 
-
-    Manager::finalize();
+    Manager::finalize(true);
     return 0;
-
 }

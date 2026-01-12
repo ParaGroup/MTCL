@@ -4,6 +4,8 @@
 #include <iostream>
 #include "mtcl.hpp"
 
+using namespace MTCL;
+
 int main(int argc, char** argv){
 
 	pid_t pid = fork();
@@ -13,27 +15,27 @@ int main(int argc, char** argv){
 
 		int x;
 		auto handle = Manager::getNext();
-		handle.yield();
-		handle.receive(&x, sizeof(x));
+		if (handle.receive(&x, sizeof(x))<0) {
+			MTCL_ERROR("[Server]:", "receive reported errno=%d (%s)\n",
+					   errno, strerror(errno));
+		}
 		handle.close();
-		handle.send(&x, sizeof(x));
+		if (handle.send(&x, sizeof(x))<0) {
+			MTCL_ERROR("[Server]:", "send after close() reported errno=%d (%s)\n",
+					   errno, strerror(errno));
+		}
 		Manager::finalize();
-		handle.receive(&x, sizeof(x));
+		int r;
+		if ((r=handle.receive(&x, sizeof(x)))<=0) {
+			MTCL_ERROR("[Server]:", "receive after finalize() reported r=%d, errno=%d, (%s)\n",
+					   r, errno, strerror(errno));
+		}
 		return 0;
 	}
 	Manager::init("client");
-	HandleUser handle;
-	for(int i=0;i<5;++i) {
-		auto h = Manager::connect("TCP:localhost:13000");
-		if (!h.isValid()) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(200));
-			continue;
-		}
-		handle = std::move(h);
-		break;
-	}
+	auto handle = Manager::connect("TCP:localhost:13000", 10, 200);
 	if (!handle.isValid()) {
-		MTCL_ERROR("[Client]:\t", "cannot connect to server, exit\n");
+		MTCL_ERROR("[Client]:", "cannot connect to server, exit\n");
 		return -1;
 	}
 	int x;

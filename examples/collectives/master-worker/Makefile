@@ -1,10 +1,9 @@
-ifndef CXX
-CXX 	   = g++
-endif
+CXX 	  = mpicxx
 
-# all local example files do not use collectives
-CXXFLAGS  += -std=c++17
-INCS       = -I ../include
+MTCL_DIR=../../..
+
+CXXFLAGS  += -std=c++17 -DENABLE_CONFIGFILE -DENABLE_MPI
+INCS       = -I . -I $(MTCL_DIR)/include
 
 ifdef DEBUG
 	OPTIMIZE_FLAGS  += -g -fno-inline-functions
@@ -16,24 +15,15 @@ ifdef SINGLE_IO_THREAD
 	CXXFLAGS +=-DSINGLE_IO_THREAD
 endif
 
-ifeq ($(findstring SHM,$(TPROTOCOL)),SHM)
-	CXXFLAGS += -DENABLE_SHM
-	LIBS += -lrt
+ifdef TPROTOCOL
+ifndef RAPIDJSON_HOME
+$(error RAPIDJSON_HOME env variable not defined!);
+endif
 endif
 
-ifeq ($(findstring TCP,$(TPROTOCOL)),TCP)
-	CXXFLAGS += -DENABLE_TCP
-endif
+INCS   += `pkg-config --cflags-only-I $(MPI_HOME)/lib/pkgconfig/ompi-cxx.pc`
+LIBS   += `pkg-config --libs $(MPI_HOME)/lib/pkgconfig/ompi-cxx.pc`
 
-ifeq ($(findstring MPI,$(TPROTOCOL)),MPI)
-	CXX 	  = mpicxx
-	CXXFLAGS += -DENABLE_MPI
-	TARGET    = ../include/protocols/stop_accept
-ifdef MPI_HOME
-	INCS   += `pkg-config --cflags-only-I $(MPI_HOME)/lib/pkgconfig/ompi-cxx.pc`
-	LIBS   += `pkg-config --libs $(MPI_HOME)/lib/pkgconfig/ompi-cxx.pc`
-endif
-endif
 
 ifeq ($(findstring MQTT, $(TPROTOCOL)),MQTT)
 	CXXFLAGS += -DENABLE_MQTT
@@ -44,20 +34,24 @@ endif
 	LIBS += -L${PAHO_HOME}/lib -Wl,-rpath,${PAHO_HOME}/lib -lpaho-mqttpp3 -lpaho-mqtt3as -lpaho-mqtt3a
 endif
 
+ifeq ($(findstring TCP, $(TPROTOCOL)),TCP)
+	CXXFLAGS += -DENABLE_TCP
+endif
+
 ifeq ($(findstring UCX, $(TPROTOCOL)),UCX)
+ifndef UCC_HOME
+$(error UCC_HOME env variable not defined!);
+endif
 	CXXFLAGS += -DENABLE_UCX
 ifndef UCX_HOME
 $(error UCX_HOME env variable not defined!);
 endif
-ifndef UCC_HOME
-$(error UCC_HOME env variable not defined!);
-endif
 	INCS += -I$(UCX_HOME)/include -I$(UCC_HOME)/include
-	LIBS += -L$(UCX_HOME)/lib -L$(UCC_HOME)/lib -Wl,-rpath,${UCX_HOME}/lib -Wl,-rpath,${UCC_HOME}/lib -lucc -lucp -luct -lucs -lucm
+	LIBS += -L$(UCX_HOME)/lib -Wl,-rpath,${UCX_HOME}/lib -lucp -luct -lucs -lucm -L${UCC_HOME}/lib -Wl,-rpath,${UCC_HOME}/lib -lucc
 endif
 
 CXXFLAGS         += -Wall
-LIBS             += -pthread 
+LIBS             += -I ${RAPIDJSON_HOME}/include -pthread -lrt
 INCLUDES          = $(INCS)
 
 SOURCES           = $(wildcard *.cpp)
@@ -84,6 +78,7 @@ all: $(TARGET)
 clean: 
 	-rm -fr $(TARGET) *~
 cleanall: clean
-	-rm -fr *.d uri_file.txt ../include/protocols/stop_accept
+	-rm -fr *.d uri_file.txt $(MTCL_DIR)/protocols/stop_accept
+	-rm -fr tmp_masterworker_r*.json
 
 include $(SOURCES:.cpp=.d)

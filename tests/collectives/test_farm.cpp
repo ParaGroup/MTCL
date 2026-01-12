@@ -28,6 +28,8 @@
 #include <iostream>
 #include "mtcl.hpp"
 
+using namespace MTCL;
+
 inline static std::string hello{"Hello team!"};
 inline static std::string bye{"Bye team!"};
 
@@ -55,7 +57,7 @@ int main(int argc, char** argv){
         fbk.setName("Collector");
         fbk.yield();
 
-        auto hg = Manager::createTeam("App1:App2:App3", "App1", FANOUT);
+        auto hg = Manager::createTeam("App1:App2:App3", "App1", MTCL_FANOUT);
         if(hg.isValid() && fbk.isValid())
             printf("Emitter starting\n");
         else
@@ -84,8 +86,8 @@ int main(int argc, char** argv){
     }
     // Worker
     else if(rank == 1){
-        auto hg_fanout = Manager::createTeam("App1:App2:App3", "App1", FANOUT);
-        auto hg_fanin = Manager::createTeam("App2:App3:App4", "App4", FANIN);
+        auto hg_fanout = Manager::createTeam("App1:App2:App3", "App1", MTCL_FANOUT);
+        auto hg_fanin = Manager::createTeam("App2:App3:App4", "App4", MTCL_FANIN);
         if(hg_fanout.isValid() && hg_fanin.isValid())
             printf("Correctly created teams\n");
 
@@ -115,7 +117,7 @@ int main(int argc, char** argv){
         fbk.receive(&stream_len, sizeof(int));
         printf("Stream len is %d\n", streamlen);
 
-        auto hg_fanin = Manager::createTeam("App2:App3:App4", "App4", FANIN);
+        auto hg_fanin = Manager::createTeam("App2:App3:App4", "App4", MTCL_FANIN);
         hg_fanin.yield();
 
         int partial = 0;

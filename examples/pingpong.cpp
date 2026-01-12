@@ -134,20 +134,20 @@ int main(int argc, char** argv){
     else {
 		bool connected=false;
 		for(int i=0;i<10;++i) {
-			auto h = MTCL::Manager::connect(connect_str);
+			auto h = MTCL::Manager::connect(connect_str, 10, 1000);
 			if(h.isValid()) {
 				char buff[5]{'p','i','n','g','\0'};
 				if (h.send(buff, sizeof(buff)) != 5) {
 					MTCL_ERROR("[Client]:\t", "ERROR sending ping message\n");
 					break;
 				}
-				MTCL_PRINT(0, "Client]:\t", "Sent: \"%s\"\n", buff);
+				MTCL_PRINT(0, "[Client]:\t", "Sent: \"%s\"\n", buff);
 				connected=true;
 				break;
 			} else { // implicit handle.yield() when going out of scope
-				MTCL_PRINT(0, "Client]:\t", "connection failed\n");
+				MTCL_PRINT(0, "[Client]:\t", "connection failed\n");
 				std::this_thread::sleep_for(std::chrono::seconds(1));
-				MTCL_PRINT(0, "Client]:\t", "retry....\n");
+				MTCL_PRINT(0, "[Client]:\t", "retry....\n");
 			}
 		}
 		if (!connected) {

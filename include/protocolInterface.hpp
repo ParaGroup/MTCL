@@ -1,5 +1,4 @@
-#ifndef PROTOCOLINTERFACE_HPP
-#define PROTOCOLINTERFACE_HPP
+#pragma once
 
 #include <queue>
 #include <mutex>
@@ -88,4 +87,3 @@ public:
 
 } // namespace
 
-#endif

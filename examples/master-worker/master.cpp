@@ -28,7 +28,9 @@
 #include <fstream>
 #include <algorithm>
 
-#include <mtcl.hpp>
+#include "mtcl.hpp"
+
+using namespace MTCL;
 
 #undef EXPLICIT_MSG_SIZE
 
@@ -142,7 +144,7 @@ int main(int argc, char** argv){
         ssize_t r;
 		if ((r=h.receive(&ack, 1)) == -1) {
 			if (errno==ECONNRESET) {
-				MTCL_PRINT(1, "[Server]:\t", "connection closed by worker %s\n", h.getName().c_str());
+				MTCL_PRINT(1, "[Server]:\t", "connection reset by worker %s\n", h.getName().c_str());
 				--workers;
 				h.close();
 				continue;

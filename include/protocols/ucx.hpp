@@ -1,10 +1,25 @@
-#ifndef UCX_HPP
-#define UCX_HPP
+#pragma once
+
+/**
+ * UCX backend based on UCP STREAM.
+ *
+ * UCP STREAM provides a byte-stream semantics (TCP-like), therefore MTCL
+ * implements message framing in userspace (header + payload). 
+ *
+ * It is important not to desynchronize the stream when multiple asynch
+ * receives are posted concurrently.
+ * 
+ * TODO: introduce a policy to enforce ordering of receive in case 
+ *       wait() is called by the user out of ireceive post order.
+ */
 
 #include <iostream>
 #include <map>
 #include <string.h>
 #include <shared_mutex>
+#include <vector>
+#include <algorithm>
+#include <deque>
 
 #include <unistd.h>
 #include <sys/uio.h>
@@ -23,78 +38,393 @@ namespace MTCL {
 
 class HandleUCX;
 
+/**
+ * Per-request completion record used as UCP user_data for callbacks.
+ * - complete: set to 1 by the callback when the operation completes
+ * - length:   number of bytes completed (when relevant)
+ * - status:   UCX completion status
+ */	
 typedef struct test_req {
     int complete = 0;
+	size_t length = 0;
+	ucs_status_t status = UCS_OK;
 } test_req_t;
 
+/**
+ * requestUCX is the internal async request used by isend() (and potentially other ops).
+ *
+ * Ownership rules:
+ * - content points to a dynamically allocated ucp_dt_iov_t[] used for UCP_DATATYPE_IOV
+ * - iov[0].buffer points to a dynamically allocated header (size in BE)
+ * - UCX may access these buffers until the request completes; therefore we must NOT
+ *   free them until completion (or after cancellation + progress-to-completion)
+ */	
 struct requestUCX : public request_internal {
     friend class HandleUCX;
     friend class ConnRequestVectorUCX;
     void* content;
     ucs_status_ptr_t request;
-    test_req_t ctx;
+    test_req_t ctx{};
     ucp_worker_h ucp_worker;
+	size_t  expected = 0;
+	ssize_t got = -1;
     
-    requestUCX(void* content, ucp_worker_h w) : content(content), ucp_worker(w) {}
-
+    requestUCX(void* content, ucp_worker_h w, size_t exp) :
+		content(content), ucp_worker(w), expected(exp) {}
+	
+	// test() does not call ucp_worker_progress() here:
+	//  the progress engine is driven by RequestPool via make_progress()
+	// and/or external progression
     int test(int& result){
         // Operation completed immediately, callback is not called!
         if(request == NULL) {
+			got = (ssize_t)expected;
             result = 1; // success
             return 0;   
         }
-
-        /*if(UCS_PTR_IS_ERR(request)) {
-            MTCL_UCX_PRINT(100, "HandleUCX::test UCX_isend request error (%s)\n", ucs_status_string(UCS_PTR_STATUS(request)));
-            result = 0;
-            return -1;
-        }*/
-
-        //ucp_worker_progress(ucp_worker);
         if(ctx.complete == 0) {
             result = 0;
             return 0;
         }
-
         result = 1;
-
-        //ucs_status_t status = ucp_request_check_status(request);
+		if (ctx.status != UCS_OK) {
+            errno = ECOMM;
+            ucp_request_free(request);
+            request = NULL;
+            return -1;
+        }
         ucp_request_free(request);
-    
-        /*if(status != UCS_OK) {
-            MTCL_UCX_PRINT(100, "HandleUCX::test UCX_isend status error (%s)\n", ucs_status_string(status));
-        }*/
         request = NULL;
         return UCS_OK;
     }
 
     int make_progress(){
-        /*auto start = std::chrono::steady_clock::now();
-        if (!request) return 0;
-        if (UCS_PTR_IS_ERR(request)) return UCS_PTR_STATUS(request);
-        auto end = start + std::chrono::microseconds(UCX_MAKE_PROGRESS_TIME);
-    
-        while (std::chrono::steady_clock::now() < end) {
-            ucp_worker_progress(ucp_worker);
-            if(ctx.complete == 0) return 0;
-        }*/
         ucp_worker_progress(ucp_worker);
-
         return 0;
     }
 
+	ssize_t count() const override { return got; }
+	
     ~requestUCX(){
-        if (content) {
-            delete reinterpret_cast<size_t*>((((ucp_dt_iov_t*)content)[0].buffer)); // delete the size int he iovector
-            free(content);
+		// If the request is still in-flight and the user destroys the Request(Pool)
+        // without waiting, we must not free the iov/header buffers while UCX may
+        // still be accessing them. Try to cancel the request and progress until
+		// completion, then free.
+        if (request && !UCS_PTR_IS_ERR(request)) {
+            if (!ctx.complete) {
+                ucp_request_cancel(ucp_worker, request);
+                while (!ctx.complete) {
+                    ucp_worker_progress(ucp_worker);
+                }
+            }
+            ucp_request_free(request);
+            request = nullptr;
         }
-        //if (request) ucp_request_free(request);
+		if (content) {
+            auto* iov = static_cast<ucp_dt_iov_t*>(content);
+            delete static_cast<uint64_t*>(iov[0].buffer); // delete the header
+            free(iov);
+			content = nullptr;
+		}
     }
 };
 
+/**
+ * @brief Variable-length receive request for UCX stream-based transports
+ *
+ * UCX stream endpoints behave like a byte stream (TCP-like) and do not preserve
+ * message boundaries. MTCL therefore frames each message as:
+ *
+ *   [uint64_t payload_size][payload bytes]
+ *
+ * requestUCXRecvVar implements an MPI-like Irecv where the user provides a
+ * buffer capacity (not the exact message size). The request progresses in two
+ * phases:
+ *
+ *  1) Receive exactly the fixed-size header to discover the incoming payload size.
+ *  2) Receive the payload:
+ *     - If payload_size <= capacity, copy the whole payload into the user buffer
+ *       and complete with count = payload_size.
+ *     - If payload_size > capacity, no data is copied ato the user buffer.
+ *       The whole message is drained from the stream into a temporary buffer to keep 
+ *       the stream aligned. The request completes only after draining, returning 
+ *       an error (EMSGSIZE) but still records the real message size in count() so 
+ *       the caller can react.
+ *
+ * This class exists to prevent stream desynchronization that would occur if a
+ * single WAITALL receive were posted with a buffer larger than the actual message,
+ * which would consume bytes belonging to subsequent messages and corrupt framing.
+ */
+class requestUCXRecvVar : public request_internal {
+    ucp_ep_h endpoint;
+    ucp_worker_h worker;
+    void* user_buff;
+    size_t cap;
+
+    uint64_t hdr_be = 0;
+    size_t msg_size = 0;
+
+    size_t out_len = 0;
+    ucs_status_ptr_t req = nullptr;
+    test_req_t ctx{};
+    ucp_request_param_t param{};
+
+    size_t remaining = 0;
+    std::vector<char> discard;
+
+    enum class Stage { HDR, PAYLOAD, DRAIN, DONE };
+    Stage stage = Stage::HDR;
+
+    ssize_t got = -1;
+    int err = 0;
+
+	/**
+     * This is meant to support per-handle gating (only 1 framed recv "armed" at a time)
+     * without modifying RequestPool. The callback typically receives a HandleUCX* as done_ctx.
+     *
+     * IMPORTANT: currently the code calls notify_done() only in some early-error paths.                             // <-----------------
+     * If you later rely on this hook for gating, ensure notify_done() is called on ALL DONE transitions.
+     */
+    using done_cb_t = void (*)(void* done_ctx, requestUCXRecvVar* req);
+    done_cb_t done_cb  = nullptr;
+    void* done_ctx     = nullptr; // callback context (e.g., HandleUCX*)
+    bool armed         = false;   // if true we start receiving on this request
+    bool done_notified = false;
+
+    void notify_done() {
+        if (!done_notified && done_cb) {
+            done_notified = true;
+            done_cb(done_ctx, this);
+        }
+    }
+
+    static void recv_cb(void *request, ucs_status_t status, size_t length, void *user_data) {
+        auto* c = reinterpret_cast<test_req_t*>(user_data);
+        c->status = status;
+        c->length = length;
+        c->complete = 1;
+    }
+	
+	// Post a STREAM receive of exactly 'len' bytes using the WAITALL flag, which ensures
+	// UCX completes only when len bytes are available in the stream.
+    void start_recv(void* buf, size_t len) {
+        ctx.complete = 0;
+        ctx.length = 0;
+        ctx.status = UCS_OK;
+
+        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                             UCP_OP_ATTR_FIELD_DATATYPE |
+                             UCP_OP_ATTR_FIELD_USER_DATA |
+                             UCP_OP_ATTR_FIELD_FLAGS;
+        param.datatype = ucp_dt_make_contig(1);
+        param.user_data = &ctx;
+        param.flags = UCP_STREAM_RECV_FLAG_WAITALL;
+        param.cb.recv_stream = recv_cb;
+
+        out_len = 0;
+        req = ucp_stream_recv_nbx(endpoint, buf, len, &out_len, &param);
+
+        if (req == nullptr) { // immediate completion, callback not called
+            ctx.complete = 1;
+            ctx.length = out_len;
+        } else if (UCS_PTR_IS_ERR(req)) {
+            err = EINVAL;
+            stage = Stage::DONE;
+            notify_done();
+        }
+    }
+
+    void free_req_if_needed() {
+        // Only free a UCX request object after completion.
+		// Freeing a request that is still in progress is UB
+        if (req && !UCS_PTR_IS_ERR(req) && ctx.complete) {
+            ucp_request_free(req);
+        }
+        req = nullptr;
+    }
+
+    void cancel_req_if_pending() {
+		// Best-effort cancellation used by the destructor to avoid leaving in-flight
+		// operations behind if the user destroys the pool early.
+		//
+		// TODO: in pathological cases this could spin indefinitely; 
+        // add a bounded progress loop + warning message.
+        if (req && !UCS_PTR_IS_ERR(req) && !ctx.complete) {
+            ucp_request_cancel(worker, req);
+            while (!ctx.complete) {     
+                ucp_worker_progress(worker);
+            }
+        }
+    }
+	// Drive the internal state machine:
+	//  HDR    -> PAYLOAD (if fits) or DRAIN (if too large) or DONE (EOS)
+	//  PAYLOAD-> DONE
+	//  DRAIN  -> DONE after draining remaining bytes
+	//
+	// It assumes the current UCX recv is marked complete (ctx.complete==1).
+    void advance_state() {
+        if (stage == Stage::DONE) return;
+        if (!ctx.complete) return;
+        if (ctx.status != UCS_OK) {
+            err = ECOMM;
+            free_req_if_needed();
+            stage = Stage::DONE;
+            notify_done();
+            return;
+        }
+        if (stage == Stage::HDR) {
+            free_req_if_needed();
+
+            msg_size = static_cast<size_t>(be64toh(hdr_be));
+
+            if (msg_size == 0) { // EOS
+                got = 0;
+                stage = Stage::DONE;
+                notify_done();
+                return;
+            }
+            if (msg_size <= cap) {
+                stage = Stage::PAYLOAD;
+                start_recv(user_buff, msg_size);
+                return;
+            }
+
+            err = EMSGSIZE;
+            remaining = msg_size;
+			// Too large payload: read and discard the remaining bytes to keep the stream aligned
+			// User receives EMSGSIZE, but the stream stays consistent for subsequent reads.
+            discard.resize(std::min<size_t>(remaining, UCX_DRAIN_CHUNK_SIZE));
+            stage = Stage::DRAIN;
+            start_recv(discard.data(), discard.size());
+            return;
+        }
+        if (stage == Stage::PAYLOAD) {
+            free_req_if_needed();
+            got = (ssize_t)(ctx.length ? ctx.length : msg_size);
+            stage = Stage::DONE;
+            notify_done();
+            return;
+        }
+        if (stage == Stage::DRAIN) {
+            free_req_if_needed();
+
+            size_t consumed = ctx.length ? ctx.length : discard.size();
+            if (remaining >= consumed) remaining -= consumed;
+            else remaining = 0;
+
+            if (remaining == 0) {
+                got = (ssize_t)msg_size;
+                stage = Stage::DONE;
+                notify_done();
+                return;
+            }
+
+            discard.resize(std::min<size_t>(remaining, UCX_DRAIN_CHUNK_SIZE));
+            start_recv(discard.data(), discard.size());
+        }
+    }
+
+public:
+    // Arm this request (i.e., start UCX recv)
+    void arm_request() {
+        if (armed) return;
+        armed = true;
+
+        if (stage == Stage::DONE) { notify_done(); return; }
+
+        if (stage == Stage::HDR) {
+            start_recv(&hdr_be, sizeof(uint64_t));
+            return;
+        }
+
+        if (stage == Stage::PAYLOAD) {
+            start_recv(user_buff, msg_size);
+            return;
+        }
+
+        if (stage == Stage::DRAIN) {
+            start_recv(discard.data(), discard.size());
+            return;
+        }
+    }
+
+    // Used when the message header has already been consumed by HandleUCX::probe()
+    // and the payload length is already known.
+    requestUCXRecvVar(ucp_ep_h ep, ucp_worker_h w, void* buff, size_t capacity, size_t known_msg_size,
+                      done_cb_t cb=nullptr, void* ctx=nullptr)
+        : endpoint(ep), worker(w), user_buff(buff), cap(capacity), done_cb(cb), done_ctx(ctx) {
+        msg_size = known_msg_size;
+
+        if (msg_size == 0) {
+            got = 0;
+            stage = Stage::DONE;
+            return;
+        }
+        if (msg_size <= cap) {
+            stage = Stage::PAYLOAD;
+            return;
+        }
+        err = EMSGSIZE;
+        remaining = msg_size;
+        discard.resize(std::min<size_t>(remaining, UCX_DRAIN_CHUNK_SIZE));
+        stage = Stage::DRAIN;
+    }
+
+    // Used when we have only the buffer capacity and don't know the actual size
+    requestUCXRecvVar(ucp_ep_h ep, ucp_worker_h w, void* buff, size_t capacity,
+                      done_cb_t cb=nullptr, void* ctx=nullptr)
+        : endpoint(ep), worker(w), user_buff(buff), cap(capacity), done_cb(cb), done_ctx(ctx) {
+        stage = Stage::HDR;
+    }
+
+    int test(int& result) override {
+        if (!armed) { result = 0; return 0; }
+        advance_state();
+
+        if (stage == Stage::DONE) {
+            result = 1;
+            notify_done();
+            if (err) { errno = err; return -1; }
+            return 0;
+        }
+
+        result = 0;
+        return 0;
+    }
+
+    int wait() override {
+		// TODO: instead of returning EDEADLK we can drive
+		// the current front receive(s) to completion until
+		// the handle becomes the first one.
+		if (!armed) { errno = EDEADLK; return -1; }
+        int done = 0;
+        while (true) {
+            if (test(done) < 0) return -1;
+            if (done) return 0;
+			make_progress();
+        }
+    }
+
+    int make_progress() override {
+        ucp_worker_progress(worker);
+        return 0;
+    }
+
+    ssize_t count() const override {
+        if (stage != Stage::DONE) return -1;
+        return got;
+    }
+
+    ~requestUCXRecvVar() override {
+        cancel_req_if_pending();
+        free_req_if_needed();
+        notify_done();
+    }
+};
+	
 class ConnRequestVectorUCX : public ConnRequestVector {
     friend class HandleUCX;
-    std::vector<requestUCX*> requests;
+    std::vector<request_internal*> requests;
 public:
     ConnRequestVectorUCX(size_t sizeHint = 1){
         requests.reserve(sizeHint);
@@ -102,8 +432,9 @@ public:
 
     bool testAll(){
         int res = 0;
-        if (requests.front()) requests.front()->make_progress();
-        for(auto r : requests){
+		// Make progress on all workers involved 
+        for (auto r : requests) r->make_progress();
+        for (auto r : requests){
             r->test(res);
             if (!res) return false;
         }
@@ -119,7 +450,6 @@ public:
                 if (!res) {
                     allCompleted = false;
                     r->make_progress();
-                    break;
                 }
             }
             if (allCompleted) return;
@@ -133,31 +463,79 @@ public:
 };
 
 class HandleUCX : public Handle {
-
     /**
      * The callback on the sending side, which is invoked after finishing sending
      * the message.
      */
     static void send_cb(void *request, ucs_status_t status, void *user_data) {
+		((test_req_t*)user_data)->status = status;
         ((test_req_t*)user_data)->complete = 1;
     }
-
     /**
      * The callback on the receiving side, which is invoked upon receiving the
      * stream message.
      */
     static void stream_recv_cb(void *request, ucs_status_t status, size_t length, void *user_data) {
-         ((test_req_t*)user_data)->complete = 1;
+		((test_req_t*)user_data)->status = status;
+		((test_req_t*)user_data)->length = length;
+		((test_req_t*)user_data)->complete = 1;
     }
 
+	/**
+	 * Asynchronous probe state.
+     * probe() is implemented by posting a 8-byte WAITALL receive for the header.
+     * If the user calls probe(blocking=false) repeatedly, we keep the pending UCX request
+     * in pending_probe_req and complete it later without losing bytes from the stream.
+     */
+	ucs_status_ptr_t     pending_probe_req = nullptr;
+	test_req_t           pending_probe_ctx;
+	ucp_request_param_t  pending_probe_param{};
+	uint64_t             pending_probe_word = 0; // probe's stable buffer
+	size_t               pending_probe_res  = 0;
+
+	
+	// UCX STREAM is a byte-stream: multiple concurrent recv(WAITALL) on the same
+	// endpoint may split the stream and break MTCL's [hdr][payload] framing.
+	// We therefore allow multiple ireceive() to be enqueued, but we arm at most
+	// one receive request at a time per HandleUCX.
+	std::deque<requestUCXRecvVar*> rx_queue;
+
+	static void rx_done_cb(void* ctx, requestUCXRecvVar* r) {
+		static_cast<HandleUCX*>(ctx)->on_rx_done(r);
+	}
+
+	void on_rx_done(requestUCXRecvVar* r) {
+		if (!rx_queue.empty() && rx_queue.front() == r) {
+			rx_queue.pop_front();
+			if (!rx_queue.empty()) rx_queue.front()->arm_request();
+			return;
+		}
+		// Defensive removal in case of out-of-order completion/cancellation.
+		for (auto it = rx_queue.begin(); it != rx_queue.end(); ++it) {
+			if (*it == r) {
+				rx_queue.erase(it);
+				break;
+			}
+		}
+	}
+
+	void enqueue_rx(requestUCXRecvVar* r) {
+		rx_queue.push_back(r);
+		if (rx_queue.size() == 1) {
+			r->arm_request();
+		}
+	}
 
 protected:
-
+	
     static void fill_request_param(test_req_t* ctx, ucp_request_param_t* param, bool is_iov) {
         ctx->complete = 0;
+		ctx->length   = 0;
+		ctx->status   = UCS_OK;
         param->op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                               UCP_OP_ATTR_FIELD_DATATYPE |
                               UCP_OP_ATTR_FIELD_USER_DATA;
+		
         param->datatype     = is_iov ? UCP_DATATYPE_IOV : ucp_dt_make_contig(1);
         param->user_data    = ctx;
     }
@@ -174,10 +552,9 @@ protected:
         if(UCS_PTR_IS_ERR(l_request)) {
             status = UCS_PTR_STATUS(l_request);
             MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_%s request error (%s)\n",
-                operation, ucs_status_string(status));
+						   operation, ucs_status_string(status));
             return status;
         }
-
         if(!blocking) {
             ucp_worker_progress(ucp_worker);
             if(ctx->complete == 0) return UCS_INPROGRESS;
@@ -187,26 +564,25 @@ protected:
             ucp_worker_progress(ucp_worker);
         }
         status = ucp_request_check_status(l_request);
-        //ucp_request_free(l_request);
     
         if(status != UCS_OK) {
             MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_%s status error (%s)\n",
-                operation, ucs_status_string(status));
+						   operation, ucs_status_string(status));
         }
-
         return status;
     }
-
+	// Receive exactly 'size' bytes from the UCX stream (WAITALL).
+	// This is used only when the exact message size is already known (after probe).
+	// For variable-length receives, use requestUCXRecvVar.
     ssize_t receive_internal(void* buff, size_t size, bool blocking) {
         size_t res = 0;
-        test_req_t ctx;
-        ucp_request_param_t param;
-            fill_request_param(&ctx, &param, false);
-            param.op_attr_mask |= UCP_OP_ATTR_FIELD_FLAGS;
-            param.flags = UCP_STREAM_RECV_FLAG_WAITALL;
-            param.cb.recv_stream = stream_recv_cb;
-            ucs_status_ptr_t request   = ucp_stream_recv_nbx(endpoint, buff, size,
-													   &res, &param);
+        test_req_t ctx{};
+        ucp_request_param_t param{};
+		fill_request_param(&ctx, &param, false);
+		param.op_attr_mask  |= UCP_OP_ATTR_FIELD_FLAGS;
+		param.flags          = UCP_STREAM_RECV_FLAG_WAITALL;
+		param.cb.recv_stream = stream_recv_cb;
+		ucs_status_ptr_t request   = ucp_stream_recv_nbx(endpoint, buff, size, &res, &param);
 
         ucs_status_t status;
         if((status = request_wait(request, &ctx, (char*)"receive_internal", blocking)) != UCS_OK) {
@@ -214,86 +590,107 @@ protected:
                 errno = EWOULDBLOCK;
                 return -1;
             }
-            int res = -1;
-            if(status == UCS_ERR_CONNECTION_RESET) {
+			int rc = -1;
+			if(status == UCS_ERR_CONNECTION_RESET) {
                 res = 0;
-            }
-            else {
+				rc  = 0;
+            } else {
                 errno = EINVAL;
             }
-
-            return res;
+            return rc;
         }
         if (request) ucp_request_free(request);
-        //request = nullptr;
-
-        return size;
+        return (ssize_t) res;
     }
+	// Asynchronous send with framing:
+	//   [size_t payload_size (BE)][payload bytes]
+	//
+	// We build an IOV array:
+	//   iov[0] = pointer to heap-allocated header
+	//   iov[1] = pointer to user buffer (if size != 0)
+	//
+	// requestUCX takes ownership of iov and header and frees them in its destructor
+	// after completion/cancellation.
+    bool isend_internal(const void* buff, size_t size, requestUCX*& rq) {
+		const int niov = (size == 0) ? 1 : 2;
 
+		auto* iov = static_cast<ucp_dt_iov_t*>(calloc(niov, sizeof(ucp_dt_iov_t)));
+		if (!iov) { errno = ENOMEM; rq = nullptr; return false; }
+
+		auto* sz = new uint64_t(htobe64((uint64_t)size));
+		if (!sz) { free(iov); errno = ENOMEM; rq = nullptr; return false;}
+		iov[0].buffer = sz;
+		iov[0].length = sizeof(uint64_t);
+
+		if (size != 0) {
+			iov[1].buffer = const_cast<void*>(buff);
+			iov[1].length = size;
+		}
+		rq = new requestUCX(iov, ucp_worker, size);
+		if (!rq) {  errno = ENOMEM; return false; }
+		
+		ucp_request_param_t param{};
+		param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
+                             UCP_OP_ATTR_FIELD_DATATYPE |
+                             UCP_OP_ATTR_FIELD_USER_DATA;
+		param.datatype     = UCP_DATATYPE_IOV;
+		param.user_data    = &rq->ctx;
+		param.cb.send      = send_cb;
+
+		rq->request = ucp_stream_send_nbx(endpoint, iov, niov, &param);
+
+		if (rq->request == NULL) {
+			rq->got = size;
+			return true;       // immediate completion
+		}
+
+		if (UCS_PTR_IS_ERR(rq->request)) {
+			ucs_status_t status = UCS_PTR_STATUS(rq->request);
+			MTCL_UCX_PRINT(100, "HandleUCX::isend request error (%s)\n", ucs_status_string(status));
+			delete rq;      // ~requestUCX will free the header and iov
+			rq = nullptr;
+			errno = (status == UCS_ERR_NO_MEMORY) ? ENOMEM : EIO;
+			return false;
+		}
+		return true;
+	}
 
 public:
     std::atomic<bool> already_closed {false};
-    ucp_ep_h endpoint;
+    ucp_ep_h     endpoint;
     ucp_worker_h ucp_worker;
 
+	// Note: closed_wr/closed_rd track the local view of stream shutdown.
+    // - closed_wr: we have sent EOS (size==0 frame) or shutdown write side
+    // - closed_rd: we have observed EOS from peer 
+    //
+    // These flags are used by the generic ConnType::setAsClosed() logic.
     std::atomic<bool> closed_wr{false};
     std::atomic<bool> closed_rd{false};
 
-    //ssize_t last_probe = -1;
     size_t test_probe = 42;
 
-    HandleUCX(ConnType* parent, ucp_ep_h endpoint, ucp_worker_h worker) : Handle(parent), endpoint(endpoint), ucp_worker(worker) {}
-
-    ssize_t sendEOS() {
-        size_t sz = 0;
-		int useless = -1;
-        
-        ucp_dt_iov_t iov[1];
-        iov[0].buffer = &sz;
-        iov[0].length = sizeof(sz);
-        /*iov[1].buffer = (void*)&useless;
-        iov[1].length = sizeof(int);*/
-
-        ucp_request_param_t param;
-        test_req_t ctx;
-
-        ctx.complete = 0;
-        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK | UCP_OP_ATTR_FIELD_DATATYPE | UCP_OP_ATTR_FIELD_USER_DATA;
-        param.datatype     = UCP_DATATYPE_IOV;
-        param.user_data    = &ctx;
-        param.cb.send = send_cb;
-
-        ucs_status_ptr_t request = ucp_stream_send_nbx(endpoint, iov, 1 /* 2 */, &param);
-
-		ucs_status_t status;
-		if((status = request_wait(request, &ctx, (char*)"send", true)) != UCS_OK) {
-			int res = -1;
-			if(status == UCS_ERR_CONNECTION_RESET)
-				errno = ECONNRESET;
-			else
-				errno = EINVAL;
-			
-			return res;
-		}
-		return sz;
-    }
+    HandleUCX(ConnType* parent, ucp_ep_h endpoint, ucp_worker_h worker) :
+		Handle(parent), endpoint(endpoint), ucp_worker(worker) {}
 
     ssize_t send(const void* buff, size_t size) {
-        size_t sz = htobe64(size);
+		const int niov = (size == 0) ? 1 : 2;
+		uint64_t sz = htobe64((uint64_t)size);
     
         ucp_dt_iov_t iov[2];
         iov[0].buffer = &sz;
         iov[0].length = sizeof(sz);
-        iov[1].buffer = const_cast<void*>(buff);
-        iov[1].length = size;
+		if (size) {
+			iov[1].buffer = const_cast<void*>(buff);
+			iov[1].length = size;
+		}
 
-        ucp_request_param_t param;
-        test_req_t ctx;
+        ucp_request_param_t param{};
+        test_req_t ctx{};
 
         fill_request_param(&ctx, &param, true);
         param.cb.send = send_cb;
-        ucs_status_ptr_t request_ = ucp_stream_send_nbx(endpoint, iov, 2, &param);
-
+        ucs_status_ptr_t request_ = ucp_stream_send_nbx(endpoint, iov, niov, &param);
 		ucs_status_t status;
 		if((status = request_wait(request_, &ctx, (char*)"send", true)) != UCS_OK) {
 			int res = -1;
@@ -302,82 +699,44 @@ public:
 			else
 				errno = EINVAL;
 			
+			// request_wait() does not free UCX requests
+			if (request_ && !UCS_PTR_IS_ERR(request_)) ucp_request_free(request_);
 			return res;
 		}
-
-        return size;
+		// request_wait() does not free UCX requests
+		if (request_ && !UCS_PTR_IS_ERR(request_)) ucp_request_free(request_);
+		
+		return size;
     }
-
+    ssize_t sendEOS() {
+		// EOS is encoded as a framed message with size==0 (header only)
+		return send(nullptr, 0);
+    }
+	
     ssize_t isend(const void* buff, size_t size, Request& r) {
-        ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
-        size_t* sz = new size_t(htobe64(size));
-        iov[0].buffer = sz;
-        iov[0].length = sizeof(size_t);
-        iov[1].buffer = const_cast<void*>(buff);
-        iov[1].length = size;
-        
-        requestUCX* rq = new requestUCX(iov, ucp_worker);
-
-        ucp_request_param_t param;
-        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-                              UCP_OP_ATTR_FIELD_DATATYPE |
-                              UCP_OP_ATTR_FIELD_USER_DATA;
-        param.datatype     = UCP_DATATYPE_IOV;
-        param.user_data    = &rq->ctx;
-        param.cb.send = send_cb;
-        rq->request       = ucp_stream_send_nbx(endpoint, iov, 2, &param);
-
-        if (rq->request == NULL){
-            delete rq;
-            return size;
-        }
-
-        if (UCS_PTR_IS_ERR(rq->request)) {
-            ucs_status_t status = UCS_PTR_STATUS(rq->request);
-            MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_isend request error (%s)\n", ucs_status_string(status));
-            delete rq;
-            return status;
-        }
-
-        r.__setInternalR(rq);
-        return size;
+		requestUCX* rq=nullptr;
+		auto ret = isend_internal(buff, size, rq);
+		if (ret) {
+			if (rq) {
+				r.__setInternalR(rq);
+			}
+			return 0;
+		}
+		return -1;
     }
 
     ssize_t isend(const void* buff, size_t size, RequestPool& r) {
-            ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
-        size_t* sz = new size_t(htobe64(size));
-        iov[0].buffer = sz;
-        iov[0].length = sizeof(size_t);
-        iov[1].buffer = const_cast<void*>(buff);
-        iov[1].length = size;
-        
-        requestUCX* rq = new requestUCX(iov, ucp_worker);
-
-        ucp_request_param_t param;
-        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-                              UCP_OP_ATTR_FIELD_DATATYPE |
-                              UCP_OP_ATTR_FIELD_USER_DATA;
-        param.datatype     = UCP_DATATYPE_IOV;
-        param.user_data    = &rq->ctx;
-        param.cb.send = send_cb;
-        rq->request       = ucp_stream_send_nbx(endpoint, iov, 2, &param);
-
-        if (rq->request == NULL){
-            delete rq;
-            return size;
-        }
-
-        if (UCS_PTR_IS_ERR(rq->request)) {
-            ucs_status_t status = UCS_PTR_STATUS(rq->request);
-            MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_isend request error (%s)\n", ucs_status_string(status));
-            delete rq;
-            return status;
-        }
-
-        r._getInternalVector<ConnRequestVectorUCX>()->requests.push_back(rq);
-        return size;
-    }
-
+		requestUCX* rq=nullptr;
+		auto ret = isend_internal(buff, size, rq);
+		if (ret) {
+			if (rq) {
+				r._getInternalVector<ConnRequestVectorUCX>()->requests.push_back(rq);
+			}
+			return 0;
+		}
+		return -1;
+	}
+	
     ssize_t receive(void* buff, size_t size) {
 
         size_t probedSize;
@@ -388,131 +747,166 @@ public:
 			probedSize = probed.second;
 		
 		if (probedSize > size){
-			MTCL_ERROR("[internal]:\t", "HandleUCX::receive ENOMEM, receiving less data\n");
-			errno=ENOMEM;
+			MTCL_UCX_PRINT(100, "[internal]:\t", "HandleUCX::receive EMSGSIZE, buffer too small\n");
+			errno=EMSGSIZE;
 			return -1;
 		}
 		
-        ssize_t res = receive_internal(buff, size, true);
-        // Last recorded probe was consumed, reset probe size
-        //last_probe = -1;
+        ssize_t res = receive_internal(buff, probedSize, true);
+        // reset probe size
         probed={false, 0};
         return res;
     }
 
     ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
         if (probed.first){
-            MTCL_ERROR("[internal]:\t", "HandleUCX::ireceive, already probed handle not supported with asynchronous receives\n");
-            // TODO: handle the case of already probed handles removing the first entry of the iovector
-            return -1;
+			const size_t msg_sz = probed.second;
+			auto* req = new requestUCXRecvVar(endpoint, ucp_worker, buff, size, msg_sz,
+											  &HandleUCX::rx_done_cb, this);
+			if (!req) { errno = ENOMEM; return -1; }
+			probed = {false, 0};
+			r._getInternalVector<ConnRequestVectorUCX>()->requests.push_back(req);
+			enqueue_rx(req);
+            return 0;
         }
-
-        ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
-        size_t* sz = new size_t;
-        iov[0].buffer = sz;
-        iov[0].length = sizeof(size_t);
-        iov[1].buffer = const_cast<void*>(buff);
-        iov[1].length = size;
-        
-        ucp_request_param_t param;
-        requestUCX* req = new requestUCX(iov, ucp_worker);
-        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-                              UCP_OP_ATTR_FIELD_DATATYPE |
-                              UCP_OP_ATTR_FIELD_USER_DATA |
-                              UCP_OP_ATTR_FIELD_FLAGS;
-        param.datatype     =  UCP_DATATYPE_IOV;
-        param.user_data    = &req->ctx;
-        param.flags = UCP_STREAM_RECV_FLAG_WAITALL;
-        param.cb.recv_stream = stream_recv_cb;
-        
-        size_t sizeOut;
-        req->request = ucp_stream_recv_nbx(endpoint, iov, 2, &sizeOut, &param);
-
-        if (req->request == NULL){
-            delete req;
-            return sizeOut;
-        }
-
-        if(UCS_PTR_IS_ERR(req->request)) {
-            ucs_status_t status = UCS_PTR_STATUS(req->request);
-            MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_ireceive request error (%s)\n", ucs_status_string(status));
-            delete req;
-            return status;
-        }
-
+		requestUCXRecvVar* req = new requestUCXRecvVar(endpoint, ucp_worker, buff, size,
+													   &HandleUCX::rx_done_cb, this);       
+		if (!req) { errno = ENOMEM; return -1; }
         r._getInternalVector<ConnRequestVectorUCX>()->requests.push_back(req);
-        return size;
+		enqueue_rx(req);
+        return 0;
     }
 
     ssize_t ireceive(void* buff, size_t size, Request& r) {
-         if (probed.first){
-            MTCL_ERROR("[internal]:\t", "HandleUCX::ireceive, already probed handle not supported with asynchronous receives\n");
-            // TODO: handle the case of already probed handles removing the first entry of the iovector
-            return -1;
+		if (probed.first){
+			const size_t msg_sz = probed.second;
+			auto* req = new requestUCXRecvVar(endpoint, ucp_worker, buff, size, msg_sz,
+											  &HandleUCX::rx_done_cb, this);
+			if (!req) { errno = ENOMEM; return -1; }
+			probed = {false, 0}; 			
+			r.__setInternalR(req);
+			enqueue_rx(req);
+            return 0;
         }
-
-        ucp_dt_iov_t* iov = (ucp_dt_iov_t*)calloc(2, sizeof(ucp_dt_iov_t));
-        size_t* sz = new size_t;
-        iov[0].buffer = sz;
-        iov[0].length = sizeof(size_t);
-        iov[1].buffer = const_cast<void*>(buff);
-        iov[1].length = size;
-        
-        ucp_request_param_t param;
-        requestUCX* req = new requestUCX(iov, ucp_worker);
-        param.op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
-                              UCP_OP_ATTR_FIELD_DATATYPE |
-                              UCP_OP_ATTR_FIELD_USER_DATA |
-                              UCP_OP_ATTR_FIELD_FLAGS;
-        param.datatype     =  UCP_DATATYPE_IOV;
-        param.user_data    = &req->ctx;
-        param.flags = UCP_STREAM_RECV_FLAG_WAITALL;
-        param.cb.recv_stream = stream_recv_cb;
-        
-        size_t sizeOut;
-        req->request = ucp_stream_recv_nbx(endpoint, iov, 2, &sizeOut, &param);
-
-        if (req->request == NULL){
-            delete req;
-            return sizeOut;
-        }
-
-        if(UCS_PTR_IS_ERR(req->request)) {
-            ucs_status_t status = UCS_PTR_STATUS(req->request);
-            MTCL_UCX_PRINT(100, "HandleUCX::request_wait UCX_ireceive request error (%s)\n", ucs_status_string(status));
-            delete req;
-            return status;
-        }
-
-        r.__setInternalR(req);
-        return size;
+		requestUCXRecvVar* req = new requestUCXRecvVar(endpoint, ucp_worker, buff, size,
+													   &HandleUCX::rx_done_cb, this);
+		if (!req) { errno = ENOMEM; return -1; }
+		r.__setInternalR(req);
+		enqueue_rx(req);
+        return 0;
     }
 
-    
 
-    ssize_t probe(size_t& size, const bool blocking=true) {
-        /*if(last_probe != -1) {
-            size = last_probe;
-            return sizeof(size_t);
-        }*/
-
-        if (probed.first){
-            size = probed.second;
-            return (size?sizeof(size_t):0);
-        }
-
-		ssize_t r;
-        if((r=receive_internal(&test_probe, sizeof(size_t), blocking)) < 0) {
-            return r;
+	ssize_t probe(size_t& size, const bool blocking=true) {
+		if (probed.first) {
+			size = probed.second;
+			return (size ? sizeof(size_t) : 0);
 		}
-        if (!r) test_probe = 0;
-        size = be64toh(test_probe);
-        //last_probe = size;
 
-        probed={true, size};
-		return (size?sizeof(size_t):0);
-    }
+		// If we post an independent UCX recv for probing while there are
+		// pending framed receives on this stream (i.e., ireceive), the stream can desync.
+		// To avoid the problem we advance the current front receive(s) to completion
+		// (if blocking), otherwise EWOULDBLOCK.
+		if (!rx_queue.empty()) {
+			if (!blocking) { errno = EWOULDBLOCK; return -1; }
+			// blocking: drive the current front receive(s) to completion
+			while (!rx_queue.empty()) {
+				int done = 0;
+				if (rx_queue.front()->test(done) < 0) break; 
+				if (!done) rx_queue.front()->make_progress();
+			}
+		}
+		
+		if (pending_probe_req == nullptr) {
+			fill_request_param(&pending_probe_ctx, &pending_probe_param, false);
+			pending_probe_param.op_attr_mask |= UCP_OP_ATTR_FIELD_FLAGS;
+			pending_probe_param.flags = UCP_STREAM_RECV_FLAG_WAITALL;
+			pending_probe_param.cb.recv_stream = stream_recv_cb;
 
+			pending_probe_res = 0;
+			pending_probe_req = ucp_stream_recv_nbx(endpoint,
+													&pending_probe_word,
+													sizeof(uint64_t),
+													&pending_probe_res,
+													&pending_probe_param);
+
+			if (pending_probe_req == nullptr) {  // recv completed
+				size = (size_t)be64toh(pending_probe_word);
+				probed = {true, size};
+				return (size ? sizeof(size_t) : 0);
+			}
+
+			if (UCS_PTR_IS_ERR(pending_probe_req)) {
+				ucs_status_t st = UCS_PTR_STATUS(pending_probe_req);
+				pending_probe_req = nullptr;
+				errno = EINVAL;
+				return st;
+			}
+		}
+		if (!blocking) {
+			ucp_worker_progress(ucp_worker);
+			if (pending_probe_ctx.complete == 0) {
+				errno = EWOULDBLOCK;
+				return -1;
+			}
+		} else {
+			while (pending_probe_ctx.complete == 0) {
+				ucp_worker_progress(ucp_worker);
+			}
+		}
+
+		ucs_status_t st = ucp_request_check_status(pending_probe_req);
+		ucp_request_free(pending_probe_req);
+		pending_probe_req = nullptr;
+		pending_probe_ctx.complete = 0;
+		
+		if (st == UCS_ERR_CONNECTION_RESET) {
+			size = 0;
+			probed = {true, 0};
+			return 0;
+		}
+		if (st != UCS_OK) {
+			errno = EINVAL;
+			return -1;
+		}
+		
+		size = be64toh(pending_probe_word);
+		probed = {true, size};
+		return (size ? sizeof(size_t) : 0);
+	}
+
+    bool has_pending_rx() const { return !rx_queue.empty();	}
+	
+	bool cancel_pending_probe() {
+		if (pending_probe_req == nullptr) return false;
+		if (UCS_PTR_IS_ERR(pending_probe_req)) {
+			pending_probe_req = nullptr;
+			return false;
+		}
+		ucp_request_cancel(ucp_worker, pending_probe_req);
+		return true;
+	}
+	void cleanup_pending_probe() {
+		if (pending_probe_req == nullptr) return;
+
+		if (UCS_PTR_IS_ERR(pending_probe_req)) {
+			pending_probe_req = nullptr;
+			probed = {false, 0};
+			return;
+		}
+
+		ucs_status_t st = ucp_request_check_status(pending_probe_req);
+		while (st == UCS_INPROGRESS) {
+			ucp_worker_progress(ucp_worker);
+			st = ucp_request_check_status(pending_probe_req);
+		}
+
+		ucp_request_free(pending_probe_req);
+		pending_probe_req = nullptr;
+		pending_probe_ctx.complete = 0;
+		probed = {false, 0};
+	}
+	
     bool peek() {
         size_t sz;
         ssize_t res = this->probe(sz, false);
@@ -683,7 +1077,7 @@ public:
         ucs_status_t        ep_status = UCS_OK;
         ucp_config_t*       config;
         ucp_params_t        ucp_params;
-        ucp_worker_params_t worker_params;
+        ucp_worker_params_t worker_params{};
 
         memset(&ucp_params, 0, sizeof(ucp_params));
         memset(&worker_params, 0, sizeof(worker_params));
@@ -719,6 +1113,16 @@ public:
 
         /* UCX worker initialization */
         worker_params.field_mask    = UCP_WORKER_PARAM_FIELD_THREAD_MODE;
+
+		// *********************** IMPORTANT *****************************
+		// UCS_THREAD_MODE_MULTI has a measurable overhead because UCX must be 
+		// internally thread-safe.
+		//
+		// TODO: Prefer UCS_THREAD_MODE_SINGLE when MTCL guarantees that all UCX
+		// operations on a given worker (including ucp_worker_progress) are executed by
+		// a single thread. UCS_THREAD_MODE_MULTI must be the default, but SINGLE mode
+		// could be forced if SINGLE_IO_THREAD and MTCL_UCX_FORCE_THREAD_SINGLE.
+		//
         worker_params.thread_mode   = UCS_THREAD_MODE_MULTI;
 
         // Initialize worker
@@ -917,8 +1321,7 @@ public:
         delete[] ready_eps;
         return;
     }
-    
-
+	
     void notify_yield(Handle* h) {
 
         HandleUCX* handle = reinterpret_cast<HandleUCX*>(h);
@@ -926,19 +1329,34 @@ public:
 			return;
 		}
 
-        // Check if handle still has some data to receive, addinQ in case we
-        // have data
-        size_t size;
-		ssize_t r;
-        if((r=handle->probe(size, false)) > 0) {
+        // UCX stream polling (ucp_stream_worker_poll) reports endpoints
+        // only when new network events are detected. If the handle is yielded while
+        // there is already pending data (or EOS/RESET) in the stream buffer, the poll
+        // may not report the endpoint again. Therefore, before marking the handle as
+        // "to_manage", we must probe once in non-blocking mode and enqueue the handle
+        // immediately if anything is already observable
+        size_t size = 0;
+        const ssize_t pr = handle->probe(size, false);
+        if (pr >= 0) {
+            // Data ready (pr>0) or EOS/RESET already observable (pr==0).
             addinQ(false, handle);
             return;
         }
-
+        if (errno != EWOULDBLOCK && errno != EAGAIN) {
+            // Some terminal condition already observable, wake the runtime.
+			addinQ(false, handle);
+            return;
+        }
+		// EWOULDBLOCK
+		if (handle->has_pending_rx()) {
+			addinQ(false, handle);
+			return;
+		}
         REMOVE_CODE_IF(std::unique_lock l(shm));
         auto it = connections.find(handle->endpoint);
         if(it == connections.end()) {
             MTCL_UCX_ERROR("Couldn't yield handle\n");
+			return;
 		}
         connections[handle->endpoint].second = true;
 		
@@ -949,15 +1367,16 @@ public:
         HandleUCX* handle = reinterpret_cast<HandleUCX*>(h);
 		
         if(handle->already_closed) return;
-
+		if (!close_rd) return;
+		
         REMOVE_CODE_IF(std::unique_lock l(shm));
-        if(close_rd) {
-            connections.erase(handle->endpoint);
-            handle->already_closed = true;
-            ep_close(handle->endpoint);
-        }
+		connections.erase(handle->endpoint);
+		handle->already_closed = true;
+		REMOVE_CODE_IF(l.unlock());
 
-        return;
+		handle->cancel_pending_probe();
+		ep_close(handle->endpoint);
+		handle->cleanup_pending_probe();
     }
 
     void end(bool blockflag=false) {
@@ -976,5 +1395,3 @@ public:
 };
 
 } // namespace
-
-#endif //UCX_HPP

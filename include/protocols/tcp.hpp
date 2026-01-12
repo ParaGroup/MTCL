@@ -1,5 +1,4 @@
-#ifndef TCP_HPP
-#define TCP_HPP
+#pragma once
 
 #include <unistd.h>
 #include <sys/socket.h>
@@ -15,6 +14,7 @@
 #include <poll.h>
 #include <time.h>
 
+#include <cstdint>
 #include <vector>
 #include <queue>
 #include <map>
@@ -88,60 +88,97 @@ class HandleTCP : public Handle {
 public:
     int fd; // File descriptor of the connection represented by this Handle
     HandleTCP(ConnType* parent, int fd) : Handle(parent), fd(fd) {}
+    static constexpr size_t HDR_SZ = sizeof(uint64_t);
 
 	ssize_t sendEOS() {
-		size_t sz = 0;
-		return writen(fd, (char*)&sz, sizeof(size_t)); 
+		const uint64_t szbe = htobe64((uint64_t)0);
+		return writen(fd, (char*)&szbe, HDR_SZ);
 	}
 	
     ssize_t send(const void* buff, size_t size) {
-		size_t sz = htobe64(size);
+		uint64_t szbe = htobe64((uint64_t)size);
         struct iovec iov[2];
-        iov[0].iov_base = &sz;
-        iov[0].iov_len  = sizeof(sz);
+        iov[0].iov_base = &szbe;
+        iov[0].iov_len  = HDR_SZ;
         iov[1].iov_base = const_cast<void*>(buff);
         iov[1].iov_len  = size;
 
-        if (writevn(fd, iov, 2) < 0)
-            return -1;
+        if (writevn(fd, iov, 2) < 0) return -1;
 		return size;
     }
 
 	ssize_t isend(const void* buff, size_t size, Request& r){
-		return this->send(buff, size);
+		auto ret = this->send(buff, size);
+		return (ret>0 ? 0 : -1);
 	}
 
 	ssize_t isend(const void* buff, size_t size, RequestPool&){
-		return this->send(buff, size);
+		auto ret = this->send(buff, size);
+		return (ret>0 ? 0 : -1);
 	}
 
-	// receives the header containing the size (sizeof(size_t) bytes)
+	// receives the header containing the size (HDR_SZ bytes)
 	ssize_t probe(size_t& size, const bool blocking=true) {
 		if (probed.first){
 			size = probed.second;
-			return (size?sizeof(size_t):0);
+			return (size ? (ssize_t)HDR_SZ: 0);
 		}
 
-		size_t sz;
-		ssize_t r;
-		if (blocking) {
-			r=readn(fd, (char*)&sz, sizeof(size_t));
-		} else {
-			r=recv(fd, (char*)&sz, sizeof(size_t), MSG_DONTWAIT);
+		// On stream sockets, a non-blocking recv() may read a partial header.
+		// Never consume partial headers
+		uint64_t szbe = 0;
+		
+		if (!blocking) {
+			// Peek first to ensure the full header is available.
+			const ssize_t pr = recv(fd, (char*)&szbe, HDR_SZ, MSG_PEEK | MSG_DONTWAIT);
+			if (pr < 0) return -1;             // errno set by recv
+			if (pr == 0) {                     // EOS
+				size = 0;
+				probed = {true, 0};
+				return 0;
+			}
+			if (pr < (ssize_t)HDR_SZ) {        // header not fully available yet
+				errno = EWOULDBLOCK;
+				return -1;
+			}
+			// Consume the header (it is fully available).
+			const ssize_t r = readn(fd, (char*)&szbe, HDR_SZ);
+			if (r < 0) return -1;
+			if (r == 0) {                      // EOS between peek and read
+				size = 0;
+				probed = {true, 0};
+				return 0;
+			}
+			if (r < (ssize_t)HDR_SZ) {         // should not happen if peek succeeded
+				errno = ECONNRESET;
+				return -1;
+			}
+		} else { // blocking
+			const ssize_t r = readn(fd, (char*)&szbe, HDR_SZ);
+			if (r < 0) return -1;
+			if (r == 0) {                      // EOS
+				size = 0;
+				probed = {true, 0};
+				return 0;
+			}
+			if (r < (ssize_t)HDR_SZ)  {    
+				errno = ECONNRESET;
+				return -1;
+			}
 		}
-		if (r < 0) return r;
-		if (!r) sz = 0;
-		size = be64toh(sz);
-		probed = {true,size};
-		return (size?sizeof(size_t):0);
+
+		size = (size_t)be64toh(szbe);
+		probed = {true, size};
+		return (size ? (ssize_t)HDR_SZ: 0);
 	}
 
-    bool peek() {
-        size_t sz;
-        ssize_t r = recv(fd, &sz, sizeof(size_t), MSG_PEEK | MSG_DONTWAIT);
-    
-        return r;
-    }
+	// Returns true if a full header (or EOS) is available without consuming it.
+	bool peek() {
+		uint64_t szbe = 0;
+		const ssize_t r = recv(fd, (char*)&szbe, HDR_SZ, MSG_PEEK | MSG_DONTWAIT);
+		if (r == 0) return true; // EOS is readable
+		return (r == (ssize_t)HDR_SZ);
+	}
 	
     ssize_t receive(void* buff, size_t size) {
 		size_t probedSize;
@@ -150,37 +187,35 @@ public:
 			if (r <= 0)	return r;
 		} else
 			probedSize = probed.second;
-		
+
+		if (probedSize == 0) {
+			probed = {false, 0};
+			return 0;
+		}		
 		if (probedSize > size){
-			MTCL_ERROR("[internal]:\t", "HandleTCP::receive ENOMEM, receiving less data\n");
-			errno=ENOMEM;
+			MTCL_TCP_PRINT(100, "[internal]:\t", "HandleTCP::receive EMSGSIZE, buffer too small\n");
+			errno=EMSGSIZE;
 			return -1;
 		}
-		probed={false, 0};
-        return readn(fd, (char*)buff, probedSize); 
+		probed = {false, 0};
+		const ssize_t n = readn(fd, (char*)buff, probedSize);
+		if (n == (ssize_t)probedSize) return n;
+		// Short reads, the stream broke while receiving the payload
+		errno = (n==0) ? ECONNRESET: EPROTO;
+		return -1;
     }
 
 	ssize_t ireceive(void* buff, size_t size, RequestPool& r) {
-		/*
-		 1) provo a leggere l'header in maniera non bloccante 
-		    si) vado avanti
-			no) scrivo su oggetto request che devlo ancora tirare via l'header
-		 2) tento di leggere il payload in maniera sincrona
-		 	si) ottimo ho gia finito
-			no) scrivo nell'oggeto request quanti ne mancano
-		*/
-        return receive(buff, size);
-		//return readn(fd, (char*)buff, size); 
+        auto ret = receive(buff, size);
+		return (ret>=0 ? 0 : -1);
     }
 
 	ssize_t ireceive(void* buff, size_t size, Request& r) {
-        return receive(buff, size);
-		//return readn(fd, (char*)buff, size); 
+        auto ret = receive(buff, size);
+		return (ret>=0 ? 0 : -1);
     }
 
-
     ~HandleTCP() {}
-
 };
 
 
@@ -374,7 +409,7 @@ public:
         }
     }
 
-    // URL: host:prot || label: stringa utente
+    // URL: host:prot || label: user string
     Handle* connect(const std::string& address, int retry, unsigned timeout_ms) {
 
 		int fd=internal_connect(address, retry, timeout_ms);
@@ -473,4 +508,3 @@ public:
 
 } // namespace
 
-#endif

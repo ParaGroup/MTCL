@@ -1,21 +1,18 @@
 CXX 		= g++
-CXXFLAGS 	= -g -Wall -std=c++17
+CXXFLAGS 	= -g -Wall -std=c++17 -DENABLE_MQTT 
 
-LDLIBS 		= -lpthread -lpaho-mqtt3a -lpaho-mqttpp3
+LIBS 		= -L${PAHO_HOME}/lib -Wl,-rpath,${PAHO_HOME}/lib -lpaho-mqttpp3 -lpaho-mqtt3as -lpaho-mqtt3a -lpthread -lpaho-mqtt3a -lpaho-mqttpp3
 
-LIB_HOME 	= ../../
+INCLUDES 	= -I ../../include -I${PAHO_HOME}/include
 
-TARGETS = mqtt_test.out
-DEPS = $(LIB_HOME)manager.hpp $(LIB_HOME)protocolInterface.hpp $(LIB_HOME)handleUser.hpp $(LIB_HOME)handle.hpp $(LIB_HOME)protocols/mqtt.hpp
+TARGETS = mqtt_test
 
 .PHONY = all clean cleanall
 
 all: $(TARGETS)
 
-simple_test: mqtt_test.out
-
-%.out: %.cpp $(DEPS)
-	$(CXX) $(CXXFLAGS) $< -o $@ $(LDLIBS) -I $(LIB_HOME)
+%: %.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $< -o $@ $(LIBS)
 
 clean:
 	rm -f $(TARGETS)

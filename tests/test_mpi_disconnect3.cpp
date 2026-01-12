@@ -7,7 +7,7 @@ int main(int argc, char** argv){
     std::cerr << "You must compile with MPI support this test\n";
     return 1;
 #endif
-
+	int rc=0;
     Manager::init("");
 
     int rank;
@@ -26,8 +26,6 @@ int main(int argc, char** argv){
                 std::cout << "0: Received something! {" << tmp << "}\n";
             }
         }
-
-
     } else {
         auto h = Manager::getNext();
         if (h.isNewConnection()) {
@@ -36,14 +34,15 @@ int main(int argc, char** argv){
             std::cout << "1: connection closed!\n";
             // should be an error here since we send after closing connection!
             if (h.send("a", 1) < 0)
-                std::cerr << "1: Error in sending!\n";
-            else
+                std::cerr << "1: Expected error in sending!\n";
+            else {
                 std::cout << "1: sended a\n";
+				rc = -1;
+			}
         }
     }
 
-
-    Manager::finalize();
-    return 0;
+    Manager::finalize(true);
+    return rc;
 
 }

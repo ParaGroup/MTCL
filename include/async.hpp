@@ -1,5 +1,6 @@
-#ifndef MTCL_ASYNC_HPP
-#define MTCL_ASYNC_HPP
+#pragma once
+
+#include <sys/types.h>
 
 namespace MTCL {
 
@@ -8,6 +9,8 @@ public:
     virtual int test(int& result) = 0;
     virtual int wait() { return 0; }
     virtual int make_progress() { return 0; }
+	// Optional: number of bytes completed, useful for variable-size receives
+	virtual ssize_t count() const { return -1; }
     virtual ~request_internal() {} // make sure to delete the whole inherited object
 };
 
@@ -67,11 +70,19 @@ public:
         if (r) return r->wait();
         return 0;
     }
-};
 
-inline int wait(const Request& r){
-    return r.wait();
-}
+	inline int wait(const Request& r){
+		return r.wait();
+	}
+
+	// returns the number of bytes transferred by the operation
+	// Returns -1 if not completed yet.
+	inline ssize_t count() const {
+		if (r) return r->count();
+		return -1;
+	}
+	
+};	// namespace MTCL
 
 inline bool test(const Request& r){
     int outTest;
@@ -97,17 +108,17 @@ void waitAll(const Request& f, const Args&... fs){
         bool allCompleted = true;
         for(auto p : {&f, &fs...}) { 
             if (p->test(outTest) < 0) {
-                MTCL_ERROR( "[waitAll]:\t", "Test ERROR\n");
+                MTCL_ERROR( "[MTCL]:", "waitAll test ERROR\n");
                 return;
             }
             if (!outTest)
                 allCompleted = false;
         }
-
+		
         if (allCompleted) return;
         for(auto p : {&f, &fs...}) 
             if (p->make_progress() < 0)
-                MTCL_ERROR( "[waitAll]:\t", "Make progress ERROR\n");
+                MTCL_ERROR( "[MTCL]:", "waitAll make progress ERROR\n");
         
         if constexpr(WAIT_INTERNAL_TIMEOUT > 0)
             std::this_thread::sleep_for(std::chrono::microseconds(WAIT_INTERNAL_TIMEOUT));
@@ -176,4 +187,3 @@ public:
 
 }
 
-#endif

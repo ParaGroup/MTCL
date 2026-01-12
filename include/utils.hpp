@@ -1,5 +1,4 @@
-#ifndef UTILS_HPP
-#define UTILS_HPP
+#pragma once
 
 #include <unistd.h>
 #include <sys/socket.h>
@@ -20,6 +19,8 @@
 #include <cstdio>
 #include <cstring>
 #include <thread>
+#include <chrono>
+
 
 namespace MTCL {
 
@@ -31,34 +32,26 @@ extern int mtcl_verbose;
 	if (MTCL::mtcl_verbose>=LEVEL) MTCL::print_prefix(stdout, str, prefix, ##__VA_ARGS__)
 #define MTCL_ERROR(prefix, str, ...)									\
 	MTCL::print_prefix(stderr, str, prefix, ##__VA_ARGS__)
-#define MTCL_TCP_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL TCP]:\t",str, ##__VA_ARGS__)
-#define MTCL_SHM_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL SHM]:\t",str, ##__VA_ARGS__)
-#define MTCL_UCX_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL UCX]:\t",str, ##__VA_ARGS__)
-#define MTCL_MPI_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL MPI]:\t",str, ##__VA_ARGS__)
-#define MTCL_MQTT_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL MQTT]:\t",str, ##__VA_ARGS__)
-#define MTCL_MPIP2P_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL MPIP2P]:\t",str, ##__VA_ARGS__)
-#define MTCL_TCP_ERROR(str, ...) MTCL_ERROR("[MTCL TCP]:\t",str, ##__VA_ARGS__)
-#define MTCL_SHM_ERROR(str, ...) MTCL_ERROR("[MTCL SHM]:\t",str, ##__VA_ARGS__)
-#define MTCL_UCX_ERROR(str, ...) MTCL_ERROR("[MTCL UCX]:\t",str, ##__VA_ARGS__)
-#define MTCL_MPI_ERROR(str, ...) MTCL_ERROR("[MTCL MPI]:\t",str, ##__VA_ARGS__)
-#define MTCL_MQTT_ERROR(str, ...) MTCL_ERROR("[MTCL MQTT]:\t",str, ##__VA_ARGS__)
-#define MTCL_MPIP2P_ERROR(str, ...) MTCL_ERROR("[MTCL MPIP2P]:\t",str, ##__VA_ARGS__)
+#define MTCL_TCP_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL TCP]:",str, ##__VA_ARGS__)
+#define MTCL_SHM_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL SHM]:",str, ##__VA_ARGS__)
+#define MTCL_UCX_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL UCX]:",str, ##__VA_ARGS__)
+#define MTCL_MPI_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL MPI]:",str, ##__VA_ARGS__)
+#define MTCL_MQTT_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL MQTT]:",str, ##__VA_ARGS__)
+#define MTCL_MPIP2P_PRINT(LEVEL, str, ...) MTCL_PRINT(LEVEL, "[MTCL MPIP2P]:",str, ##__VA_ARGS__)
+#define MTCL_TCP_ERROR(str, ...) MTCL_ERROR("[MTCL TCP]:",str, ##__VA_ARGS__)
+#define MTCL_SHM_ERROR(str, ...) MTCL_ERROR("[MTCL SHM]:",str, ##__VA_ARGS__)
+#define MTCL_UCX_ERROR(str, ...) MTCL_ERROR("[MTCL UCX]:",str, ##__VA_ARGS__)
+#define MTCL_MPI_ERROR(str, ...) MTCL_ERROR("[MTCL MPI]:",str, ##__VA_ARGS__)
+#define MTCL_MQTT_ERROR(str, ...) MTCL_ERROR("[MTCL MQTT]:",str, ##__VA_ARGS__)
+#define MTCL_MPIP2P_ERROR(str, ...) MTCL_ERROR("[MTCL MPIP2P]:",str, ##__VA_ARGS__)
 
-static inline void print_prefix(FILE *stream, const char * str, const char *prefix, ...) {
+static inline void print_prefix(FILE *stream, const char *str, const char *prefix, ...) {
     va_list argp;
-    char * p=(char *)malloc(strlen(str)+strlen(prefix)+1);
-    if (!p) {
-		perror("malloc");
-        fprintf(stderr,"FATAL ERROR in print_prefix\n");
-        return;
-    }
-    strcpy(p,prefix);
-    strcpy(p+strlen(prefix), str);
     va_start(argp, prefix);
-    vfprintf(stream, p, argp);
-	fflush(stream);
+    fprintf(stream, "%-13s", prefix);
+    vfprintf(stream, str, argp);
+    fflush(stream);
     va_end(argp);
-    free(p);
 }
 
 std::string getPoolFromHost(const std::string& host){
@@ -67,8 +60,106 @@ std::string getPoolFromHost(const std::string& host){
     return host.substr(0, pos);
 }
 
-// -------------------- TCP utilty functions -----------------------------------
+static inline bool splitProtoRest(const std::string& s, std::string& proto, std::string& rest) {
+	auto pos = s.find(':');
+	if (pos == std::string::npos) return false;
+	proto = s.substr(0, pos);
+	rest  = s.substr(pos + 1);
+	return true;
+}
 
+
+	
+static inline void mtcl_cpu_relax(void) {
+#if defined(__x86_64__) || defined(__i386__)
+#define MTCL_PAUSE() __asm__ __volatile__("pause")
+#elif defined(__aarch64__) || defined(__arm__)
+  #define MTCL_PAUSE() __asm__ __volatile__("yield")
+#elif defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+  #define MTCL_PAUSE() __asm__ __volatile__("or 27,27,27")
+#elif defined(__riscv)
+// compile with -DMTCL_RISCV_HAS_PAUSE=1 to switch to "pause" if supported
+  #if defined(MTCL_RISCV_HAS_PAUSE)
+    #define MTCL_PAUSE() __asm__ __volatile__("pause")
+  #else
+    #define MTCL_PAUSE() __asm__ __volatile__("nop")
+  #endif
+#else
+// portable fallback
+  #define MTCL_PAUSE() __asm__ __volatile__("")
+#endif
+
+	MTCL_PAUSE();
+}
+
+	
+/**
+ * @brief Non-blocking probe loop with a bounded timeout.
+ *
+ * Repeatedly calls 'h->probe(size, false)' until the first fragment is
+ * available or a deadline expires. It never blocks indefinitely on half-open 
+ * or stalled connections.
+ *
+ * Parameters:
+ * - retry: number of retry windows. If retry <= 0 it is treated as 1.
+ * - timeout_ms: milliseconds per retry window. Total deadline is:
+ *     total_timeout = timeout_ms * max(retry, 1)
+ *   If timeout_ms is 0, the function performs a single non-blocking check and
+ *   then times out immediately.
+ *
+ * Return and errno mapping:
+ * - Returns > 0 when 'probe()' reports a header is available, and sets 'size'.
+ * - Returns -1 on failure:
+ *   - If 'probe()' returns 0 (EOS), sets errno = ECONNRESET.
+ *   - If the deadline expires, sets errno = ETIMEDOUT.
+ *   - If 'probe()' fails with an error different from EWOULDBLOCK/EAGAIN, it is propagated.
+ *
+ * Polling strategy:
+ * - First it spins aggressively using mtcl_cpu_relax() for low latency.
+ * - If data does not arrive quickly, it backs off with short sleeps to avoid burning a core.
+ */
+template<typename H>
+static inline ssize_t nb_probe_with_timeout(H* h, size_t& size,	int retry, unsigned timeout_ms) {
+	static_assert(std::is_pointer_v<decltype(h)>, "h must be a pointer");
+    // This check ensures H has a method probe(size_t&, bool) returning ssize_t
+    static_assert(std::is_same_v<decltype(h->probe(size, false)), ssize_t>,
+                  "H must implement: ssize_t probe(size_t& size, bool blocking)");
+    if (retry <= 0) retry = 1;
+
+    using clock = std::chrono::steady_clock;
+
+    const auto start = clock::now();
+    const auto deadline = start + std::chrono::milliseconds((uint64_t)timeout_ms * (uint64_t)retry);
+    constexpr auto SPIN_BUDGET = std::chrono::microseconds(SPIN_THRESHOLD);
+    constexpr auto MAX_SLEEP = std::chrono::microseconds(WAIT_INTERNAL_TIMEOUT);
+
+    auto sleep = std::chrono::microseconds(1);
+
+    while (true) {
+        const ssize_t r = h->probe(size, false);
+
+        if (r > 0) return r;
+        if (r == 0) { errno = ECONNRESET; return -1; }
+
+        if (errno != EWOULDBLOCK && errno != EAGAIN) return -1;
+
+        const auto now = clock::now();
+        if (now >= deadline) { errno = ETIMEDOUT; return -1; }
+
+        const auto elapsed = now - start;
+
+        if (elapsed < SPIN_BUDGET) { // fast path
+            mtcl_cpu_relax();
+        } else {
+            // Backoff to reduce CPU usage on slow peers or half-open connections
+            std::this_thread::sleep_for(sleep);
+            sleep = std::min(sleep * 2, MAX_SLEEP);
+        }
+    }
+}
+
+	
+// -------------------- TCP utilty functions -----------------------------------
 
 static inline int internal_connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 	int saved_errno=0;
@@ -127,7 +218,7 @@ static inline int internal_connect(const std::string& address, int retry, unsign
 	const std::string host = address.substr(0, address.find(":"));
 	const std::string svc  = address.substr(host.length()+1);
 	
-	MTCL_PRINT(100, "[MTCL]", "connecting to %s:%s\n", host.c_str(), svc.c_str());
+	MTCL_PRINT(100, "[MTCL]:", "connecting to %s:%s\n", host.c_str(), svc.c_str());
 	
 	int fd=-1;	
 	struct addrinfo hints;
@@ -141,7 +232,7 @@ static inline int internal_connect(const std::string& address, int retry, unsign
 	
 	// resolve the address (assumo stringa formattata come host:port)
 	if (getaddrinfo(host.c_str(), svc.c_str(), &hints, &result) != 0) {
-		MTCL_PRINT(100, "MTCL", "internal_connect  getaddrinfo error, errno=%d\n", errno);
+		MTCL_PRINT(100, "MTCL:", "internal_connect  getaddrinfo error, errno=%d\n", errno);
 		return -1;
 	}
 
@@ -152,7 +243,7 @@ static inline int internal_connect(const std::string& address, int retry, unsign
 			fd = socket(rp->ai_family, rp->ai_socktype,
 						rp->ai_protocol);
 			if (fd == -1) {
-				MTCL_PRINT(100, "[MTCL]", "internal_connect socket error, errno=%d\n", errno);
+				MTCL_PRINT(100, "[MTCL]:", "internal_connect socket error, errno=%d\n", errno);
 				continue;
 			}
 						
@@ -163,10 +254,10 @@ static inline int internal_connect(const std::string& address, int retry, unsign
 			} 
 			close(fd);
 		}
-		if (!connected) {
+		if (!connected && retry>0) {
 			--retry;		
 			std::this_thread::sleep_for(std::chrono::milliseconds(timeout_ms));
-			MTCL_PRINT(100, "MTCL", "retry to connect to %s:%s\n", host.c_str(), svc.c_str());
+			MTCL_PRINT(100, "[MTCL]:", "retry to connect to %s:%s\n", host.c_str(), svc.c_str());
 		}
 	} while(retry>0);
 	
@@ -218,27 +309,3 @@ static inline int internal_connect(const std::string& address, int retry, unsign
     #define ECOMM 1147
 #endif // __APPLE__
 
-
-#if defined(__i386__) || defined(__x86_64__)
-#define MTCL_PAUSE()  __asm__ __volatile__ ("rep; nop" ::: "memory")
-#endif // __i386
-
-#if defined (__riscv)
-#define MTCL_PAUSE()  /* ?? */
-#endif  // __riscv
-
-#if defined(__powerpc__) || defined(__ppc__)
-// yield   ==   or 27, 27, 27
-#define MTCL_PAUSE()  asm volatile ("or 27,27,27" ::: "memory");
-#endif // __powerpc
-
-#if defined(__arm__) || defined(__aarch64__)
-#define MTCL_PAUSE()  asm volatile("yield" ::: "memory")
-#endif //__arm
-
-
-static inline void mtcl_cpu_relax(void) {
-	MTCL_PAUSE();
-}
-
-#endif

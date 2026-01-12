@@ -57,6 +57,8 @@
 #include <iostream>
 #include "mtcl.hpp"
 
+using namespace MTCL;
+
 static int EMITTER_RANK{0};
 static int WORKER_RANK{2};
 static int COLLECTOR_RANK{1};
@@ -97,6 +99,13 @@ void generate_configuration(int num_workers) {
     COLLECTOR_ENDPOINT = {"UCX:0.0.0.0:42001"};
 #endif
 
+#ifdef ENABLE_MQTT
+    PROTOCOL = {"MQTT"};
+    EMITTER_ENDPOINT = {"MQTT:emitter"};
+    COLLECTOR_ENDPOINT = {"MQTT:collector"};
+#endif
+
+	
     rapidjson::Value s;
     rapidjson::Document doc;
     doc.SetObject();

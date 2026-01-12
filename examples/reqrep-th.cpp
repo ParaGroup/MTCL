@@ -57,6 +57,7 @@ void Server() {
 			std::unique_lock lk(mtx);
 			if (connections[handle.getID()]) {
 				MTCL_PRINT(10, "[SERVER]:\t", "receiver close handle\n");
+				connections[handle.getID()] = false;
 				handle.close();
 			} 
 		} 
@@ -89,6 +90,7 @@ void Client() {
 			MTCL_ERROR("[CLIENT]:\t", "ERROR: received %d expected %d\n", y, i);
 	}
 	t.join();
+	MTCL_PRINT(10, "[CLIENT]:\t", "close handle and exit\n");
 	handle.close();
 }
 

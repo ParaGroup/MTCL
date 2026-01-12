@@ -140,7 +140,10 @@ void Client() {
                                 if (!h.isValid()) {
                                     auto h = Manager::connect("TCP:0.0.0.0:42000");
 									//auto h = Manager::connect("SHM:/MTCA-server");
-                                    assert(h.isValid());
+                                    if (!h.isValid()) {
+										MTCL_ERROR("[CLIENT]:\t", "ERROR cannot connect\n");
+										exit(-1);
+									}
                                     return h;
                                 } else return h;
                               } else return h;
