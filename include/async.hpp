@@ -84,6 +84,10 @@ public:
 	
 };	// namespace MTCL
 
+inline int wait(const Request& r){
+    return r.wait();
+}
+
 inline bool test(const Request& r){
     int outTest;
     r.test(outTest);
