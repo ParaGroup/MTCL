@@ -1258,7 +1258,7 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l01220" name="l01220"></a><span class="lineno"> 1220</span>        tmpset = set;</div>
 <div class="line"><a id="l01221" name="l01221"></a><span class="lineno"> 1221</span>        REMOVE_CODE_IF(ulock.unlock());</div>
 <div class="line"><a id="l01222" name="l01222"></a><span class="lineno"> 1222</span> </div>
-<div class="line"><a id="l01223" name="l01223"></a><span class="lineno"> 1223</span>        <span class="keyword">struct </span>timeval wait_time = {.tv_sec = 0, .tv_usec=UCX_POLL_TIMEOUT};</div>
+<div class="line"><a id="l01223" name="l01223"></a><span class="lineno"> 1223</span>        <span class="keyword">struct </span>timeval wait_time = {0, UCX_POLL_TIMEOUT};</div>
 <div class="line"><a id="l01224" name="l01224"></a><span class="lineno"> 1224</span>        <span class="keywordtype">int</span> nready = 0;</div>
 <div class="line"><a id="l01225" name="l01225"></a><span class="lineno"> 1225</span>        </div>
 <div class="line"><a id="l01226" name="l01226"></a><span class="lineno"> 1226</span>        <span class="comment">// Only if we are listening for new connections</span></div>
