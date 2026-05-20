@@ -181,8 +181,7 @@ static inline int internal_connect(int sockfd, const struct sockaddr *addr, sock
                 // Set a deadline timestamp 'timeout' ms from now (needed b/c poll can be interrupted)
                 struct timespec now;
                 if(clock_gettime(CLOCK_MONOTONIC, &now)<0) { rc=-1; break; }
-                struct timespec deadline = { .tv_sec = now.tv_sec,
-                                             .tv_nsec = now.tv_nsec + (UNREACHABLE_ADDR_TIMOUT*1000000l)};
+                struct timespec deadline = { now.tv_sec, now.tv_nsec + (UNREACHABLE_ADDR_TIMOUT*1000000l)};
                 // Wait for the connection to complete.
                 do {
                     // Calculate how long until the deadline
@@ -192,7 +191,7 @@ static inline int internal_connect(int sockfd, const struct sockaddr *addr, sock
 													+ (deadline.tv_nsec - now.tv_nsec)/1000000l);
                     if(ms_until_deadline<0) { rc=0;	break; }
                     // Wait for connect to complete (or for the timeout deadline)
-                    struct pollfd pfds[] = { { .fd = sockfd, .events = POLLOUT } };
+                    struct pollfd pfds[] = { { sockfd, POLLOUT, 0 } };
 					
                     rc = poll(pfds, 1, ms_until_deadline);
                     // If poll 'succeeded', make sure it *really* succeeded

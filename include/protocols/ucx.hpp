@@ -1220,7 +1220,7 @@ public:
         tmpset = set;
         REMOVE_CODE_IF(ulock.unlock());
 
-        struct timeval wait_time = {.tv_sec = 0, .tv_usec=UCX_POLL_TIMEOUT};
+        struct timeval wait_time = {0, UCX_POLL_TIMEOUT};
         int nready = 0;
         
         // Only if we are listening for new connections

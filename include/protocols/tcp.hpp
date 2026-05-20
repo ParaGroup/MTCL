@@ -341,7 +341,7 @@ public:
         tmpset = set;
         REMOVE_CODE_IF(ulock.unlock());
 
-        struct timeval wait_time = {.tv_sec=0, .tv_usec=TCP_POLL_TIMEOUT};
+        struct timeval wait_time = {0, TCP_POLL_TIMEOUT};
 		int nready=0;
 		if (fdmax==-1) return;
         switch(nready=select(fdmax+1, &tmpset, NULL, NULL, &wait_time)) {
