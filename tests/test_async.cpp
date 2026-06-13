@@ -36,8 +36,10 @@ int main(int argc, char** argv) {
 	}
 	int rank = std::stoi(argv[1]);
 	std::string proto{argv[2]};
-	if (proto != "MPI" && proto != "TCP" && proto != "UCX" && proto != "MQTT")
-		std::cerr << "Invalid proto, can be MPI|UCX|TCP|MQTT\n";
+	if (proto != "MPI" && proto != "TCP" && proto != "UCX" && proto != "MQTT") {
+		std::cerr << "Invalid proto; can be MPI|UCX|TCP|MQTT\n";
+		return -1;
+	}
 	
     const int num_iterations = (argc > 3) ? parse_int_arg(argv[3], 1000) : 1000;
 

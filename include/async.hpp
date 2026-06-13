@@ -1,6 +1,10 @@
 #pragma once
 
 #include <sys/types.h>
+#include <chrono>
+#include <memory>
+#include <thread>
+#include <vector>
 
 namespace MTCL {
 
@@ -50,6 +54,8 @@ public:
 	}
 
     Request& operator=(Request&& i){
+        if (this == &i) return *this;
+        if (r) delete r;
         r = i.r;
         i.r = nullptr;
         return *this;
@@ -132,6 +138,7 @@ void waitAll(const Request& f, const Args&... fs){
 
 class ConnRequestVector {
 public:
+    virtual ~ConnRequestVector() = default;
     virtual bool testAll() = 0;
     virtual void waitAll() = 0;
     virtual void reset() = 0;
@@ -140,7 +147,7 @@ public:
 
 class RequestPool {
     size_t sizeHint;
-    std::vector<ConnRequestVector*> vectors;
+    std::vector<std::unique_ptr<ConnRequestVector>> vectors;
 
     inline size_t generate_type_id() {
         static size_t value = 0;
@@ -163,19 +170,19 @@ public:
     }
 
     inline bool testAll(){
-        for(ConnRequestVector* crv : vectors)
+        for(const auto& crv : vectors)
             if (crv && !crv->testAll())
                 return false;
         return true;
     }
 
     inline void waitAll(){
-        for(ConnRequestVector* crv : vectors)
+        for(const auto& crv : vectors)
             if (crv) crv->waitAll();
     }
 
     inline void reset(){
-        for(ConnRequestVector* crv : vectors)
+        for(const auto& crv : vectors)
             if (crv) crv->reset();
     }
 
@@ -183,11 +190,12 @@ public:
     inline T* _getInternalVector(){
         size_t id = type_id<T>();
         if (id >= vectors.size())
-                vectors.push_back(new T(sizeHint));
-        return reinterpret_cast<T*>(vectors[id]);
+                vectors.resize(id + 1);
+        if (!vectors[id])
+                vectors[id] = std::make_unique<T>(sizeHint);
+        return static_cast<T*>(vectors[id].get());
     }
 };
 
 
 }
-

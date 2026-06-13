@@ -13,6 +13,7 @@ const unsigned SPIN_THRESHOLD          = 300;
 const unsigned TCP_BACKLOG             = 128;
 const unsigned TCP_POLL_TIMEOUT        = 10; 
 const unsigned UNREACHABLE_ADDR_TIMOUT = 100;  // milliseconds   
+const size_t   TCP_REQUEST_POOL_SIZE   = 1024;
 
 // ------ SHM ------
 const unsigned SHM_SMALL_MSG_SIZE      = (1<<22);

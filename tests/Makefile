@@ -13,6 +13,11 @@ else
 	OPTIMIZE_FLAGS  += -O3 -finline-functions -DNDEBUG
 endif
 
+ifdef SANITIZE
+	CXXFLAGS += -g -fsanitize=address -fno-omit-frame-pointer
+	LDFLAGS  += -fsanitize=address
+endif
+
 ifdef SINGLE_IO_THREAD
 	CXXFLAGS +=-DSINGLE_IO_THREAD
 endif
