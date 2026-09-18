@@ -305,9 +305,12 @@ public:
     void invalidate_handle();
 
     /**
-     * doWork is called by wait and test. It checks the status of the request and,
-     * if it's not terminated, it calls receiveMsg or sendMsg(depending on the
-     * operation type).
+     * @brief Attempts to advance the I/O state of this request.
+     * * THREAD SAFETY: This method can be called concurrently by the IO multiplexer thread
+     * (via ConnTcp::update) and the user thread (via wait()).
+     * The compare_exchange_strong guarantees that only one thread "owns" the right to
+     * perform the read/write syscall at any given time, preventing interleaved data corruption.
+     * * @return 1 if completed, -1 if failed, 0 if it yielded (EAGAIN/EWOULDBLOCK).
      */
     int doWork() {
         State expected = State::IDLE;
@@ -729,6 +732,15 @@ public:
         return 0;
     }
 
+    /**
+     * @brief Flushes excess payload data from the socket buffer.
+     * If a user calls ireceive() with a buffer smaller than the incoming
+     * payload (EMSGSIZE), or if not all the payload has been correctly received,
+     * the unread bytes remain in the OS socket buffer.
+     * We must "drain" (read and discard) these remaining bytes before we can safely
+     * read the next message header. Failure to do so corrupts the MTCL stream protocol.
+     * * @return true if progress was made draining, false if blocked (EAGAIN) or EOF.
+     */
     bool do_drain() {
         std::lock_guard<std::mutex> lk(rcv_mutex);
 
@@ -1450,7 +1462,7 @@ struct ScopedBlockingGuard {
     }
 };
 
-// if io thread is not active, we can set the fd to blocking
+// if io thread is not active, the fd can be set to blocking
 #ifdef SINGLE_IO_THREAD
 
 inline int RequestTCP::wait() {
@@ -1494,8 +1506,10 @@ inline int RequestTCP::wait() {
     }
 }
 
-// if io thead is active, a blocking fd can cause
-// the io thread to get stuck in a single read
+/** if io thead is active, a blocking fd can cause
+ * the io thread to get stuck in a single read,
+ * so a progressive backoff strategy is used.
+ */
 #else
 
 inline int RequestTCP::wait() {
@@ -1519,6 +1533,7 @@ inline int RequestTCP::wait() {
             return -1;
         }
 
+        // advance all requests of the same type of the one that the wait was called on
         if (operation == OpType::RECEIVE) {
             if((parent_handle->continue_rcv_req()) == 0)
                 parent_handle->continue_send_req();
@@ -1534,6 +1549,11 @@ inline int RequestTCP::wait() {
             return -1;
         }
 
+        // PROGRESSIVE BACKOFF STRATEGY
+        // We are waiting for the IO thread to fulfill our request.
+        // - Phase 1 (0-100): CPU relax. Optimize for ultra-low latency (cache-hit networking).
+        // - Phase 2 (100-1000): yield.
+        // - Phase 3 (>1000): Sleep 50us. The network is slow; stop burning CPU cycles and save power.
         if (spins < 100) {
             MTCL::mtcl_cpu_relax();
         } else if (spins < 1000) {
