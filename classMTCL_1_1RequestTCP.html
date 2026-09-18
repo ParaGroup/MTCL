@@ -120,6 +120,7 @@ void&#160;</td><td class="memItemRight" valign="bottom"><b>reinit</b> (int _fd, 
 void&#160;</td><td class="memItemRight" valign="bottom"><b>invalidate_handle</b> ()</td></tr>
 <tr class="separator:a80d2885a0640adab978cf0e0d008a76f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a46decd5e7ef79aaa21ef276ef0b97923" id="r_a46decd5e7ef79aaa21ef276ef0b97923"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classMTCL_1_1RequestTCP.html#a46decd5e7ef79aaa21ef276ef0b97923">doWork</a> ()</td></tr>
+<tr class="memdesc:a46decd5e7ef79aaa21ef276ef0b97923"><td class="mdescLeft">&#160;</td><td class="mdescRight">Attempts to advance the I/O state of this request.  <br /></td></tr>
 <tr class="separator:a46decd5e7ef79aaa21ef276ef0b97923"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a093c450692acb2a01089388f7c28eef1" id="r_a093c450692acb2a01089388f7c28eef1"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classMTCL_1_1RequestTCP.html#a093c450692acb2a01089388f7c28eef1">receiveMsg</a> ()</td></tr>
 <tr class="separator:a093c450692acb2a01089388f7c28eef1"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -223,8 +224,13 @@ class&#160;</td><td class="memItemRight" valign="bottom"><b>TcpRequestVector</b>
   </tr>
 </table>
 </div><div class="memdoc">
-<p>doWork is called by wait and test. It checks the status of the request and, if it's not terminated, it calls receiveMsg or sendMsg(depending on the
-operation type). </p>
+
+<p>Attempts to advance the I/O state of this request. </p>
+<ul>
+<li>THREAD SAFETY: This method can be called concurrently by the IO multiplexer thread (via <a class="el" href="classMTCL_1_1ConnTcp.html#ae2e98df6240c023a55111ecc7e0f9ac1" title="Non-blocking polling over the managed set of Handle objects. It should be used to check whether Handl...">ConnTcp::update</a>) and the user thread (via wait()). The compare_exchange_strong guarantees that only one thread "owns" the right to perform the read/write syscall at any given time, preventing interleaved data corruption.</li>
+<li><dl class="section return"><dt>Returns</dt><dd>1 if completed, -1 if failed, 0 if it yielded (EAGAIN/EWOULDBLOCK). </dd></dl>
+</li>
+</ul>
 
 </div>
 </div>

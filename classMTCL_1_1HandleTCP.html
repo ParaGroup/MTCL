@@ -128,8 +128,8 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>has_active_send_req</
 <tr class="separator:ad3e2a098c53856190bdbcf2e663f46c7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a338937f7898b2f5b01a0b0f6a48a2904" id="r_a338937f7898b2f5b01a0b0f6a48a2904"><td class="memItemLeft" align="right" valign="top">ssize_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classMTCL_1_1HandleTCP.html#a338937f7898b2f5b01a0b0f6a48a2904">ireceive</a> (void *buff, size_t size, <a class="el" href="classMTCL_1_1Request.html">Request</a> &amp;r)</td></tr>
 <tr class="separator:a338937f7898b2f5b01a0b0f6a48a2904"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8d96e7cc34872b93328656967bdf626d" id="r_a8d96e7cc34872b93328656967bdf626d"><td class="memItemLeft" align="right" valign="top"><a id="a8d96e7cc34872b93328656967bdf626d" name="a8d96e7cc34872b93328656967bdf626d"></a>
-bool&#160;</td><td class="memItemRight" valign="bottom"><b>do_drain</b> ()</td></tr>
+<tr class="memitem:a8d96e7cc34872b93328656967bdf626d" id="r_a8d96e7cc34872b93328656967bdf626d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classMTCL_1_1HandleTCP.html#a8d96e7cc34872b93328656967bdf626d">do_drain</a> ()</td></tr>
+<tr class="memdesc:a8d96e7cc34872b93328656967bdf626d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flushes excess payload data from the socket buffer. If a user calls <a class="el" href="classMTCL_1_1HandleTCP.html#ad3e2a098c53856190bdbcf2e663f46c7" title="Post a non-blocking receive of one message into buff.">ireceive()</a> with a buffer smaller than the incoming payload (EMSGSIZE), or if not all the payload has been correctly received, the unread bytes remain in the OS socket buffer. We must "drain" (read and discard) these remaining bytes before we can safely read the next message header. Failure to do so corrupts the <a class="el" href="namespaceMTCL.html">MTCL</a> stream protocol.  <br /></td></tr>
 <tr class="separator:a8d96e7cc34872b93328656967bdf626d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af16d8572960801c74304b68b2d4dd115" id="r_af16d8572960801c74304b68b2d4dd115"><td class="memItemLeft" align="right" valign="top"><a id="af16d8572960801c74304b68b2d4dd115" name="af16d8572960801c74304b68b2d4dd115"></a>
 int&#160;</td><td class="memItemRight" valign="bottom"><b>continue_rcv_req</b> ()</td></tr>
@@ -221,6 +221,37 @@ HandleType&#160;</td><td class="memItemRight" valign="bottom"><b>type</b> = P2P<
 <tr class="separator:a0c6899154682fc1f894d7a1695e7f960 inherit pro_attribs_classMTCL_1_1CommunicationHandle"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Member Function Documentation</h2>
+<a id="a8d96e7cc34872b93328656967bdf626d" name="a8d96e7cc34872b93328656967bdf626d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8d96e7cc34872b93328656967bdf626d">&#9670;&#160;</a></span>do_drain()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool MTCL::HandleTCP::do_drain </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Flushes excess payload data from the socket buffer. If a user calls <a class="el" href="classMTCL_1_1HandleTCP.html#ad3e2a098c53856190bdbcf2e663f46c7" title="Post a non-blocking receive of one message into buff.">ireceive()</a> with a buffer smaller than the incoming payload (EMSGSIZE), or if not all the payload has been correctly received, the unread bytes remain in the OS socket buffer. We must "drain" (read and discard) these remaining bytes before we can safely read the next message header. Failure to do so corrupts the <a class="el" href="namespaceMTCL.html">MTCL</a> stream protocol. </p>
+<ul>
+<li><dl class="section return"><dt>Returns</dt><dd>true if progress was made draining, false if blocked (EAGAIN) or EOF. </dd></dl>
+</li>
+</ul>
+
+</div>
+</div>
 <a id="a338937f7898b2f5b01a0b0f6a48a2904" name="a338937f7898b2f5b01a0b0f6a48a2904"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a338937f7898b2f5b01a0b0f6a48a2904">&#9670;&#160;</a></span>ireceive() <span class="overload">[1/2]</span></h2>
 
