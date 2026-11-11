@@ -12,6 +12,7 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <sys/epoll.h>
 #include <time.h>
 
 #include <cstdint>
@@ -21,6 +22,7 @@
 #include <queue>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <shared_mutex>
 #include <atomic>
 #include <stdexcept>
@@ -535,7 +537,6 @@ public:
     }
 
     ssize_t send(const void* buff, size_t size) {
-
         RequestTCP* req = new RequestTCP();
         if(!req)
             return -1;
@@ -868,7 +869,10 @@ protected:
 
     std::unordered_map<int, Handle*> connections; // Active connections for this Connector
 
-    std::vector<struct pollfd> fds;
+    int epoll_fd;
+    struct epoll_event event;
+    struct epoll_event events[TCP_EPOLL_MAXSIZE];
+    std::unordered_set<int> watched_fds; // fds currently registered in epoll
 
     int listen_sck;
 #if !defined(NO_MTCL_MULTITHREADED)
@@ -927,32 +931,51 @@ private:
             return -1;
         }
 
+        if (epoll_fd == -1) {
+            epoll_fd = epoll_create1(0);
+            if(epoll_fd == -1) {
+                MTCL_TCP_PRINT(100, "ConnTcp::_init epoll_create1 errno=%d\n", errno);
+                return -1;
+            }
+        }
+
+        event.events = EPOLLIN;
+        event.data.fd = listen_sck;
+        if(epoll_ctl(epoll_fd, EPOLL_CTL_ADD, listen_sck, &event) == -1) {
+            MTCL_TCP_PRINT(100, "ConnTcp::_init epoll_ctl ADD listen_sck errno=%d\n", errno);
+            return -1;
+        }
+        watched_fds.insert(listen_sck);
+
         return 0;
     }
 
     bool remove_fd_from_vector(int target_fd) {
-        for (size_t i = 0; i < fds.size(); ++i) {
-            if (fds[i].fd == target_fd) {
-                fds[i] = fds.back();
-                fds.pop_back();
-                return true;
-            }
+        if(epoll_ctl(epoll_fd, EPOLL_CTL_DEL, target_fd, nullptr) != 0){
+            MTCL_TCP_PRINT(100, "ConnTcp::remove_fd_from_vector epoll_ctl DEL errno=%d\n", errno);
+            return false;
         }
-        return false;
+        watched_fds.erase(target_fd);
+        return true;
     }
 
 public:
-    ConnTcp() {};
+    ConnTcp() : epoll_fd(-1), listen_sck(-1) {};
     ~ConnTcp() {
+        if (epoll_fd != -1) close(epoll_fd);
         RequestTCP::destroy_pool();
     };
 
     int init(std::string) {
         // For clients who do just connect, the communication thread anyway calls
-		// the update method, and we do not want to call the select function with
+		// the update method, and we do not want to call the epoll function with
 		// invalid fields.
         REMOVE_CODE_IF(std::unique_lock lock(shm));
-        fds.clear();
+        epoll_fd = epoll_create1(0);
+        if(epoll_fd == -1) {
+            MTCL_TCP_PRINT(100, "ConnTcp::_init epoll_fd errno=%d\n", errno);
+            return -1;
+        }
         listen_sck = -1;
         return 0;
     }
@@ -965,11 +988,6 @@ public:
 
         MTCL_TCP_PRINT(1, "listen to %s:%d\n", address.c_str(),port);
 
-        // add the listen socket to the read set
-        REMOVE_CODE_IF(std::unique_lock lock(shm));
-        fds.clear();
-        fds.push_back({listen_sck, POLLIN, 0});
-
         return 0;
     }
 
@@ -978,36 +996,29 @@ public:
         int wait_time = (TCP_POLL_TIMEOUT > 0) ? std::max<int>(1, TCP_POLL_TIMEOUT / 1000) : 0;
         int nready = 0;
 
-        // copy the fds to a temporary one
-        std::vector<pollfd> local_fds;
-        {
-            REMOVE_CODE_IF(std::unique_lock lock(shm));
-            if (fds.empty()) return;
-            local_fds = fds;
-        }
-
-        switch (nready = poll(local_fds.data(), local_fds.size(), wait_time)) {
+        switch (nready = epoll_wait(epoll_fd, events, TCP_EPOLL_MAXSIZE, wait_time)) {
         case -1: {
             // NOTE: EBADF can happen because we may close an fd that is in the set
             if (errno==EBADF) {
-                MTCL_TCP_PRINT(100, "ConnTcp::update poll ERROR: errno=EBADF\n");
+                MTCL_TCP_PRINT(100, "ConnTcp::update epoll ERROR: errno=EBADF\n");
                 return;
             }
-            MTCL_TCP_ERROR("ConnTcp::update poll ERROR: errno=%d -- %s\n", errno, strerror(errno));
+            MTCL_TCP_ERROR("ConnTcp::update epoll ERROR: errno=%d -- %s\n", errno, strerror(errno));
         }
         case  0: return;
         }
 
         REMOVE_CODE_IF(std::unique_lock ulock(shm, std::defer_lock));
 
-        for (size_t idx_index = 0; idx_index < local_fds.size() && nready > 0; idx_index++) {
-            int idx = local_fds[idx_index].fd;
+        for (size_t idx_index = 0; idx_index < (size_t)nready; idx_index++) {
+            int idx = events[idx_index].data.fd;
+            auto ev = events[idx_index];
 
             // No events available for this fd
-            if(local_fds[idx_index].revents == 0)
+            if(ev.events == 0)
                 continue;
 
-            if(local_fds[idx_index].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+            if(ev.events & (EPOLLERR | EPOLLHUP)) {
                 HandleTCP* h_to_close = nullptr;
 
                 REMOVE_CODE_IF(ulock.lock());
@@ -1021,13 +1032,15 @@ public:
                 REMOVE_CODE_IF(ulock.unlock());
 
                 if(h_to_close)
-                    setAsClosed(h_to_close, false);
+                    setAsClosed(h_to_close, false); // notify_close removes the fd from epoll
+                else
+                    remove_fd_from_vector(idx);
 
                 continue;
             }
 
-            bool can_read = local_fds[idx_index].revents & POLLIN;
-            bool can_write = local_fds[idx_index].revents & POLLOUT;
+            bool can_read = ev.events & EPOLLIN;
+            bool can_write = ev.events & EPOLLOUT;
 
             if(can_read || can_write) {
                 if (idx == this->listen_sck && can_read) {
@@ -1075,14 +1088,9 @@ public:
 
                         // new request to be received -> give back control
                         if(can_read && !active_recv) {
-                            for(size_t j = 0; j < fds.size(); ++j) {
-                                if(fds[j].fd == idx) {
-                                    fds[j] = fds.back();
-                                    fds.pop_back();
-                                    break;
-                                }
+                            if(!remove_fd_from_vector(idx)) {
+                                MTCL_TCP_PRINT(100, "ConnTcp::update EPOLL_CTL_DEL errno=%d\n", errno);
                             }
-
                             h->is_yielded.store(false, std::memory_order_release);
                             REMOVE_CODE_IF(ulock.unlock());
 
@@ -1099,16 +1107,18 @@ public:
 
                         // Updates ready connections and removes from listening
                         active_send = h->has_active_send_req();
-                        if (!active_send) {
+                        if (!active_send && can_write) {
                             // Stop listening for write on this fd
-                            for(auto& orig_fd : fds) {
-                                if(orig_fd.fd == idx) orig_fd.events = orig_fd.events & ~POLLOUT;
+                            struct epoll_event mod_ev;
+                            mod_ev.events = EPOLLIN;
+                            mod_ev.data.fd = idx;
+                            if(epoll_ctl(epoll_fd, EPOLL_CTL_MOD, idx, &mod_ev) != 0){
+                                MTCL_TCP_PRINT(100, "ConnTcp::update EPOLL_CTL_MOD errno=%d\n", errno);
                             }
                         }
                     }
                     REMOVE_CODE_IF(ulock.unlock());
                 }
-                --nready;
             }
         }
     }
@@ -1187,23 +1197,24 @@ public:
 
         REMOVE_CODE_IF(std::unique_lock lock(shm));
 
-        short events = POLLIN;
+        struct epoll_event ev;
+        ev.events = EPOLLIN;
         if (handle->has_active_send_req()) {
-            events |= POLLOUT;
+            ev.events |= EPOLLOUT;
         }
+        ev.data.fd = fd;
 
-        bool found = false;
-        for (auto& pfd : fds) {
-            if (pfd.fd == fd) {
-                pfd.events |= events;
-                found = true;
-                break;
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
+            if (errno == EEXIST) {
+                // fd already registered: update its events
+                if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1) {
+                    MTCL_TCP_PRINT(100, "ConnTcp::notify_yield EPOLL_CTL_MOD errno=%d\n", errno);
+                }
+            } else {
+                MTCL_TCP_PRINT(100, "ConnTcp::notify_yield EPOLL_CTL_ADD errno=%d\n", errno);
             }
         }
-
-        if (!found) {
-            fds.push_back({fd, events, 0});
-        }
+        watched_fds.insert(fd);
     }
 
     void end(bool blockflag = false) {
@@ -1221,11 +1232,7 @@ public:
 
     bool isSet(int fd) {
         REMOVE_CODE_IF(std::shared_lock s(shm));
-        for(auto x : fds){
-            if(x.fd == fd)
-                return true;
-        }
-        return false;
+        return watched_fds.count(fd) > 0;
     }
 };
 
