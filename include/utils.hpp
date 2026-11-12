@@ -260,7 +260,7 @@ static inline int internal_connect(const std::string& address, int retry, unsign
 		}
 	} while(retry>0);
 	
-	free(result);
+	freeaddrinfo(result);
     
 	if (rp == NULL) /* No address succeeded */
 		return -1;
